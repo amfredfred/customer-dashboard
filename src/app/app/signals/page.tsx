@@ -839,10 +839,49 @@ function ConfigTab({ config }: { config: Record<string, unknown> | null | undefi
   );
 }
 
+/* ── loading shell ──────────────────────────────────────────────────────── */
+function SignalLoadingShell({ gwStatus }: { gwStatus: string }) {
+  const offline    = gwStatus !== "authenticated" && gwStatus !== "connecting";
+  const connecting = gwStatus === "connecting";
+  return (
+    <div className="space-y-4">
+      <div className="panel state-block" style={{ minHeight: 200 }}>
+        <span
+          className={`dot dot-${offline ? "dead" : "warn"}${offline ? "" : " pulse"}`}
+          style={{ width: 10, height: 10 }}
+        />
+        <div className="text-sm font-medium">
+          {offline
+            ? "Gateway offline"
+            : connecting
+            ? "Connecting to gateway…"
+            : "Waiting for signal engine…"}
+        </div>
+        <p className="muted text-xs max-w-[280px] leading-5">
+          {offline
+            ? "Start the execution gateway and reload to stream signal metrics."
+            : connecting
+            ? "Authenticating with the gateway — this only takes a moment."
+            : "Gateway is subscribed and waiting for the first metrics snapshot from the upstream signal engine."}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {([0, 1, 2, 3] as const).map(i => (
+          <div key={i} className="kpi">
+            <div className="skeleton h-2 w-16 mb-3 rounded" />
+            <div className="skeleton h-5 w-20 mb-2 rounded" />
+            <div className="skeleton h-2 w-14 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function Signals() {
   const gateway = useGateway();
-  const { setSignalMetricsSubscribed, signalMetrics, status: gwStatus } = gateway;
+  const { signalMetrics, status: gwStatus } = gateway;
   const [nowMs,     setNowMs]     = useState(0);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
@@ -858,13 +897,6 @@ export default function Signals() {
     const t = setInterval(() => setNowMs(Date.now()), 5000);
     return () => clearInterval(t);
   }, []);
-
-  /* Gateway subscription — same pattern as before, gated on authenticated */
-  useEffect(() => {
-    if (gwStatus !== "authenticated") return;
-    setSignalMetricsSubscribed(true);
-    return () => setSignalMetricsSubscribed(false);
-  }, [gwStatus, setSignalMetricsSubscribed]);
 
   const snapshot = signalMetrics;
 
@@ -939,6 +971,11 @@ export default function Signals() {
         Demand-driven gateway subscription — the upstream connection closes when the final viewer leaves.
       </StreamBanner>
 
+      {/* Loading state — shown until the first snapshot arrives */}
+      {!snapshot && <SignalLoadingShell gwStatus={gwStatus} />}
+
+      {/* Tab strip — only rendered once we have real data */}
+      {snapshot && <>
       {/* Tab strip */}
       <div className="overflow-x-auto no-scrollbar">
         <div className="flex gap-0.5 p-1 rounded-lg w-fit"
@@ -983,6 +1020,7 @@ export default function Signals() {
       {activeTab === "rejections" && <RejectionsTab  items={rejEvents} />}
       {activeTab === "logs"       && <LogsTab        items={logEvents} />}
       {activeTab === "config"     && <ConfigTab      config={config} />}
+      </>}
     </div>
   );
 }

@@ -67,11 +67,7 @@ function SkeletonCard() {
 export default function Overview() {
   const { session } = useAuth();
   const gateway = useGateway();
-  const {
-    setSignalMetricsSubscribed,
-    setExecutionMetricsEngine,
-    status: gwStatus,
-  } = gateway;
+  const { status: gwStatus } = gateway;
   const supabase = useMemo(() => createBrowserSupabase(), []);
 
   const [licenses, setLicenses]         = useState<LicenseRow[]>([]);
@@ -127,24 +123,6 @@ export default function Overview() {
     return () => { clearTimeout(t); clearInterval(clock); };
   }, [load]);
 
-  /* Subscribe to signal.metrics as soon as gateway is authenticated.
-     Unsubscribes on unmount or when navigating away from overview. */
-  useEffect(() => {
-    if (gwStatus !== "authenticated") return;
-    setSignalMetricsSubscribed(true);
-    return () => setSignalMetricsSubscribed(false);
-  }, [gwStatus, setSignalMetricsSubscribed]);
-
-  /* Subscribe to execution.metrics for the selected engine.
-     Re-fires when the user picks a different engine from the dropdown. */
-  useEffect(() => {
-    if (gwStatus === "authenticated" && selectedEngineId) {
-      setExecutionMetricsEngine(selectedEngineId);
-    } else {
-      setExecutionMetricsEngine(null);
-    }
-    return () => setExecutionMetricsEngine(null);
-  }, [gwStatus, selectedEngineId, setExecutionMetricsEngine]);
 
   const activeLicense = licenses.find(l => l.status === "active") ?? licenses[0];
   const planLabel = activeLicense ? "Active license" : null;

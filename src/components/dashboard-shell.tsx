@@ -103,23 +103,44 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { session, signOut } = useAuth();
   const gateway = useGateway();
+  const { status: gwStatus, setSignalMetricsSubscribed, setExecutionMetricsEngine } = gateway;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [planName, setPlanName] = useState("");
+  const [activeEngineId, setActiveEngineId] = useState<string | null>(null);
   const supabase = useMemo(() => createBrowserSupabase(), []);
   const fetchedRef = useRef(false);
 
+  /* One-time fetch: plan badge + first active engine for subscription */
   useEffect(() => {
     if (!supabase || !session || fetchedRef.current) return;
     fetchedRef.current = true;
-    void supabase
-      .from("licenses")
-      .select("id,status")
-      .eq("status", "active")
-      .limit(1)
-      .then(({ data }) => {
-        if (data?.[0]) setPlanName("Licensed");
-      });
+    void Promise.all([
+      supabase.from("licenses").select("id,status").eq("status", "active").limit(1),
+      supabase.from("engine_devices").select("engine_id").eq("status", "active")
+        .order("activated_at", { ascending: false }).limit(1),
+    ]).then(([licResult, devResult]) => {
+      if (licResult.data?.[0]) setPlanName("Licensed");
+      const engineId = (devResult.data?.[0] as { engine_id: string } | undefined)?.engine_id ?? null;
+      if (engineId) setActiveEngineId(engineId);
+    });
   }, [supabase, session]);
+
+  /* Signal metrics — always subscribed while gateway is authenticated.
+     No cleanup: shell never unmounts, subscription must survive navigation. */
+  useEffect(() => {
+    if (gwStatus !== "authenticated") return;
+    setSignalMetricsSubscribed(true);
+  }, [gwStatus, setSignalMetricsSubscribed]);
+
+  /* Execution metrics — subscribe to the first active engine.
+     No cleanup: let the subscription persist across page changes.
+     The execution page can call setExecutionMetricsEngine directly when
+     the user switches engines; the shell re-anchors on reconnect. */
+  useEffect(() => {
+    if (gwStatus === "authenticated" && activeEngineId) {
+      setExecutionMetricsEngine(activeEngineId);
+    }
+  }, [gwStatus, activeEngineId, setExecutionMetricsEngine]);
 
   const gwReady   = gateway.status === "authenticated";
   const gwConnecting = gateway.status === "connecting";

@@ -1041,6 +1041,72 @@ function LogsTab({ items }: { items: EventEntry[] }) {
   );
 }
 
+/* ── loading shell ──────────────────────────────────────────────────────── */
+type LoadPhase = "engines" | "stream" | "forbidden";
+function ExecutionLoadingShell({
+  phase,
+  gwStatus = "",
+  error,
+}: {
+  phase: LoadPhase;
+  gwStatus?: string;
+  error?: string;
+}) {
+  const offline    = gwStatus !== "authenticated" && gwStatus !== "connecting";
+  const connecting = gwStatus === "connecting";
+  const forbidden  = phase === "forbidden" || Boolean(error);
+
+  const dot   = forbidden ? "dead" : offline ? "dead" : "warn";
+  const pulse  = !forbidden && !offline;
+
+  const title =
+    phase === "engines"
+      ? "Loading engines…"
+      : forbidden
+      ? "Stream access denied"
+      : offline
+      ? "Gateway offline"
+      : connecting
+      ? "Connecting to gateway…"
+      : "Waiting for execution engine…";
+
+  const body =
+    phase === "engines"
+      ? "Fetching your activated engine list from the database."
+      : forbidden
+      ? (error ?? "The gateway could not verify ownership of this engine. Check that the engine is activated under your license.")
+      : offline
+      ? "Start the execution gateway and reload to stream execution metrics."
+      : connecting
+      ? "Authenticating with the gateway — this only takes a moment."
+      : "Gateway is subscribed and waiting for the first metrics snapshot from the upstream execution engine.";
+
+  return (
+    <div className="space-y-4">
+      <div className="panel state-block" style={{ minHeight: 200 }}>
+        <span
+          className={`dot dot-${dot}${pulse ? " pulse" : ""}`}
+          style={{ width: 10, height: 10 }}
+        />
+        <div className="text-sm font-medium">{title}</div>
+        <p className="muted text-xs max-w-[300px] leading-5">{body}</p>
+      </div>
+      {/* Skeleton KPIs hint at the layout that will appear */}
+      {!forbidden && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {([0, 1, 2, 3] as const).map(i => (
+            <div key={i} className="kpi">
+              <div className="skeleton h-2 w-16 mb-3 rounded" />
+              <div className="skeleton h-5 w-20 mb-2 rounded" />
+              <div className="skeleton h-2 w-14 rounded" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function Execution() {
   const gateway = useGateway();
@@ -1081,13 +1147,13 @@ export default function Execution() {
     setEventLog([]);
   }, [selectedId]);
 
+  /* Override the shell's baseline subscription when the user selects a
+     specific engine on this page. No cleanup — the shell keeps a live
+     subscription alive across navigation; we don't null it on unmount. */
   useEffect(() => {
     if (gwStatus === "authenticated" && selectedId) {
       setExecutionMetricsEngine(selectedId);
-    } else {
-      setExecutionMetricsEngine(null);
     }
-    return () => setExecutionMetricsEngine(null);
   }, [gwStatus, selectedId, setExecutionMetricsEngine]);
 
   /* Accumulate events from each incoming snapshot */
@@ -1168,6 +1234,10 @@ export default function Execution() {
         right={engineSelector}
       />
 
+      {/* 1 — DB query in progress */}
+      {enginesLoading && <ExecutionLoadingShell phase="engines" />}
+
+      {/* 2 — No engines registered */}
       {!enginesLoading && engines.length === 0 && (
         <div className="panel state-block">
           <div className="font-medium">No activated execution engines</div>
@@ -1185,6 +1255,17 @@ export default function Execution() {
             forwarding any account data.
           </StreamBanner>
 
+          {/* 3 — Engines found but stream not yet live */}
+          {!snapshot && (
+            <ExecutionLoadingShell
+              phase={streamStatus ? "forbidden" : "stream"}
+              gwStatus={gwStatus}
+              error={streamStatus}
+            />
+          )}
+
+          {/* 4 — Live: tab strip + content (only when snapshot is present) */}
+          {snapshot && <>
           {/* Tab strip — scrollable so all 8 tabs fit on small screens */}
           <div className="overflow-x-auto no-scrollbar">
             <div className="flex gap-0.5 p-1 rounded-lg w-fit"
@@ -1231,6 +1312,7 @@ export default function Execution() {
           {activeTab === "rejections"  && <RejectionsTab  items={rejections} />}
           {activeTab === "activity"    && <ActivityTab    items={activity} />}
           {activeTab === "logs"        && <LogsTab        items={eventLog} />}
+          </>}
         </>
       )}
     </div>
