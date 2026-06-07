@@ -807,35 +807,117 @@ function GuardsTab({ guards }: { guards: RGuard[] }) {
     );
   }
 
+  /* annotate each guard with computed fields */
+  const annotated = guards.map(g => {
+    const pct      = g.threshold > 0 ? (g.current_value / g.threshold) * 100 : undefined;
+    const isActive = g.status.toUpperCase() === "ACTIVE";
+    const isPaused = g.status.toUpperCase() === "PAUSED";
+    const tone: Tone = !isActive ? "normal"
+      : isN(pct) && pct >= 90 ? "danger"
+      : isN(pct) && pct >= 70 ? "warn"
+      : "good";
+    const triggered = isActive && isN(pct) && pct >= 100;
+    return { ...g, pct, isActive, isPaused, tone, triggered };
+  });
+
+  /* sort: danger → warn → good → inactive */
+  const ORDER: Record<Tone, number> = { danger: 0, warn: 1, good: 2, normal: 3 };
+  const sorted = [...annotated].sort((a, b) => ORDER[a.tone] - ORDER[b.tone]);
+
+  const dangerCount  = sorted.filter(g => g.tone === "danger").length;
+  const warnCount    = sorted.filter(g => g.tone === "warn").length;
+  const healthyCount = sorted.filter(g => g.tone === "good").length;
+  const inactiveCount = sorted.filter(g => !g.isActive).length;
+
   return (
-    <div className="space-y-2">
-      {guards.map(guard => {
-        const guardPct = guard.threshold > 0
-          ? (guard.current_value / guard.threshold) * 100 : undefined;
-        const isActive = guard.status.toUpperCase() === "ACTIVE";
-        const isPaused = guard.status.toUpperCase() === "PAUSED";
-        const tone: Tone = !isActive ? "normal"
-          : isN(guardPct) && guardPct >= 90 ? "danger"
-          : isN(guardPct) && guardPct >= 70 ? "warn"
-          : "good";
+    <div className="space-y-3">
+
+      {/* ── Summary KPI row ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="kpi">
+          <div className="kpi-label">Total guards</div>
+          <div className="kpi-value">{guards.length}</div>
+          {inactiveCount > 0 && (
+            <div className="kpi-detail muted">{inactiveCount} inactive</div>
+          )}
+        </div>
+        <div className={`kpi${dangerCount > 0 ? " kpi-danger" : ""}`}>
+          <div className="kpi-label">Danger</div>
+          <div className={`kpi-value${dangerCount > 0 ? " danger" : ""}`}>{dangerCount}</div>
+          <div className="kpi-detail muted">≥ 90% used</div>
+        </div>
+        <div className={`kpi${warnCount > 0 ? " kpi-warn" : ""}`}>
+          <div className="kpi-label">Warning</div>
+          <div className={`kpi-value${warnCount > 0 ? " warn" : ""}`}>{warnCount}</div>
+          <div className="kpi-detail muted">70–90% used</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">Healthy</div>
+          <div className={`kpi-value${healthyCount > 0 ? " good" : ""}`}>{healthyCount}</div>
+          <div className="kpi-detail muted">&lt; 70% used</div>
+        </div>
+      </div>
+
+      {/* ── Guard cards ── */}
+      {sorted.map(guard => {
+        const accentColor =
+          guard.tone === "danger" ? "var(--danger)"  :
+          guard.tone === "warn"   ? "var(--warning)" :
+          guard.tone === "good"   ? "var(--success)" :
+          "rgba(255,255,255,.10)";
+
+        const dotClass =
+          guard.tone === "danger" ? "dot dot-dead" :
+          guard.tone === "warn"   ? "dot dot-warn" :
+          guard.tone === "good"   ? "dot dot-live pulse" :
+          "dot dot-muted";
+
+        const remaining = isN(guard.pct) && guard.threshold > 0
+          ? guard.threshold - guard.current_value
+          : undefined;
 
         return (
-          <div key={guard.id} className="panel p-4">
-            <div className="flex items-start justify-between gap-3">
+          <div
+            key={guard.id}
+            className="panel overflow-hidden"
+            style={{ borderLeft: `3px solid ${accentColor}` }}
+          >
+            {/* name + status badges + pct */}
+            <div className="px-4 pt-4 pb-0 flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{guard.name}</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={dotClass} style={{ width: 8, height: 8 }} />
+                  <span className="text-sm font-semibold">{guard.name}</span>
+                  {guard.triggered && (
+                    <span className="badge badge-red" style={{ fontSize: 10 }}>Triggered</span>
+                  )}
+                </div>
                 {guard.description && (
-                  <p className="text-xs muted mt-0.5 leading-5">{guard.description}</p>
+                  <p className="text-xs muted mt-1 leading-5 pl-[18px]">{guard.description}</p>
                 )}
               </div>
-              <span className={`badge shrink-0 ${isActive ? "badge-green" : isPaused ? "badge-warn" : "badge-muted"}`}>
-                {guard.status}
-              </span>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <span className={`badge ${guard.isActive ? "badge-green" : guard.isPaused ? "badge-warn" : "badge-muted"}`}>
+                  {guard.status}
+                </span>
+                {isN(guard.pct) && (
+                  <span className={`text-lg font-semibold tabular-nums mono leading-none${valCls(guard.tone)}`}>
+                    {guard.pct.toFixed(1)}%
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-4 text-xs">
+
+            {/* meter bar */}
+            <div className="px-4 pt-3">
+              <MeterBar value={guard.pct} tone={guard.tone} />
+            </div>
+
+            {/* current / limit / remaining */}
+            <div className="px-4 pt-2.5 pb-4 flex items-center gap-5 text-xs flex-wrap">
               <div>
                 <span className="muted">Current </span>
-                <span className={`mono font-semibold${valCls(tone)}`}>
+                <span className={`mono font-semibold${valCls(guard.tone)}`}>
                   {guard.current_value} {guard.unit}
                 </span>
               </div>
@@ -843,11 +925,15 @@ function GuardsTab({ guards }: { guards: RGuard[] }) {
                 <span className="muted">Limit </span>
                 <span className="mono">{guard.threshold} {guard.unit}</span>
               </div>
-              {isN(guardPct) && (
-                <span className={`mono text-[11px]${valCls(tone)}`}>{guardPct.toFixed(1)}%</span>
+              {remaining !== undefined && (
+                <div className="ml-auto">
+                  <span className="muted">Remaining </span>
+                  <span className="mono">
+                    {remaining % 1 === 0 ? remaining : remaining.toFixed(2)} {guard.unit}
+                  </span>
+                </div>
               )}
             </div>
-            {isN(guardPct) && <MeterBar value={guardPct} tone={tone} />}
           </div>
         );
       })}
@@ -1107,6 +1193,142 @@ function ExecutionLoadingShell({
   );
 }
 
+/* ── Engine selector dropdown ───────────────────────────────────────────── */
+function EngineDropdown({
+  engines,
+  selectedId,
+  onChange,
+}: {
+  engines: EngineOption[];
+  selectedId: string | null;
+  onChange: (engineId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = engines.find(e => e.engine_id === selectedId) ?? engines[0];
+
+  /* close on outside click */
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  if (engines.length === 0) return null;
+
+  /* single engine — static pill, no dropdown */
+  if (engines.length === 1) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+           style={{ background: "var(--surface-raised)", border: "1px solid var(--line-strong)" }}>
+        <span className="dot dot-live pulse" style={{ width: 7, height: 7 }} />
+        <span className="font-medium text-white/80">
+          {engines[0].device_name || engines[0].engine_id}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+        style={{
+          background:   open ? "var(--surface-active, rgba(255,255,255,.09))" : "var(--surface-raised)",
+          border:       `1px solid ${open ? "rgba(255,255,255,.18)" : "var(--line-strong)"}`,
+          color:        "rgba(255,255,255,.8)",
+          outline:      "none",
+          minWidth:     180,
+        }}
+      >
+        <span className="dot dot-live pulse" style={{ width: 7, height: 7, flexShrink: 0 }} />
+        <span className="flex-1 text-left truncate">
+          {selected ? (selected.device_name || selected.engine_id) : "Select engine"}
+        </span>
+        <ChevronDown
+          size={12}
+          className="shrink-0 muted transition-transform"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
+      </button>
+
+      {/* Panel */}
+      {open && (
+        <div
+          className="absolute right-0 mt-1.5 z-50 rounded-xl overflow-hidden"
+          style={{
+            minWidth:  240,
+            background: "#0e1015",
+            border:    "1px solid rgba(255,255,255,.1)",
+            boxShadow: "0 8px 32px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4)",
+          }}
+        >
+          {/* Header */}
+          <div className="px-3.5 py-2.5 border-b"
+               style={{ borderColor: "rgba(255,255,255,.06)" }}>
+            <div className="text-[10px] font-bold uppercase tracking-widest muted">
+              Execution engines
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="py-1.5">
+            {engines.map(e => {
+              const isActive = e.engine_id === selectedId;
+              const label    = e.device_name || e.engine_id;
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => { onChange(e.engine_id); setOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors"
+                  style={{
+                    background: isActive ? "rgba(61,220,151,.07)" : "transparent",
+                    color:      isActive ? "#3ddc97" : "rgba(255,255,255,.7)",
+                  }}
+                  onMouseEnter={ev => { if (!isActive) (ev.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.04)"; }}
+                  onMouseLeave={ev => { if (!isActive) (ev.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  {/* Selection indicator */}
+                  <span
+                    className="w-4 h-4 rounded-full shrink-0 grid place-items-center"
+                    style={{
+                      background:  isActive ? "rgba(61,220,151,.15)" : "transparent",
+                      border:      isActive ? "1.5px solid #3ddc97" : "1.5px solid rgba(255,255,255,.15)",
+                      transition: "all .15s",
+                    }}
+                  >
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3ddc97" }} />
+                    )}
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">{label}</div>
+                    <div className="text-[10px] muted mono truncate mt-0.5">{e.engine_id}</div>
+                  </div>
+
+                  {isActive && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+                          style={{ background: "rgba(61,220,151,.12)", color: "#3ddc97" }}>
+                      Watching
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function Execution() {
   const gateway = useGateway();
@@ -1199,30 +1421,12 @@ export default function Execution() {
   const streamStatus = gateway.executionMetricsError ?? undefined;
 
   /* Engine selector */
-  const engineSelector = !enginesLoading && engines.length > 1 ? (
-    <div className="relative">
-      <select
-        value={selectedId ?? ""}
-        onChange={e => setSelectedId(e.target.value || null)}
-        className="appearance-none pl-3 pr-8 py-2 text-xs cursor-pointer min-w-[200px]"
-        style={{
-          background:   "var(--surface-raised)",
-          border:       "1px solid var(--line-strong)",
-          borderRadius: "var(--radius-control)",
-          color:        "var(--text-soft)",
-          outline:      "none",
-        }}
-      >
-        {engines.map(e => (
-          <option key={e.id} value={e.engine_id} style={{ background: "#0d1015" }}>
-            {e.device_name || e.engine_id}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 muted pointer-events-none" />
-    </div>
-  ) : !enginesLoading && engines.length === 1 ? (
-    <span className="pill text-xs">{engines[0].device_name || engines[0].engine_id}</span>
+  const engineSelector = !enginesLoading && engines.length > 0 ? (
+    <EngineDropdown
+      engines={engines}
+      selectedId={selectedId}
+      onChange={id => setSelectedId(id)}
+    />
   ) : undefined;
 
   return (

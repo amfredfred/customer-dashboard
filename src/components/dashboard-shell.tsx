@@ -20,20 +20,6 @@ const NAV = [
   ["/app/billing",   "Billing",            CreditCard],
 ] as const;
 
-function StatusPill({
-  dot,
-  label,
-}: {
-  dot: "live" | "warn" | "dead" | "muted";
-  label: string;
-}) {
-  return (
-    <span className="pill">
-      <span className={`dot dot-${dot}${dot === "live" ? " pulse" : ""}`} />
-      {label}
-    </span>
-  );
-}
 
 function SidebarContent({
   path,
@@ -102,8 +88,7 @@ function SidebarContent({
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { session, signOut } = useAuth();
-  const gateway = useGateway();
-  const { status: gwStatus, setSignalMetricsSubscribed, setExecutionMetricsEngine } = gateway;
+  const { status: gwStatus, setSignalMetricsSubscribed, setExecutionMetricsEngine } = useGateway();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [planName, setPlanName] = useState("");
   const [activeEngineId, setActiveEngineId] = useState<string | null>(null);
@@ -141,21 +126,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       setExecutionMetricsEngine(activeEngineId);
     }
   }, [gwStatus, activeEngineId, setExecutionMetricsEngine]);
-
-  const gwReady   = gateway.status === "authenticated";
-  const gwConnecting = gateway.status === "connecting";
-  const gwLabel = gwReady
-    ? "Gateway Online"
-    : gwConnecting
-    ? "Gateway Connecting"
-    : gateway.status === "rejected"
-    ? "Gateway Rejected"
-    : "Gateway Offline";
-  const gwDot: "live" | "warn" | "dead" =
-    gwReady ? "live" : gwConnecting ? "warn" : "dead";
-
-  const sigLive = gwReady && Boolean(gateway.signalMetrics);
-  const exLive  = gwReady && Boolean(gateway.executionMetrics);
 
   return (
     <div className="min-h-screen md:h-screen md:flex overflow-hidden">
@@ -199,56 +169,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="flex-1 min-w-0 flex flex-col md:h-screen overflow-hidden">
-        {/* Top bar */}
-        <header className="h-14 px-4 md:px-6 border-b border-white/[.07] flex items-center justify-between shrink-0 bg-[#08090bee] backdrop-blur sticky top-0 z-10">
-          {/* Mobile: hamburger + logo */}
-          <div className="flex items-center gap-3 md:hidden">
-            <button
-              className="muted hover:text-white"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open navigation"
-            >
-              <Menu size={20} />
-            </button>
-            <span className="text-xs font-bold tracking-[.15em]">TRADERELAY</span>
-          </div>
-
-          {/* Desktop: gateway status */}
-          <div
-            className="hidden md:flex items-center gap-1.5 text-xs font-semibold"
-            title={gateway.error ?? undefined}
+        {/* Mobile: hamburger bar */}
+        <div className="md:hidden h-14 px-4 border-b border-white/[.07] flex items-center shrink-0 bg-[#08090bee] backdrop-blur sticky top-0 z-10">
+          <button
+            className="muted hover:text-white"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open navigation"
           >
-            <span className={`dot dot-${gwDot}${gwReady ? " pulse" : ""}`} />
-            <span
-              className={
-                gwReady
-                  ? "text-[#3ddc97]"
-                  : gwConnecting
-                  ? "text-[#f5b942]"
-                  : "text-[#f43f5e]"
-              }
-            >
-              {gwLabel}
-            </span>
-          </div>
-
-          {/* Right pills */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-            <StatusPill
-              dot={sigLive ? "live" : gwReady ? "muted" : "dead"}
-              label={sigLive ? "Signals Live" : "Signals Idle"}
-            />
-            <StatusPill
-              dot={exLive ? "live" : "muted"}
-              label={exLive ? "Execution Live" : "Execution Private"}
-            />
-            {planName && (
-              <span className="pill hidden sm:inline-flex">
-                {planName}
-              </span>
-            )}
-          </div>
-        </header>
+            <Menu size={20} />
+          </button>
+          <span className="text-xs font-bold tracking-[.15em] ml-3">TRADERELAY</span>
+        </div>
 
         {/* Page content */}
         <div className="flex-1 overflow-y-auto">
