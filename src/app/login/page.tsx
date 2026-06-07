@@ -4,7 +4,7 @@ import { ArrowRight, CheckCircle, KeyRound, LockKeyhole, LogIn, Mail, ShieldChec
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { createBrowserSupabase } from "@/lib/supabase";
+import { getBrowserSupabase } from "@/lib/supabase-singleton";
 
 type AuthMethod = "otp" | "magic";
 
@@ -34,7 +34,7 @@ function Feature({ color, title, detail }: { color: string; title: string; detai
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createBrowserSupabase(), []);
+  const supabase = getBrowserSupabase();
   const [email, setEmail] = useState("");
   const [method, setMethod] = useState<AuthMethod>("otp");
   const [otp, setOtp] = useState("");

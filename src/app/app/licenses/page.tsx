@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserSupabase } from "@/lib/supabase";
+import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { PageHeader, SectionHead } from "@/components/metric-detail";
 import { AlertCircle, KeyRound, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -30,7 +30,7 @@ function fmtDate(value: string | null | undefined) {
 
 /* ── page ────────────────────────────────────────────────────────────── */
 export default function Licenses() {
-  const supabase = useMemo(() => createBrowserSupabase(), []);
+  const supabase = getBrowserSupabase();
   const [licenses, setLicenses] = useState<LicenseView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

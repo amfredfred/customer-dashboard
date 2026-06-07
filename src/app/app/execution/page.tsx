@@ -2,7 +2,7 @@
 
 import { PageHeader, SectionHead, StreamBanner } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
-import { createBrowserSupabase } from "@/lib/supabase";
+import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -1111,7 +1111,7 @@ function ExecutionLoadingShell({
 export default function Execution() {
   const gateway = useGateway();
   const { setExecutionMetricsEngine, status: gwStatus } = gateway;
-  const supabase = useMemo(() => createBrowserSupabase(), []);
+  const supabase = getBrowserSupabase();
 
   const [engines, setEngines]         = useState<EngineOption[]>([]);
   const [selectedId, setSelectedId]   = useState<string | null>(null);

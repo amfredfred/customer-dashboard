@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserSupabase } from "@/lib/supabase";
+import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { useGateway } from "@/components/gateway-provider";
 import { useAuth } from "@/components/auth-provider";
 import { SectionHead, PageHeader } from "@/components/metric-detail";
@@ -68,7 +68,7 @@ export default function Overview() {
   const { session } = useAuth();
   const gateway = useGateway();
   const { status: gwStatus } = gateway;
-  const supabase = useMemo(() => createBrowserSupabase(), []);
+  const supabase = getBrowserSupabase();
 
   const [licenses, setLicenses]         = useState<LicenseRow[]>([]);
   const [engines, setEngines]           = useState<EngineRow[]>([]);

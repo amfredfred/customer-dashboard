@@ -1,6 +1,6 @@
 "use client";
 
-import { createBrowserSupabase } from "@/lib/supabase";
+import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { PageHeader } from "@/components/metric-detail";
 import { AlertCircle, Server } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -88,7 +88,7 @@ function StateLabel({ state }: { state: "online" | "degraded" | "offline" }) {
 
 /* ── page ─────────────────────────────────────────────────────────────── */
 export default function Engines() {
-  const supabase = useMemo(() => createBrowserSupabase(), []);
+  const supabase = getBrowserSupabase();
   const [engines, setEngines] = useState<EngineView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);

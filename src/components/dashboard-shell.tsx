@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
 import { useGateway } from "./gateway-provider";
-import { createBrowserSupabase } from "@/lib/supabase";
+import { getBrowserSupabase } from "@/lib/supabase-singleton";
 
 const NAV = [
   ["/app",           "Overview",          LayoutDashboard],
@@ -107,7 +107,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [planName, setPlanName] = useState("");
   const [activeEngineId, setActiveEngineId] = useState<string | null>(null);
-  const supabase = useMemo(() => createBrowserSupabase(), []);
+  const supabase = getBrowserSupabase();
   const fetchedRef = useRef(false);
 
   /* One-time fetch: plan badge + first active engine for subscription */
