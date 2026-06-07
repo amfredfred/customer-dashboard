@@ -16,7 +16,7 @@ type LicenseRow = {
 
 /* ── plan tiers (static, no backend pricing API yet) ──────────────────── */
 // Checkout URLs are set via environment variables at build time.
-// Example: NEXT_PUBLIC_LS_CHECKOUT_STARTER=https://traderelay.lemonsqueezy.com/checkout/buy/<variant>
+// Example: NEXT_PUBLIC_LS_CHECKOUT_STARTER=https://apexquanttrader.lemonsqueezy.com/checkout/buy/<variant>
 // The customer portal URL is set via NEXT_PUBLIC_LS_PORTAL_URL.
 const LS_PORTAL_URL = process.env.NEXT_PUBLIC_LS_PORTAL_URL ?? null;
 
@@ -115,7 +115,7 @@ export default function Billing() {
           <CreditCard size={28} className="text-white/10 mb-2" />
           <div className="font-medium">No active license</div>
           <p className="muted text-xs max-w-xs">
-            Choose a plan below to purchase a license and gain access to the TradeRelay execution network.
+            Choose a plan below to purchase a license and gain access to the Apex Quant Trader execution network.
           </p>
         </div>
       )}
@@ -135,7 +135,7 @@ export default function Billing() {
                 <ShieldCheck size={16} className="text-[#3ddc97]" />
               </div>
               <div>
-                <div className="font-semibold">TradeRelay License</div>
+                <div className="font-semibold">Apex Quant Trader License</div>
                 <div className="text-xs muted mt-0.5 mono">{license.id}</div>
               </div>
             </div>

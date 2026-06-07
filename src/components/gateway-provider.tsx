@@ -135,7 +135,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           setError("Gateway returned an invalid message");
         }
       };
-      socket.onerror = () => setError("Cannot reach TradeRelay Gateway");
+      socket.onerror = () => setError("Cannot reach Apex Quant Trader Gateway");
       socket.onclose = event => {
         socket = null;
         socketRef.current = null;

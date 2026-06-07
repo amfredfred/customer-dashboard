@@ -77,7 +77,7 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
              style={{ background: "rgba(245,185,66,.08)", border: "1px solid rgba(245,185,66,.2)" }}>
           <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-1">Copy now — shown once</div>
           <p className="text-xs muted leading-5">
-            This key will not be displayed again. TradeRelay stores only the hash.
+            This key will not be displayed again. Apex Quant Trader stores only the hash.
             Copy it before closing this window.
           </p>
         </div>
@@ -295,7 +295,7 @@ export default function Licenses() {
       <PageHeader
         eyebrow="Access control"
         title="Licenses & Keys"
-        description="Activation keys are issued server-side and displayed once. TradeRelay stores only the keyed hash — the browser never generates, derives, or holds raw keys."
+        description="Activation keys are issued server-side and displayed once. Apex Quant Trader stores only the keyed hash — the browser never generates, derives, or holds raw keys."
       />
 
       {/* Loading */}
@@ -375,7 +375,7 @@ export default function Licenses() {
                   <ShieldCheck size={16} className="text-[#3ddc97]" />
                 </div>
                 <div>
-                  <div className="font-semibold">TradeRelay License</div>
+                  <div className="font-semibold">Apex Quant Trader License</div>
                   <div className="text-xs muted mt-0.5 mono">{lic.id}</div>
                 </div>
               </div>
@@ -455,7 +455,7 @@ export default function Licenses() {
                   <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-2">Key security</div>
                   <p className="muted text-xs leading-5">
                     Raw keys are shown once at issuance and never stored in plain text.
-                    TradeRelay stores only a keyed HMAC hash. The browser never generates or hashes activation keys.
+                    Apex Quant Trader stores only a keyed HMAC hash. The browser never generates or hashes activation keys.
                     Rotating immediately invalidates the previous key — re-activate any affected engines with the new key.
                   </p>
                 </div>

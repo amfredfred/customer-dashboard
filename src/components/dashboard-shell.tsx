@@ -41,7 +41,7 @@ function SidebarContent({
           TR
         </div>
         <div>
-          <div className="text-xs font-bold tracking-[.15em]">TRADERELAY</div>
+          <div className="text-xs font-bold tracking-[.15em]">APEX</div>
           <div className="text-[10px] muted">Control plane</div>
         </div>
       </div>
@@ -178,7 +178,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           >
             <Menu size={20} />
           </button>
-          <span className="text-xs font-bold tracking-[.15em] ml-3">TRADERELAY</span>
+          <span className="text-xs font-bold tracking-[.15em] ml-3">APEX</span>
         </div>
 
         {/* Page content */}
