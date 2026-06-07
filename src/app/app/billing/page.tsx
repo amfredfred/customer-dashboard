@@ -15,6 +15,11 @@ type LicenseRow = {
 };
 
 /* ── plan tiers (static, no backend pricing API yet) ──────────────────── */
+// Checkout URLs are set via environment variables at build time.
+// Example: NEXT_PUBLIC_LS_CHECKOUT_STARTER=https://traderelay.lemonsqueezy.com/checkout/buy/<variant>
+// The customer portal URL is set via NEXT_PUBLIC_LS_PORTAL_URL.
+const LS_PORTAL_URL = process.env.NEXT_PUBLIC_LS_PORTAL_URL ?? null;
+
 const PLAN_TIERS = [
   {
     id: "starter",
@@ -24,6 +29,7 @@ const PLAN_TIERS = [
     desc: "For testing and a single execution engine.",
     features: ["1 Execution Engine", "Private signal access", "Core risk controls", "Customer dashboard"],
     highlight: false,
+    checkoutUrl: process.env.NEXT_PUBLIC_LS_CHECKOUT_STARTER ?? null,
   },
   {
     id: "pro",
@@ -33,6 +39,7 @@ const PLAN_TIERS = [
     desc: "For active traders running live execution.",
     features: ["Up to 3 Execution Engines", "Multi-account monitoring", "Per-account risk settings", "Priority diagnostics"],
     highlight: true,
+    checkoutUrl: process.env.NEXT_PUBLIC_LS_CHECKOUT_PRO ?? null,
   },
   {
     id: "infrastructure",
@@ -42,6 +49,7 @@ const PLAN_TIERS = [
     desc: "For advanced users or teams needing scale.",
     features: ["Unlimited Execution Engines", "Prop firm drawdown rules", "Rule templates", "Dedicated support"],
     highlight: false,
+    checkoutUrl: process.env.NEXT_PUBLIC_LS_CHECKOUT_INFRASTRUCTURE ?? null,
   },
 ] as const;
 
@@ -151,13 +159,28 @@ export default function Billing() {
             </div>
           </div>
 
-          <div className="px-5 pb-5">
+          <div className="px-5 pb-5 space-y-3">
             <div className="panel p-4" style={{ borderColor: "rgba(245,185,66,.2)", background: "rgba(245,185,66,.04)" }}>
               <p className="text-xs muted leading-5">
                 Subscription changes require a verified payment-provider webhook.
-                Plan upgrades, downgrades, and cancellations are not available directly from the dashboard yet.
+                Use the Lemon Squeezy customer portal to manage upgrades, downgrades, and cancellations.
               </p>
             </div>
+            {LS_PORTAL_URL && (
+              <a
+                href={LS_PORTAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: "rgba(255,255,255,.07)",
+                  color: "rgba(255,255,255,.8)",
+                  border: "1px solid rgba(255,255,255,.12)",
+                }}
+              >
+                Manage Subscription →
+              </a>
+            )}
           </div>
         </div>
       )}
@@ -188,12 +211,28 @@ export default function Billing() {
                 </div>
               ))}
             </div>
-            <div
-              className="mt-8 py-3 text-center rounded-lg text-sm font-medium border border-white/10 text-white/35 cursor-not-allowed select-none"
-              title="Checkout integration required"
-            >
-              Checkout required
-            </div>
+            {tier.checkoutUrl ? (
+              <a
+                href={tier.checkoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-8 block py-3 text-center rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: tier.highlight ? "rgba(61,220,151,.15)" : "rgba(255,255,255,.08)",
+                  color: tier.highlight ? "#3ddc97" : "rgba(255,255,255,.8)",
+                  border: `1px solid ${tier.highlight ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.12)"}`,
+                }}
+              >
+                Subscribe
+              </a>
+            ) : (
+              <div
+                className="mt-8 py-3 text-center rounded-lg text-sm font-medium border border-white/10 text-white/25 cursor-not-allowed select-none"
+                title="Set NEXT_PUBLIC_LS_CHECKOUT_* env vars to enable"
+              >
+                {tier.id === "infrastructure" ? "Contact us" : "Checkout required"}
+              </div>
+            )}
           </div>
         ))}
       </div>

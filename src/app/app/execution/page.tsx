@@ -2,9 +2,11 @@
 
 import { PageHeader, SectionHead, StreamBanner } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
+import { useAuth } from "@/components/auth-provider";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
-import { ChevronDown } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Pause, Play, AlertTriangle, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type EngineOption = { id: string; engine_id: string; device_name: string };
@@ -279,7 +281,7 @@ function SigBadge({ status }: { status?: string }) {
 
 const TR_BORDER: React.CSSProperties = { borderBottom: "1px solid rgba(255,255,255,0.04)" };
 
-function TH({ children }: { children: React.ReactNode }) {
+function TH({ children }: { children: ReactNode }) {
   return (
     <th className="px-4 py-2 text-left text-[11px] font-semibold mono tracking-wide"
         style={{ color: "var(--muted)", borderBottom: "1px solid var(--line)" }}>
@@ -288,7 +290,7 @@ function TH({ children }: { children: React.ReactNode }) {
   );
 }
 
-function TD({ mono, children }: { mono?: boolean; children: React.ReactNode }) {
+function TD({ mono, children }: { mono?: boolean; children: ReactNode }) {
   return (
     <td className={`px-4 py-2.5 whitespace-nowrap text-xs${mono ? " font-mono tabular-nums" : ""}`}>
       {children}
@@ -1193,6 +1195,454 @@ function ExecutionLoadingShell({
   );
 }
 
+/* ── Gateway HTTP base URL helper ───────────────────────────────────────── */
+function gatewayHttpBase(): string {
+  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "ws://localhost:4000/dashboard";
+  const http = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
+  try { return new URL(http).origin; } catch { return "http://localhost:4000"; }
+}
+
+/* ── Remote control types ───────────────────────────────────────────────── */
+type CmdType  = "command.pause" | "command.resume" | "command.emergency_stop";
+type CmdPhase = "idle" | "sending" | "pending" | "delivered" | "completed" | "failed";
+
+interface CmdState {
+  id:    string | null;
+  type:  CmdType | null;
+  phase: CmdPhase;
+  error: string | null;
+}
+
+/** Live engine state used by the remote-control panel to gate each button. */
+interface EngineControlState {
+  /** True once the first execution-metrics snapshot has arrived. */
+  snapshotAvailable: boolean;
+  /**
+   * True when the engine is command-paused (signal queue held by an explicit
+   * pause command).  Does NOT reflect risk-guard pauses — those can't be
+   * cleared remotely via Resume.
+   */
+  isPaused: boolean;
+  /** Count of currently open MT5 positions tracked by the engine. */
+  openPositionsCount: number;
+}
+
+interface ConfirmConfig {
+  command:      CmdType;
+  title:        string;
+  description:  string;
+  confirmLabel: string;
+  destructive:  boolean;
+}
+
+const IDLE_CMD: CmdState = { id: null, type: null, phase: "idle", error: null };
+
+/* ── Confirmation dialog ────────────────────────────────────────────────── */
+function CommandConfirmDialog({
+  open, config, loading, error, onCancel, onConfirm,
+}: {
+  open:     boolean;
+  config:   ConfirmConfig | null;
+  loading:  boolean;
+  error:    string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  // Ensure we only render the portal on the client (document.body not
+  // available during SSR / Next.js App Router initial server render).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!open || !config || !mounted) return null;
+
+  // Render through a portal so the overlay is a direct child of <body>,
+  // escaping any ancestor transform / overflow / stacking-context that would
+  // break position:fixed inside the dashboard shell.
+  return createPortal(
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,.65)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "16px",
+      }}
+      onClick={!loading ? onCancel : undefined}
+    >
+      <div
+        style={{
+          background: "var(--surface-raised)",
+          border: "1px solid var(--line-strong)",
+          borderRadius: 10, padding: "24px 26px",
+          maxWidth: 420, width: "100%",
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Title */}
+        <div className="text-sm font-semibold" style={{ marginBottom: 10, color: "var(--text)" }}>
+          {config.title}
+        </div>
+
+        {/* Description */}
+        <p style={{
+          fontSize: 13, lineHeight: 1.6,
+          color: "rgba(255,255,255,.52)",
+          whiteSpace: "pre-line",
+          marginBottom: error ? 12 : 22,
+        }}>
+          {config.description}
+        </p>
+
+        {/* Error message (stays open on failure) */}
+        {error && (
+          <div style={{
+            background: "rgba(244,63,94,.1)",
+            border: "1px solid rgba(244,63,94,.25)",
+            borderRadius: 6, padding: "8px 11px",
+            color: "#f43f5e", fontSize: 12, marginBottom: 18,
+          }}>
+            {error}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button
+            onClick={onCancel}
+            disabled={loading && !error}
+            className="text-xs font-medium rounded-md"
+            style={{
+              padding: "7px 15px",
+              background: "rgba(255,255,255,.06)",
+              border: "1px solid rgba(255,255,255,.1)",
+              color: "rgba(255,255,255,.55)",
+              cursor: loading && !error ? "default" : "pointer",
+              opacity: loading && !error ? 0.45 : 1,
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={!loading ? onConfirm : undefined}
+            className="flex items-center gap-1.5 text-xs font-semibold rounded-md"
+            style={{
+              padding: "7px 16px",
+              background: config.destructive ? "rgba(244,63,94,.14)" : "rgba(255,255,255,.08)",
+              border: `1px solid ${config.destructive ? "rgba(244,63,94,.35)" : "rgba(255,255,255,.15)"}`,
+              color: config.destructive ? "#f43f5e" : "var(--text)",
+              cursor: loading ? "default" : "pointer",
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading && <Loader2 size={11} className="animate-spin" />}
+            {config.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ── Single command button ──────────────────────────────────────────────── */
+function CmdButton({
+  label, icon, enabled, disabledReason, onClick, baseStyle,
+}: {
+  label:          string;
+  icon:           ReactNode;
+  enabled:        boolean;
+  disabledReason: string | null;
+  onClick:        () => void;
+  baseStyle:      React.CSSProperties;
+}) {
+  return (
+    <button
+      onClick={enabled ? onClick : undefined}
+      aria-disabled={!enabled}
+      title={!enabled && disabledReason ? disabledReason : undefined}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+      style={{
+        ...baseStyle,
+        opacity: enabled ? 1 : 0.32,
+        cursor:  enabled ? "pointer" : "not-allowed",
+      }}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/* ── Remote control panel ───────────────────────────────────────────────── */
+function RemoteControlPanel({
+  engineId,
+  controlState,
+}: {
+  engineId:     string | null;
+  controlState: EngineControlState;
+}) {
+  const { session } = useAuth();
+
+  const [cmd, setCmd]               = useState<CmdState>(IDLE_CMD);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmCfg,  setConfirmCfg]  = useState<ConfirmConfig | null>(null);
+  const [confirmErr,  setConfirmErr]  = useState<string | null>(null);
+
+  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollGenRef = useRef(0);
+  const errCountRef = useRef(0);
+
+  const { snapshotAvailable, isPaused, openPositionsCount } = controlState;
+  const inFlight = cmd.phase !== "idle";
+
+  /* Availability gates */
+  const canPause     = snapshotAvailable && !isPaused  && !inFlight;
+  const canResume    = snapshotAvailable &&  isPaused  && !inFlight;
+  const canEmergency = openPositionsCount > 0          && !inFlight;
+
+  /* Human-readable disabled reasons (shown as title tooltip) */
+  const pauseReason: string | null =
+    inFlight          ? "Command pending — waiting for engine response."
+    : !snapshotAvailable ? "Waiting for engine stream…"
+    : isPaused           ? "Pause unavailable — engine is already paused."
+    : null;
+
+  const resumeReason: string | null =
+    inFlight          ? "Command pending — waiting for engine response."
+    : !snapshotAvailable ? "Resume unavailable — engine state unknown."
+    : !isPaused          ? "Resume unavailable — engine is not paused."
+    : null;
+
+  const emergencyReason: string | null =
+    inFlight          ? "Command pending — waiting for engine response."
+    : openPositionsCount === 0 ? "Emergency unavailable — no open positions."
+    : null;
+
+  /* Reset on engine change */
+  useEffect(() => {
+    setCmd(IDLE_CMD);
+    setConfirmOpen(false);
+    setConfirmCfg(null);
+    setConfirmErr(null);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [engineId]);
+
+  /* Auto-close dialog on completion; surface error on failure */
+  useEffect(() => {
+    if (cmd.phase === "completed") {
+      setConfirmOpen(false);
+      setConfirmErr(null);
+      const t = setTimeout(() => setCmd(IDLE_CMD), 1500);
+      return () => clearTimeout(t);
+    }
+    if (cmd.phase === "failed") {
+      setConfirmErr(cmd.error ?? "Command failed");
+    }
+  }, [cmd.phase, cmd.error]);
+
+  const stopPoll = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
+  const pollStatus = useCallback((commandId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    errCountRef.current = 0;
+    const gen = ++pollGenRef.current;
+    pollRef.current = setInterval(async () => {
+      if (gen !== pollGenRef.current) return;           // stale series
+      try {
+        const token = session?.access_token;
+        if (!token) { stopPoll(); return; }
+        const res = await fetch(`${gatewayHttpBase()}/commands/${commandId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (gen !== pollGenRef.current) return;
+        if (!res.ok) {
+          if (++errCountRef.current >= 3) {
+            stopPoll();
+            setCmd(prev => ({ ...prev, phase: "failed", error: `Poll error ${res.status}` }));
+          }
+          return;
+        }
+        errCountRef.current = 0;
+        const data = await res.json() as { status?: string };
+        if (gen !== pollGenRef.current) return;
+        const s = data.status ?? "";
+        if (s === "completed") {
+          stopPoll();
+          setCmd(prev => ({ ...prev, phase: "completed" }));
+        } else if (s === "failed" || s === "expired") {
+          stopPoll();
+          setCmd(prev => ({ ...prev, phase: "failed", error: `Command ${s}` }));
+        } else if (s === "delivered") {
+          setCmd(prev => ({ ...prev, phase: "delivered" }));
+        }
+      } catch { /* transient — keep polling */ }
+    }, 2500);
+  }, [session]);
+
+  /* Step 1 — open confirmation */
+  const requestCommand = (type: CmdType) => {
+    if (inFlight) return;
+    if (type === "command.pause"         && !canPause)     return;
+    if (type === "command.resume"        && !canResume)    return;
+    if (type === "command.emergency_stop" && !canEmergency) return;
+
+    const cfgs: Record<CmdType, ConfirmConfig> = {
+      "command.pause": {
+        command: "command.pause",
+        title: "Pause Engine?",
+        description: "This will stop the engine from processing new execution actions until resumed.\n\nOpen positions will not be closed by this action.",
+        confirmLabel: "Pause Engine",
+        destructive: false,
+      },
+      "command.resume": {
+        command: "command.resume",
+        title: "Resume Engine?",
+        description: "This will allow the engine to continue processing execution actions.",
+        confirmLabel: "Resume Engine",
+        destructive: false,
+      },
+      "command.emergency_stop": {
+        command: "command.emergency_stop",
+        title: "Emergency Action?",
+        description: `This should only be used when immediate risk control is required.\n\nOpen positions detected: ${openPositionsCount}`,
+        confirmLabel: "Run Emergency",
+        destructive: true,
+      },
+    };
+    setConfirmCfg(cfgs[type]);
+    setConfirmErr(null);
+    setConfirmOpen(true);
+  };
+
+  /* Step 2 — execute after user confirms */
+  const executeConfirmed = async () => {
+    if (!confirmCfg || !engineId || !session?.access_token) return;
+    if (inFlight) return;                               // prevent double-submit
+
+    const type = confirmCfg.command;
+    setCmd({ id: null, type, phase: "sending", error: null });
+
+    try {
+      const res = await fetch(`${gatewayHttpBase()}/commands`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ engine_id: engineId, command_type: type }),
+      });
+      const data = await res.json() as { command_id?: string; error?: string };
+      if (!res.ok || !data.command_id) {
+        setCmd({ id: null, type, phase: "failed", error: data.error ?? `HTTP ${res.status}` });
+        return;
+      }
+      setCmd({ id: data.command_id, type, phase: "pending", error: null });
+      pollStatus(data.command_id);
+    } catch (err) {
+      setCmd({ id: null, type, phase: "failed", error: String(err) });
+    }
+  };
+
+  /* Close dialog — only possible when not actively in-flight (or after failure) */
+  const closeConfirm = () => {
+    const canClose = !inFlight || cmd.phase === "failed";
+    if (!canClose) return;
+    if (cmd.phase === "failed") { stopPoll(); setCmd(IDLE_CMD); }
+    setConfirmOpen(false);
+    setConfirmCfg(null);
+    setConfirmErr(null);
+  };
+
+  if (!engineId) return null;
+
+  /* Phase label shown in the strip while a command is in flight */
+  const phaseLabel =
+    cmd.phase === "sending"   ? "Sending…"
+    : cmd.phase === "pending"  ? "Awaiting engine…"
+    : cmd.phase === "delivered"? "Engine acknowledged…"
+    : cmd.phase === "completed"? "Done ✓"
+    : null;
+
+  return (
+    <>
+      <CommandConfirmDialog
+        open={confirmOpen}
+        config={confirmCfg}
+        loading={inFlight && cmd.phase !== "failed"}
+        error={confirmErr}
+        onCancel={closeConfirm}
+        onConfirm={() => void executeConfirmed()}
+      />
+
+      <div className="panel flex items-center gap-3 flex-wrap" style={{ padding: "10px 14px" }}>
+        {/* Section label */}
+        <span
+          className="text-xs font-semibold tracking-wide"
+          style={{ color: "rgba(255,255,255,.32)", letterSpacing: "0.06em", minWidth: 110 }}
+        >
+          REMOTE CONTROLS
+        </span>
+
+        {/* Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <CmdButton
+            label="Pause"
+            icon={<Pause size={12} />}
+            enabled={canPause}
+            disabledReason={pauseReason}
+            onClick={() => requestCommand("command.pause")}
+            baseStyle={{
+              background: "rgba(255,255,255,.06)",
+              border: "1px solid rgba(255,255,255,.1)",
+              color: "rgba(255,255,255,.75)",
+            }}
+          />
+          <CmdButton
+            label="Resume"
+            icon={<Play size={12} />}
+            enabled={canResume}
+            disabledReason={resumeReason}
+            onClick={() => requestCommand("command.resume")}
+            baseStyle={{
+              background: "rgba(61,220,151,.08)",
+              border: "1px solid rgba(61,220,151,.2)",
+              color: "#3ddc97",
+            }}
+          />
+          <CmdButton
+            label="Emergency Stop"
+            icon={<AlertTriangle size={12} />}
+            enabled={canEmergency}
+            disabledReason={emergencyReason}
+            onClick={() => requestCommand("command.emergency_stop")}
+            baseStyle={{
+              background: "rgba(244,63,94,.1)",
+              border: "1px solid rgba(244,63,94,.3)",
+              color: "#f43f5e",
+              fontWeight: 600,
+            }}
+          />
+        </div>
+
+        {/* In-flight phase label */}
+        {phaseLabel && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            {cmd.phase !== "completed" && (
+              <Loader2 size={11} className="animate-spin" style={{ color: "rgba(255,255,255,.35)" }} />
+            )}
+            <span className="text-xs" style={{
+              color: cmd.phase === "completed" ? "#3ddc97" : "rgba(255,255,255,.42)",
+            }}>
+              {phaseLabel}
+            </span>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 /* ── Engine selector dropdown ───────────────────────────────────────────── */
 function EngineDropdown({
   engines,
@@ -1420,6 +1870,18 @@ export default function Execution() {
   const streamReady  = Boolean(snapshot) && !gateway.executionMetricsError;
   const streamStatus = gateway.executionMetricsError ?? undefined;
 
+  /* Derive engine control state for the remote-control panel.
+   * `is_paused` is the command-driven pause flag emitted by the engine in
+   * every execution-metrics snapshot (added in ui_bridge._build_engine_info).
+   * Falls back to checking status === "PAUSED" for older engine builds. */
+  const engineControlState: EngineControlState = {
+    snapshotAvailable: Boolean(snapshot),
+    isPaused:
+      engineSnap?.is_paused === true ||
+      (engineSnap?.is_paused === undefined && engineSnap?.status === "PAUSED"),
+    openPositionsCount: positions.length,
+  };
+
   /* Engine selector */
   const engineSelector = !enginesLoading && engines.length > 0 ? (
     <EngineDropdown
@@ -1458,6 +1920,9 @@ export default function Execution() {
             Private stream scoped to the selected engine. The Gateway verifies ownership before
             forwarding any account data.
           </StreamBanner>
+
+          {/* Remote controls — always visible once an engine is selected */}
+          <RemoteControlPanel engineId={selectedId} controlState={engineControlState} />
 
           {/* 3 — Engines found but stream not yet live */}
           {!snapshot && (

@@ -1,9 +1,10 @@
 "use client";
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
+import { useAuth } from "@/components/auth-provider";
 import { PageHeader, SectionHead } from "@/components/metric-detail";
-import { AlertCircle, KeyRound, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle, Copy, KeyRound, ShieldCheck, ShieldOff, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 /* ── types ────────────────────────────────────────────────────────────── */
 // Real licenses columns: id, owner_user_id, activation_key_hash, status,
@@ -28,12 +29,156 @@ function fmtDate(value: string | null | undefined) {
   });
 }
 
+function gatewayHttpBase(): string {
+  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "ws://localhost:4000/dashboard";
+  const http = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
+  try { return new URL(http).origin; } catch { return "http://localhost:4000"; }
+}
+
+/* ── Key reveal modal ─────────────────────────────────────────────────── */
+function KeyRevealModal({ licenseId, rawKey, onClose }: {
+  licenseId: string;
+  rawKey: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  function copy() {
+    void navigator.clipboard.writeText(rawKey).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: "rgba(0,0,0,.7)", backdropFilter: "blur(4px)" }}>
+      <div className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+           style={{ background: "#0e1015", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 24px 64px rgba(0,0,0,.7)" }}>
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
+              <KeyRound size={16} className="text-[#3ddc97]" />
+            </div>
+            <div>
+              <div className="font-semibold">New activation key</div>
+              <div className="text-xs muted mt-0.5 mono truncate max-w-[240px]">{licenseId}</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="muted hover:text-white mt-0.5">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Warning */}
+        <div className="mx-6 mb-4 px-4 py-3 rounded-lg"
+             style={{ background: "rgba(245,185,66,.08)", border: "1px solid rgba(245,185,66,.2)" }}>
+          <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-1">Copy now — shown once</div>
+          <p className="text-xs muted leading-5">
+            This key will not be displayed again. TradeRelay stores only the hash.
+            Copy it before closing this window.
+          </p>
+        </div>
+
+        {/* Key display */}
+        <div className="mx-6 mb-4">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-lg"
+               style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)" }}>
+            <code className="flex-1 text-sm font-mono text-white break-all select-all leading-6">
+              {rawKey}
+            </code>
+            <button
+              onClick={copy}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: copied ? "rgba(61,220,151,.15)" : "rgba(255,255,255,.08)",
+                color:      copied ? "#3ddc97" : "rgba(255,255,255,.7)",
+                border:     `1px solid ${copied ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.1)"}`,
+              }}
+            >
+              {copied ? <><CheckCircle size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+            </button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 pb-6">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.8)" }}
+          >
+            I've saved my key
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Confirm revoke dialog ────────────────────────────────────────────── */
+function ConfirmRevokeDialog({ onConfirm, onCancel, busy }: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: "rgba(0,0,0,.7)", backdropFilter: "blur(4px)" }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden"
+           style={{ background: "#0e1015", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 24px 64px rgba(0,0,0,.7)" }}>
+        <div className="px-6 pt-6 pb-4 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#f43f5e]/10 border border-[#f43f5e]/25 grid place-items-center shrink-0 mt-0.5">
+            <ShieldOff size={16} className="text-[#f43f5e]" />
+          </div>
+          <div>
+            <div className="font-semibold">Revoke activation key?</div>
+            <p className="text-xs muted mt-1.5 leading-5">
+              The key will be cleared and the license suspended. No new engines can
+              activate until you issue a replacement key. Existing engine sessions
+              continue until the next heartbeat sweep.
+            </p>
+          </div>
+        </div>
+        <div className="px-6 pb-6 flex gap-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="flex-1 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.6)" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex-1 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{ background: busy ? "rgba(244,63,94,.2)" : "rgba(244,63,94,.15)", border: "1px solid rgba(244,63,94,.35)", color: "#f43f5e" }}
+          >
+            {busy ? "Revoking…" : "Revoke key"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── page ────────────────────────────────────────────────────────────── */
 export default function Licenses() {
-  const supabase = getBrowserSupabase();
+  const supabase  = getBrowserSupabase();
+  const { session } = useAuth();
   const [licenses, setLicenses] = useState<LicenseView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+
+  /* key actions */
+  const [rotating, setRotating]         = useState<string | null>(null); // licenseId in progress
+  const [revoking, setRevoking]         = useState<string | null>(null); // licenseId being revoked
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null); // licenseId awaiting confirm
+  const [actionError, setActionError]   = useState<string | null>(null);
+  const [issuedKey, setIssuedKey]       = useState<{ licenseId: string; key: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) { setError("Supabase is not configured."); setLoading(false); return; }
@@ -84,6 +229,54 @@ export default function Licenses() {
 
   useEffect(() => { void load(); }, [load]);
 
+  /* ── key actions ────────────────────────────────────────────────────── */
+  async function rotateKey(licenseId: string) {
+    if (!session?.access_token) { setActionError("Not authenticated."); return; }
+    setActionError(null);
+    setRotating(licenseId);
+    try {
+      const res = await fetch(`${gatewayHttpBase()}/licenses/${licenseId}/keys`, {
+        method:  "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { message?: string };
+        throw new Error(body.message ?? `HTTP ${res.status}`);
+      }
+      const { key } = await res.json() as { key: string };
+      setIssuedKey({ licenseId, key });
+      void load(); // refresh status
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Key rotation failed.");
+    } finally {
+      setRotating(null);
+    }
+  }
+
+  async function revokeKey(licenseId: string) {
+    if (!session?.access_token) { setActionError("Not authenticated."); return; }
+    setActionError(null);
+    setRevoking(licenseId);
+    try {
+      const res = await fetch(`${gatewayHttpBase()}/licenses/${licenseId}/keys`, {
+        method:  "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok && res.status !== 204) {
+        const body = await res.json().catch(() => ({})) as { message?: string };
+        throw new Error(body.message ?? `HTTP ${res.status}`);
+      }
+      setConfirmRevoke(null);
+      void load();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Key revocation failed.");
+      setConfirmRevoke(null);
+    } finally {
+      setRevoking(null);
+    }
+  }
+
+  /* ── render ─────────────────────────────────────────────────────────── */
   return (
     <div className="page-wrap space-y-2">
       <PageHeader
@@ -111,12 +304,25 @@ export default function Licenses() {
         </div>
       )}
 
-      {/* Error */}
+      {/* Load error */}
       {error && !loading && (
         <div className="panel p-4 mt-2" style={{ borderColor: "rgba(244,63,94,.3)", background: "rgba(244,63,94,.05)" }}>
           <div className="flex items-center gap-2 text-[#f43f5e] text-sm font-semibold">
             <AlertCircle size={14} /> {error}
           </div>
+        </div>
+      )}
+
+      {/* Action error */}
+      {actionError && (
+        <div className="panel p-4 mt-2 flex items-center justify-between gap-3"
+             style={{ borderColor: "rgba(244,63,94,.3)", background: "rgba(244,63,94,.05)" }}>
+          <div className="flex items-center gap-2 text-[#f43f5e] text-sm">
+            <AlertCircle size={14} /> {actionError}
+          </div>
+          <button onClick={() => setActionError(null)} className="muted hover:text-white shrink-0">
+            <X size={14} />
+          </button>
         </div>
       )}
 
@@ -141,8 +347,11 @@ export default function Licenses() {
 
       {/* License cards */}
       {!loading && licenses.map(lic => {
-        const isActive = lic.status === "active";
-        const statusBadge = isActive ? "badge-green" : lic.status === "expired" ? "badge-warn" : "badge-red";
+        const isActive   = lic.status === "active";
+        const isSuspended = lic.status === "suspended";
+        const statusBadge = isActive ? "badge-green" : isSuspended ? "badge-warn" : lic.status === "expired" ? "badge-warn" : "badge-red";
+        const isRotating  = rotating === lic.id;
+        const canAct      = Boolean(session) && !isRotating && !revoking;
 
         return (
           <div key={lic.id} className="panel overflow-hidden mt-4">
@@ -186,28 +395,55 @@ export default function Licenses() {
             <div className="border-t border-white/[.06]">
               <div className="px-5 pt-4 pb-5 space-y-3">
                 <SectionHead label="Activation key" />
+
                 <div className="panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-medium">Key hash on file</div>
-                    <div className="text-xs muted mt-0.5">
-                      The raw key was shown once at issuance. Rotate via the Gateway API to issue a new one.
+                    <div className="text-sm font-medium">
+                      {isActive ? "Key hash on file" : isSuspended ? "Key revoked — license suspended" : "No key on file"}
+                    </div>
+                    <div className="text-xs muted mt-0.5 leading-5">
+                      {isActive
+                        ? "The raw key was shown once at issuance. Rotate to generate a replacement — the old key is immediately invalidated."
+                        : isSuspended
+                        ? "Issue a new key to reactivate this license and allow engine activations."
+                        : "Issue a key to enable engine activations against this license."}
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <button disabled className="pill opacity-40 cursor-not-allowed text-xs" title="Gateway endpoint required">
-                      <KeyRound size={12} /> Rotate
+                    <button
+                      onClick={() => void rotateKey(lic.id)}
+                      disabled={!canAct}
+                      className="pill text-xs"
+                      style={{ opacity: canAct ? 1 : 0.45, cursor: canAct ? "pointer" : "not-allowed" }}
+                    >
+                      <KeyRound size={12} />
+                      {isRotating ? "Issuing…" : isActive ? "Rotate" : "Issue key"}
                     </button>
-                    <button disabled className="pill opacity-40 cursor-not-allowed text-xs" title="Gateway endpoint required">
-                      Revoke
-                    </button>
+                    {isActive && (
+                      <button
+                        onClick={() => { setActionError(null); setConfirmRevoke(lic.id); }}
+                        disabled={!canAct}
+                        className="pill text-xs"
+                        style={{
+                          opacity: canAct ? 1 : 0.45,
+                          cursor:  canAct ? "pointer" : "not-allowed",
+                          color:   "rgba(244,63,94,.8)",
+                          borderColor: "rgba(244,63,94,.25)",
+                        }}
+                      >
+                        <ShieldOff size={12} /> Revoke
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {/* Key security notice */}
                 <div className="panel p-4" style={{ borderColor: "rgba(245,185,66,.2)", background: "rgba(245,185,66,.04)" }}>
                   <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-2">Key security</div>
                   <p className="muted text-xs leading-5">
-                    Key issuance and rotation require a backend Gateway endpoint.
                     Raw keys are shown once at issuance and never stored in plain text.
-                    The browser never generates or hashes activation keys.
+                    TradeRelay stores only a keyed HMAC hash. The browser never generates or hashes activation keys.
+                    Rotating immediately invalidates the previous key — re-activate any affected engines with the new key.
                   </p>
                 </div>
               </div>
@@ -215,6 +451,23 @@ export default function Licenses() {
           </div>
         );
       })}
+
+      {/* Modals */}
+      {issuedKey && (
+        <KeyRevealModal
+          licenseId={issuedKey.licenseId}
+          rawKey={issuedKey.key}
+          onClose={() => setIssuedKey(null)}
+        />
+      )}
+
+      {confirmRevoke && (
+        <ConfirmRevokeDialog
+          onConfirm={() => void revokeKey(confirmRevoke)}
+          onCancel={() => setConfirmRevoke(null)}
+          busy={revoking === confirmRevoke}
+        />
+      )}
     </div>
   );
 }
