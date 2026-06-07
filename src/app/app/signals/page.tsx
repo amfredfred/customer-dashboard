@@ -1,6 +1,6 @@
 "use client";
 
-import { DataTable, EmptyTable, DetailSection, Metric, MetricGrid, StreamBanner } from "@/components/metric-detail";
+import { DataTable, EmptyTable, DetailSection, Metric, MetricGrid, PageHeader, StreamBanner } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
 import { useEffect, useMemo, useState } from "react";
 
@@ -8,16 +8,22 @@ export default function Signals() {
   const gateway = useGateway();
   const { setSignalMetricsSubscribed, signalMetrics, status } = gateway;
   const [nowMs, setNowMs] = useState(0);
+
+  // Timer — runs independently of gateway state
   useEffect(() => {
+    setNowMs(Date.now());
+    const t = setInterval(() => setNowMs(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Subscribe exactly once when gateway is authenticated; unsubscribe on status change or unmount.
+  // Tying to `status` avoids the StrictMode subscribe→unsubscribe→subscribe storm that
+  // occurs when the socket is already open on client-side navigation.
+  useEffect(() => {
+    if (status !== "authenticated") return;
     setSignalMetricsSubscribed(true);
-    const updateNow = () => setNowMs(Date.now());
-    updateNow();
-    const timer = setInterval(updateNow, 5000);
-    return () => {
-      clearInterval(timer);
-      setSignalMetricsSubscribed(false);
-    };
-  }, [setSignalMetricsSubscribed]);
+    return () => setSignalMetricsSubscribed(false);
+  }, [status, setSignalMetricsSubscribed]);
 
   const view = useMemo(() => {
     const snapshot = signalMetrics;
@@ -66,12 +72,12 @@ export default function Signals() {
     .map(([key, value]) => [key.replace("signals.", "").replaceAll("_", " "), count(value), "Signal Engine"]);
 
   return (
-    <div className="p-5 md:p-8 max-w-[1680px] mx-auto space-y-5 page-in">
-      <div>
-        <div className="text-[10px] uppercase tracking-[.17em] muted">Public signal domain</div>
-        <h1 className="text-3xl font-semibold mt-2 tracking-tight">Signal Performance</h1>
-        <p className="muted mt-1 text-sm">Sanitised Signal Engine health, strategy performance, and symbol telemetry. No broker account data appears here.</p>
-      </div>
+    <div className="page-wrap space-y-5">
+      <PageHeader
+        eyebrow="Public signal domain"
+        title="Signal Performance"
+        description="Sanitised Signal Engine health, strategy performance, and symbol telemetry. No broker account data appears here."
+      />
 
       <StreamBanner domain="signal.metrics" ready={Boolean(signalMetrics)}>
         This view creates a demand-driven Gateway subscription. The upstream metrics connection closes when the final viewer leaves.

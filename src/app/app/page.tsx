@@ -3,19 +3,18 @@
 import { createBrowserSupabase } from "@/lib/supabase";
 import { useGateway } from "@/components/gateway-provider";
 import { useAuth } from "@/components/auth-provider";
-import { ArrowRight, KeyRound, Server, Terminal } from "lucide-react";
+import { SectionHead, PageHeader } from "@/components/metric-detail";
+import { StatCard } from "@/components/stat-card";
+import { ArrowRight, ChevronDown, KeyRound, Server, Terminal } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 /* ── types ────────────────────────────────────────────────────────────── */
 type LicenseRow = {
   id: string;
-  plan_name?: string;
-  plan_id?: string;
   status: string;
   max_devices: number;
   expires_at: string | null;
-  symbols?: string[];
 };
 
 type EngineRow = {
@@ -27,35 +26,24 @@ type EngineRow = {
   session?: { last_heartbeat_at: string | null; disconnected_at: string | null } | null;
 };
 
-const ONLINE_THRESHOLD_MS = 90_000;
+const ONLINE_THRESHOLD_MS  = 90_000;
 const DEGRADED_THRESHOLD_MS = 300_000;
 
-function engineOnlineState(
-  engine: EngineRow,
-  nowMs: number
-): "online" | "degraded" | "offline" {
+function engineOnlineState(engine: EngineRow, nowMs: number): "online" | "degraded" | "offline" {
   const hb = engine.session?.last_heartbeat_at ?? engine.last_seen_at;
-  if (!hb || !nowMs) return "offline";
+  if (!hb || !nowMs)              return "offline";
   if (engine.session?.disconnected_at) return "offline";
   if (engine.status !== "active") return "offline";
   const age = nowMs - Date.parse(hb);
-  if (age <= ONLINE_THRESHOLD_MS) return "online";
+  if (age <= ONLINE_THRESHOLD_MS)  return "online";
   if (age <= DEGRADED_THRESHOLD_MS) return "degraded";
   return "offline";
 }
 
 /* ── tiny components ─────────────────────────────────────────────────── */
-function StatusRow({
-  label,
-  value,
-  dot,
-}: {
-  label: string;
-  value: string;
-  dot: "live" | "warn" | "dead" | "muted";
-}) {
+function StatusRow({ label, value, dot }: { label: string; value: string; dot: "live" | "warn" | "dead" | "muted" }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-white/[.06] last:border-0">
+    <div className="flex items-center justify-between py-3 border-b border-white/[.05] last:border-0">
       <span className="text-xs muted">{label}</span>
       <span className="flex items-center gap-2 text-xs font-medium">
         <span className={`dot dot-${dot}${dot === "live" ? " pulse" : ""}`} />
@@ -65,47 +53,12 @@ function StatusRow({
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  sub,
-  tone = "normal",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "normal" | "good" | "warn" | "danger";
-}) {
-  const color =
-    tone === "good"   ? "text-[#3ddc97]"
-    : tone === "warn" ? "text-[#f5b942]"
-    : tone === "danger" ? "text-[#f43f5e]"
-    : "";
-  return (
-    <div className="panel p-4 min-h-28">
-      <div className="text-[10px] uppercase tracking-[.13em] muted">{label}</div>
-      <div className={`mt-4 text-2xl font-semibold tracking-tight ${color}`}>{value}</div>
-      {sub && <div className="mt-2 text-xs muted">{sub}</div>}
-    </div>
-  );
-}
-
-function SectionRule({ label }: { label: string }) {
-  return (
-    <div className="section-rule">
-      <span className="section-rule-bar" />
-      <span className="section-rule-label">{label}</span>
-      <span className="section-rule-line" />
-    </div>
-  );
-}
-
 function SkeletonCard() {
   return (
-    <div className="panel p-4 min-h-28">
-      <div className="skeleton h-2.5 w-20 mb-5" />
-      <div className="skeleton h-6 w-24 mb-2" />
-      <div className="skeleton h-2 w-32" />
+    <div className="kpi">
+      <div className="skeleton h-2 w-20 mb-4" />
+      <div className="skeleton h-5 w-24 mb-2" />
+      <div className="skeleton h-2 w-28" />
     </div>
   );
 }
@@ -114,29 +67,26 @@ function SkeletonCard() {
 export default function Overview() {
   const { session } = useAuth();
   const gateway = useGateway();
+  const {
+    setSignalMetricsSubscribed,
+    setExecutionMetricsEngine,
+    status: gwStatus,
+  } = gateway;
   const supabase = useMemo(() => createBrowserSupabase(), []);
 
-  const [licenses, setLicenses] = useState<LicenseRow[]>([]);
-  const [engines, setEngines] = useState<EngineRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(0);
+  const [licenses, setLicenses]         = useState<LicenseRow[]>([]);
+  const [engines, setEngines]           = useState<EngineRow[]>([]);
+  const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [dbError, setDbError]           = useState<string | null>(null);
+  const [nowMs, setNowMs]               = useState(0);
 
   const load = useCallback(async () => {
-    if (!supabase) {
-      setDbError("Supabase is not configured.");
-      setLoading(false);
-      return;
-    }
+    if (!supabase) { setDbError("Supabase is not configured."); setLoading(false); return; }
 
     const [licResult, devResult] = await Promise.all([
-      supabase
-        .from("licenses")
-        .select("id,plan_name,plan_id,status,max_devices,expires_at"),
-      supabase
-        .from("engine_devices")
-        .select("id,engine_id,device_name,status,last_seen_at")
-        .order("activated_at", { ascending: false }),
+      supabase.from("licenses").select("id,status,max_devices,expires_at"),
+      supabase.from("engine_devices").select("id,engine_id,device_name,status,last_seen_at").order("activated_at", { ascending: false }),
     ]);
 
     if (licResult.error || devResult.error) {
@@ -154,11 +104,7 @@ export default function Overview() {
           .order("connected_at", { ascending: false })
       : { data: [], error: null };
 
-    if (sessResult.error) {
-      setDbError(sessResult.error.message);
-      setLoading(false);
-      return;
-    }
+    if (sessResult.error) { setDbError(sessResult.error.message); setLoading(false); return; }
 
     const sessionMap = new Map<string, { last_heartbeat_at: string | null; disconnected_at: string | null }>();
     for (const s of (sessResult.data ?? []) as { engine_device_id: string; last_heartbeat_at: string | null; disconnected_at: string | null }[]) {
@@ -166,38 +112,49 @@ export default function Overview() {
     }
 
     setLicenses((licResult.data ?? []) as LicenseRow[]);
-    setEngines(
-      ((devResult.data ?? []) as EngineRow[]).map(d => ({
-        ...d,
-        session: sessionMap.get(d.id) ?? null,
-      }))
-    );
+    const engineRows = ((devResult.data ?? []) as EngineRow[]).map(d => ({ ...d, session: sessionMap.get(d.id) ?? null }));
+    setEngines(engineRows);
+    // Auto-select first engine (preserve existing selection on refresh)
+    setSelectedEngineId(prev => prev ?? engineRows[0]?.engine_id ?? null);
     setDbError(null);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
-    const t = setTimeout(() => void load(), 0);
+    const t     = setTimeout(() => void load(), 0);
     const clock = setInterval(() => setNowMs(Date.now()), 10_000);
     setNowMs(Date.now());
     return () => { clearTimeout(t); clearInterval(clock); };
   }, [load]);
 
-  const activeLicense = licenses.find(l => l.status === "active") ?? licenses[0];
-  const planLabel = activeLicense
-    ? String(
-        (activeLicense as Record<string, unknown>).plan_name ??
-        (activeLicense as Record<string, unknown>).plan_id ??
-        "Active"
-      )
-    : null;
+  /* Subscribe to signal.metrics as soon as gateway is authenticated.
+     Unsubscribes on unmount or when navigating away from overview. */
+  useEffect(() => {
+    if (gwStatus !== "authenticated") return;
+    setSignalMetricsSubscribed(true);
+    return () => setSignalMetricsSubscribed(false);
+  }, [gwStatus, setSignalMetricsSubscribed]);
 
-  const onlineCount  = engines.filter(e => engineOnlineState(e, nowMs) === "online").length;
+  /* Subscribe to execution.metrics for the selected engine.
+     Re-fires when the user picks a different engine from the dropdown. */
+  useEffect(() => {
+    if (gwStatus === "authenticated" && selectedEngineId) {
+      setExecutionMetricsEngine(selectedEngineId);
+    } else {
+      setExecutionMetricsEngine(null);
+    }
+    return () => setExecutionMetricsEngine(null);
+  }, [gwStatus, selectedEngineId, setExecutionMetricsEngine]);
+
+  const activeLicense = licenses.find(l => l.status === "active") ?? licenses[0];
+  const planLabel = activeLicense ? "Active license" : null;
+
+  const onlineCount   = engines.filter(e => engineOnlineState(e, nowMs) === "online").length;
   const degradedCount = engines.filter(e => engineOnlineState(e, nowMs) === "degraded").length;
 
-  const gwReady     = gateway.status === "authenticated";
-  const gwConnecting = gateway.status === "connecting";
-  const gwDot: "live"|"warn"|"dead" = gwReady ? "live" : gwConnecting ? "warn" : "dead";
+  const gwReady      = gwStatus === "authenticated";
+  const gwConnecting = gwStatus === "connecting";
+  const gwDot: "live" | "warn" | "dead" = gwReady ? "live" : gwConnecting ? "warn" : "dead";
   const sigLive = gwReady && Boolean(gateway.signalMetrics);
   const exLive  = gwReady && Boolean(gateway.executionMetrics);
 
@@ -216,34 +173,33 @@ export default function Overview() {
     : null;
 
   return (
-    <div className="p-5 md:p-8 max-w-7xl mx-auto page-in space-y-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-[.17em] muted">Dashboard</div>
-          <h1 className="text-3xl font-semibold mt-2 tracking-tight">Overview</h1>
-          <p className="muted mt-1 text-sm">System status and account snapshot.</p>
-        </div>
-        <span className="pill">
-          <span className={`dot dot-${gwDot}${gwReady ? " pulse" : ""}`} />
-          {gwReady ? "Gateway Online" : gwConnecting ? "Connecting…" : "Gateway Offline"}
-        </span>
-      </div>
+    <div className="page-wrap space-y-6">
+      <PageHeader
+        eyebrow="Dashboard"
+        title="Overview"
+        description="System status and account snapshot."
+        right={
+          <span className="pill">
+            <span className={`dot dot-${gwDot}${gwReady ? " pulse" : ""}`} />
+            {gwReady ? "Gateway Online" : gwConnecting ? "Connecting…" : "Gateway Offline"}
+          </span>
+        }
+      />
 
       {/* DB error */}
       {dbError && (
-        <div className="panel p-4 border-[#f43f5e]/30 bg-[#f43f5e]/05 text-sm text-[#f43f5e]">
-          {dbError}
+        <div className="panel p-4" style={{ borderColor: "rgba(244,63,94,.3)", background: "rgba(244,63,94,.05)" }}>
+          <p className="text-sm text-[#f43f5e]">{dbError}</p>
         </div>
       )}
 
       {/* Supabase not configured */}
       {!supabase && !loading && (
-        <div className="panel p-4 border-[#f5b942]/30 bg-[#f5b942]/05">
-          <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942]">
+        <div className="panel p-4" style={{ borderColor: "rgba(245,185,66,.3)", background: "rgba(245,185,66,.05)" }}>
+          <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-2">
             Supabase setup required
           </div>
-          <p className="text-xs muted mt-2 leading-5">
+          <p className="text-xs muted leading-5">
             Add <code className="text-white">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
             <code className="text-white">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> to the
             environment and restart the server.
@@ -253,80 +209,73 @@ export default function Overview() {
 
       {/* System status */}
       <section>
-        <SectionRule label="System status" />
+        <SectionHead label="System status" />
         <div className="panel p-4">
-          <StatusRow
-            label="Gateway"
-            value={
-              gwReady
-                ? "Authenticated"
-                : gwConnecting
-                ? "Connecting…"
-                : gateway.status === "rejected"
-                ? "Rejected"
-                : "Offline"
-            }
-            dot={gwDot}
-          />
-          <StatusRow
-            label="Signal stream"
-            value={sigLive ? "Live" : gwReady ? "Idle — not subscribed" : "Offline"}
-            dot={sigLive ? "live" : gwReady ? "muted" : "dead"}
-          />
-          <StatusRow
-            label="Execution stream"
-            value={exLive ? "Live (private)" : gateway.executionMetricsError ?? "Not connected"}
-            dot={exLive ? "live" : "muted"}
-          />
-          <StatusRow
-            label="Session"
-            value={session ? session.user.email ?? "Authenticated" : "Not signed in"}
-            dot={session ? "live" : "dead"}
-          />
+          <StatusRow label="Gateway" value={gwReady ? "Authenticated" : gwConnecting ? "Connecting…" : gwStatus === "rejected" ? "Rejected" : "Offline"} dot={gwDot} />
+          <StatusRow label="Signal stream" value={sigLive ? "Live" : gwReady ? "Idle — not subscribed" : "Offline"} dot={sigLive ? "live" : gwReady ? "muted" : "dead"} />
+          <StatusRow label="Execution stream" value={exLive ? "Live (private)" : gateway.executionMetricsError ?? "Not connected"} dot={exLive ? "live" : "muted"} />
+          <StatusRow label="Session" value={session ? session.user.email ?? "Authenticated" : "Not signed in"} dot={session ? "live" : "dead"} />
         </div>
       </section>
 
-      {/* Summary cards */}
+      {/* Account snapshot */}
       <section>
-        <SectionRule label="Account snapshot" />
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <SectionHead
+          label="Account snapshot"
+          action={
+            !loading && engines.length > 1 ? (
+              <div className="relative">
+                <select
+                  value={selectedEngineId ?? ""}
+                  onChange={e => setSelectedEngineId(e.target.value || null)}
+                  className="appearance-none pl-2.5 pr-7 py-1 text-[11px] cursor-pointer"
+                  style={{
+                    background: "var(--surface-raised)",
+                    border: "1px solid var(--line-strong)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text-soft)",
+                    outline: "none",
+                  }}
+                >
+                  {engines.map(e => (
+                    <option key={e.id} value={e.engine_id} style={{ background: "#0d1015" }}>
+                      {e.device_name || e.engine_id}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 muted pointer-events-none" />
+              </div>
+            ) : !loading && engines.length === 1 ? (
+              <span className="text-[11px] muted mono">{engines[0].device_name || engines[0].engine_id}</span>
+            ) : undefined
+          }
+        />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
           ) : (
             <>
-              <SummaryCard
+              <StatCard
                 label="License"
                 value={planLabel ?? "No license"}
-                sub={
-                  activeLicense
-                    ? `${activeLicense.status} · ${activeLicense.max_devices} device${activeLicense.max_devices === 1 ? "" : "s"}`
-                    : "Purchase a plan to begin"
-                }
+                detail={activeLicense ? `${activeLicense.status} · ${activeLicense.max_devices} device${activeLicense.max_devices === 1 ? "" : "s"}` : "Purchase a plan to begin"}
                 tone={activeLicense ? "good" : "warn"}
               />
-              <SummaryCard
+              <StatCard
                 label="Engines"
                 value={String(engines.length)}
-                sub={
-                  onlineCount > 0
-                    ? `${onlineCount} online${degradedCount > 0 ? ` · ${degradedCount} degraded` : ""}`
-                    : engines.length > 0
-                    ? "All offline"
-                    : "No engines activated"
-                }
+                detail={onlineCount > 0 ? `${onlineCount} online${degradedCount > 0 ? ` · ${degradedCount} degraded` : ""}` : engines.length > 0 ? "All offline" : "No engines activated"}
                 tone={onlineCount > 0 ? "good" : engines.length > 0 ? "warn" : "normal"}
               />
-              <SummaryCard
+              <StatCard
                 label="Balance"
                 value={exLive ? moneyFmt(numberMetric("balance")) : "--"}
-                sub={exLive ? String(accountMetrics.currency ?? "Account currency") : "Connect execution stream"}
-                tone="normal"
+                detail={exLive ? String(accountMetrics.currency ?? "Account currency") : "Connect execution stream"}
               />
-              <SummaryCard
+              <StatCard
                 label="Daily P&L"
                 value={exLive ? moneyFmt(numberMetric("daily_pnl")) : "--"}
-                sub={exLive ? "From private execution stream" : "Requires engine connection"}
-                tone="normal"
+                detail={exLive ? "From private execution stream" : "Requires engine connection"}
               />
             </>
           )}
@@ -335,7 +284,7 @@ export default function Overview() {
 
       {/* Signal Engine availability */}
       <section>
-        <SectionRule label="Signal Engine" />
+        <SectionHead label="Signal Engine" />
         <div className="panel p-5">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
@@ -357,18 +306,16 @@ export default function Overview() {
             </div>
           </div>
           {sigLive && gateway.signalMetrics && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-              {[
-                ["Scanner ticks",  (gateway.signalMetrics.metrics as Record<string,number>)?.scanner_ticks],
-                ["Signals emitted", (gateway.signalMetrics.metrics as Record<string,number>)?.signals_emitted],
-                ["Active signals",  (gateway.signalMetrics.metrics as Record<string,number>)?.active_signals],
-                ["WS clients",     (gateway.signalMetrics.metrics as Record<string,number>)?.websocket_clients],
-              ].map(([label, val]) => (
-                <div key={String(label)} className="metric-tile">
-                  <div className="text-[10px] uppercase tracking-[.12em] muted">{label}</div>
-                  <div className="mt-2 text-lg font-semibold mono">
-                    {val === undefined ? "--" : Number(val).toLocaleString()}
-                  </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
+              {([
+                ["Scanner ticks",   (gateway.signalMetrics.metrics as Record<string, number>)?.scanner_ticks],
+                ["Signals emitted", (gateway.signalMetrics.metrics as Record<string, number>)?.signals_emitted],
+                ["Active signals",  (gateway.signalMetrics.metrics as Record<string, number>)?.active_signals],
+                ["WS clients",      (gateway.signalMetrics.metrics as Record<string, number>)?.websocket_clients],
+              ] as [string, number | undefined][]).map(([label, val]) => (
+                <div key={label} className="kpi">
+                  <div className="kpi-label">{label}</div>
+                  <div className="kpi-value">{val === undefined ? "--" : Number(val).toLocaleString()}</div>
                 </div>
               ))}
             </div>
@@ -379,8 +326,8 @@ export default function Overview() {
       {/* Engines list preview */}
       {!loading && engines.length > 0 && (
         <section>
-          <SectionRule label="My engines" />
-          <div className="space-y-3">
+          <SectionHead label="My engines" />
+          <div className="space-y-2">
             {engines.slice(0, 3).map(engine => {
               const state = engineOnlineState(engine, nowMs);
               const dotClass = state === "online" ? "dot-live pulse" : state === "degraded" ? "dot-warn" : "dot-dead";
@@ -390,7 +337,7 @@ export default function Overview() {
                   <div className="flex items-center gap-3 min-w-0">
                     <Terminal size={14} className="muted shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{engine.engine_id}</div>
+                      <div className="text-sm font-medium truncate mono">{engine.engine_id}</div>
                       <div className="text-xs muted truncate">{engine.device_name}</div>
                     </div>
                   </div>
@@ -402,7 +349,7 @@ export default function Overview() {
               );
             })}
             {engines.length > 3 && (
-              <Link href="/app/engines" className="muted text-xs hover:text-white flex items-center gap-1 px-1">
+              <Link href="/app/engines" className="muted text-xs hover:text-white flex items-center gap-1 px-1 pt-1">
                 View all {engines.length} engines <ArrowRight size={11} />
               </Link>
             )}
@@ -413,15 +360,14 @@ export default function Overview() {
       {/* Next setup step */}
       {nextStep && (
         <section>
-          <SectionRule label="Next step" />
-          <div className="panel p-5 border-[#3ddc97]/20 bg-[#3ddc97]/[.03]">
+          <SectionHead label="Next step" />
+          <div className="panel p-5" style={{ borderColor: "rgba(61,220,151,.2)", background: "rgba(61,220,151,.03)" }}>
             <div className="flex items-start gap-4">
               <div className="w-9 h-9 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
-                {nextStep.href === "/app/billing" ? (
-                  <Server size={15} className="text-[#3ddc97]" />
-                ) : (
-                  <KeyRound size={15} className="text-[#3ddc97]" />
-                )}
+                {nextStep.href === "/app/billing"
+                  ? <Server size={15} className="text-[#3ddc97]" />
+                  : <KeyRound size={15} className="text-[#3ddc97]" />
+                }
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm">{nextStep.title}</div>

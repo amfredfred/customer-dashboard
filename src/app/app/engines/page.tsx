@@ -1,6 +1,7 @@
 "use client";
 
 import { createBrowserSupabase } from "@/lib/supabase";
+import { PageHeader } from "@/components/metric-detail";
 import { AlertCircle, Server } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -163,25 +164,23 @@ export default function Engines() {
   }, [load]);
 
   return (
-    <div className="p-5 md:p-8 max-w-6xl mx-auto page-in space-y-2">
-      {/* Header */}
-      <div className="text-[10px] uppercase tracking-[.17em] muted">Installed engines</div>
-      <h1 className="text-3xl font-semibold tracking-tight">Engines</h1>
-      <p className="muted text-sm leading-5">
-        Activated execution engines and their latest Gateway session heartbeat.
-        Online = heartbeat within 90 s · Degraded = 90 s–5 min · Offline = &gt;5 min or disconnected.
-      </p>
+    <div className="page-wrap space-y-4">
+      <PageHeader
+        eyebrow="Installed engines"
+        title="Engines"
+        description="Activated execution engines and their latest Gateway session heartbeat. Online = heartbeat within 90 s · Degraded = 90 s–5 min · Offline = >5 min or disconnected."
+      />
 
       {/* Loading */}
       {loading && (
-        <div className="pt-4 space-y-3">
+        <div className="space-y-3">
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="panel p-5">
-              <div className="flex justify-between mb-4">
+            <div key={i} className="panel overflow-hidden">
+              <div className="panel-head">
                 <div><div className="skeleton h-4 w-48 mb-2" /><div className="skeleton h-2.5 w-32" /></div>
-                <div className="skeleton h-6 w-20 rounded-full" />
+                <div className="skeleton h-5 w-20 rounded-full" />
               </div>
-              <div className="grid grid-cols-4 gap-5">
+              <div className="panel-body grid grid-cols-4 gap-5">
                 {Array.from({ length: 4 }).map((_, j) => (
                   <div key={j}><div className="skeleton h-2 w-16 mb-2" /><div className="skeleton h-4 w-20" /></div>
                 ))}
@@ -213,19 +212,19 @@ export default function Engines() {
       )}
 
       {/* Engine cards */}
-      <div className="space-y-4 pt-2">
+      <div className="space-y-3">
         {engines.map(engine => {
-          const state   = engineState(engine, nowMs);
-          const maxDev  = engine.license?.max_devices ?? 0;
-          const licExp  = engine.license?.expires_at;
+          const state  = engineState(engine, nowMs);
+          const maxDev = engine.license?.max_devices ?? 0;
+          const licExp = engine.license?.expires_at;
 
           return (
             <section key={engine.id} className="panel overflow-hidden">
               {/* Card header */}
-              <div className="p-5 border-b border-white/[.07] flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="panel-head flex-col sm:flex-row sm:items-start">
                 <div>
                   <div className="font-semibold mono text-sm">{engine.engine_id}</div>
-                  <div className="text-xs muted mt-1">
+                  <div className="text-xs muted mt-0.5">
                     {engine.device_name} · {platformLabel(engine.platform)}
                   </div>
                 </div>
@@ -233,7 +232,7 @@ export default function Engines() {
               </div>
 
               {/* Metrics row */}
-              <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-5 text-sm">
+              <div className="panel-body grid grid-cols-2 sm:grid-cols-4 gap-5">
                 <div>
                   <div className="muted text-xs">Version</div>
                   <div className="mt-2 mono text-xs font-medium">{engine.engine_version || "—"}</div>
@@ -259,10 +258,8 @@ export default function Engines() {
               </div>
 
               {/* License badge row */}
-              <div className="px-5 pb-5 flex flex-wrap items-center gap-2">
-                <span
-                  className={`badge ${engine.license?.status === "active" ? "badge-green" : engine.license ? "badge-warn" : "badge-muted"}`}
-                >
+              <div className="px-5 pb-4 flex flex-wrap items-center gap-2">
+                <span className={`badge ${engine.license?.status === "active" ? "badge-green" : engine.license ? "badge-warn" : "badge-muted"}`}>
                   License: {engine.license?.status ?? "unknown"}
                 </span>
                 {licExp && (
@@ -270,9 +267,7 @@ export default function Engines() {
                     Expires {new Date(licExp).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                   </span>
                 )}
-                {state === "degraded" && (
-                  <span className="badge badge-warn">Heartbeat delayed</span>
-                )}
+                {state === "degraded" && <span className="badge badge-warn">Heartbeat delayed</span>}
               </div>
 
               {/* Disconnect reason */}

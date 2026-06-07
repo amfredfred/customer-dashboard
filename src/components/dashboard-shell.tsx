@@ -50,11 +50,7 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col h-full">
-      <Link
-        href="/"
-        onClick={onNav}
-        className="h-16 px-5 flex items-center gap-3 border-b border-white/[.07] shrink-0"
-      >
+      <div className="h-16 px-5 flex items-center gap-3 border-b border-white/[.07] shrink-0">
         <div className="w-8 h-8 rounded-lg border border-white/10 grid place-items-center mono text-xs font-bold text-[#3ddc97]">
           TR
         </div>
@@ -62,7 +58,7 @@ function SidebarContent({
           <div className="text-xs font-bold tracking-[.15em]">TRADERELAY</div>
           <div className="text-[10px] muted">Control plane</div>
         </div>
-      </Link>
+      </div>
 
       <nav className="py-3 flex-1 overflow-y-auto">
         {NAV.map(([href, label, Icon]) => {
@@ -117,16 +113,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     fetchedRef.current = true;
     void supabase
       .from("licenses")
-      .select("id,plan_name,plan_id,status")
+      .select("id,status")
       .eq("status", "active")
       .limit(1)
       .then(({ data }) => {
-        const row = data?.[0] as Record<string, unknown> | undefined;
-        if (row) {
-          setPlanName(
-            String(row.plan_name ?? row.plan_id ?? "Active plan")
-          );
-        }
+        if (data?.[0]) setPlanName("Licensed");
       });
   }, [supabase, session]);
 
