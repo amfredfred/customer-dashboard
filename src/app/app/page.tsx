@@ -123,6 +123,21 @@ export default function Overview() {
     return () => { clearTimeout(t); clearInterval(clock); };
   }, [load]);
 
+  // 3.14 — Live push: refresh overview data when licenses or devices change.
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel("overview-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "licenses" }, () => {
+        void load();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "engine_devices" }, () => {
+        void load();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [supabase, load]);
+
 
   const activeLicense = licenses.find(l => l.status === "active") ?? licenses[0];
   const planLabel = activeLicense ? "Active license" : null;

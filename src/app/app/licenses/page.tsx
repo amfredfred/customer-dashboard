@@ -229,6 +229,19 @@ export default function Licenses() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // 3.14 — Live push: refresh when any of the user's licenses change in the DB.
+  // Fires for key rotation, revocation, subscription status changes, etc.
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel("licenses-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "licenses" }, () => {
+        void load();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [supabase, load]);
+
   /* ── key actions ────────────────────────────────────────────────────── */
   async function rotateKey(licenseId: string) {
     if (!session?.access_token) { setActionError("Not authenticated."); return; }
