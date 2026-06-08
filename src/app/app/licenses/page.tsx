@@ -30,9 +30,9 @@ function fmtDate(value: string | null | undefined) {
 }
 
 function gatewayHttpBase(): string {
-  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "ws://localhost:4000/dashboard";
+  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://apex-gateway.somicast.com/dashboard";
   const http = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
-  try { return new URL(http).origin; } catch { return "http://localhost:4000"; }
+  try { return new URL(http).origin; } catch { return "https://apex-gateway.somicast.com"; }
 }
 
 /* ── Key reveal modal ─────────────────────────────────────────────────── */
