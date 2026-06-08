@@ -37,9 +37,7 @@ function SidebarContent({
   return (
     <div className="flex flex-col h-full">
       <div className="h-16 px-5 flex items-center gap-3 border-b border-white/[.07] shrink-0">
-        <div className="w-8 h-8 rounded-lg border border-white/10 grid place-items-center mono text-xs font-bold text-[#3ddc97]">
-          TR
-        </div>
+        <img src="/icon.png" alt="Apex" className="w-8 h-8 rounded-lg" />
         <div>
           <div className="text-xs font-bold tracking-[.15em]">APEX</div>
           <div className="text-[10px] muted">Control plane</div>
@@ -178,7 +176,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           >
             <Menu size={20} />
           </button>
-          <span className="text-xs font-bold tracking-[.15em] ml-3">APEX</span>
+          <img src="/icon.png" alt="Apex" className="w-6 h-6 ml-3" />
+          <span className="text-xs font-bold tracking-[.15em] ml-2">APEX</span>
         </div>
 
         {/* Page content */}
