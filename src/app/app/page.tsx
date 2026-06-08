@@ -162,7 +162,7 @@ export default function Overview() {
   const nextStep = !activeLicense
     ? { title: "Purchase a plan", detail: "Visit Billing to choose a license and receive an activation key.", href: "/app/billing" }
     : engines.length === 0
-      ? { title: "Install the Execution Engine", detail: "Download and install the engine on a Windows VPS beside MetaTrader 5, then activate it with a key from Licenses & Keys.", href: "/app/licenses" }
+      ? { title: "Install the Execution Engine", detail: "Download and install the engine on a Windows VPS beside MetaTrader 5, then activate it with a key from Licenses & Keys.", href: "/app/downloads" }
       : onlineCount === 0
         ? { title: "Connect your engine", detail: "Your engine is installed but not connected. Ensure it is running and has a valid activation key.", href: "/app/engines" }
         : null;

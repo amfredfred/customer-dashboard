@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CheckCircle, KeyRound, LockKeyhole, LogIn, Mail, ShieldCheck, Wand2, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle, Download, KeyRound, LockKeyhole, LogIn, Mail, ShieldCheck, Wand2, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -99,8 +99,29 @@ export default function LoginForm() {
     <aside className="login-panel-left">
       <Link href="/" className="flex items-center gap-3"><img src="/icon.png" alt="Apex" className="w-9 h-9 rounded-md" /><div><div className="text-xs font-bold tracking-[.16em]">APEX</div><div className="text-[9px] uppercase tracking-[.12em] muted mt-0.5">Execution network</div></div></Link>
       <div className="mt-14"><h1 className="text-3xl font-extrabold tracking-[-.035em] leading-[1.15]">Private signals.<br/><span className="text-[#3ddc97]">Your execution authority.</span></h1><p className="text-[13px] muted leading-6 mt-4">Monitor licensed engines, account risk, and private signal performance from one secure control plane.</p></div>
-      <div className="mt-11 space-y-5 flex-1"><Feature color="#3ddc97" title="Local execution" detail="Your installed engine and MT5 account keep the final say."/><Feature color="#60a5fa" title="Risk guardrails" detail="Track daily budget, drawdown, and execution health."/><Feature color="#f5b942" title="Private signal access" detail="Demand-driven metrics and licensed signal routing."/><Feature color="#8b5cf6" title="One control plane" detail="Manage engines, billing, and activation keys securely."/></div>
-      <p className="text-[10px] muted leading-5 mt-8">By continuing you agree to Apex Quant Trader&apos;s Terms and Privacy Policy.</p>
+      <div className="mt-11 space-y-5"><Feature color="#3ddc97" title="Local execution" detail="Your installed engine and MT5 account keep the final say."/><Feature color="#60a5fa" title="Risk guardrails" detail="Track daily budget, drawdown, and execution health."/><Feature color="#f5b942" title="Private signal access" detail="Demand-driven metrics and licensed signal routing."/><Feature color="#8b5cf6" title="One control plane" detail="Manage engines, billing, and activation keys securely."/></div>
+
+      {/* Download the agent */}
+      <div className="mt-8 p-4 rounded-xl border border-white/[.08] bg-white/[.025]">
+        <div className="text-[10px] uppercase tracking-[.12em] muted mb-3">Get Started</div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold">Download the Agent</div>
+            <div className="text-[11px] muted mt-0.5">Windows installer · v0.1.0 · 28 MB</div>
+          </div>
+          <a
+            href="https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/ApexQuantTraderSetup.exe"
+            download="ApexQuantTraderSetup.exe"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold shrink-0 transition-opacity hover:opacity-80"
+            style={{ background: "rgba(61,220,151,.15)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.25)" }}
+          >
+            <Download size={11} />
+            Download
+          </a>
+        </div>
+      </div>
+
+      <p className="text-[10px] muted leading-5 mt-4">By continuing you agree to Apex Quant Trader&apos;s Terms and Privacy Policy.</p>
     </aside>
     <section className="login-panel-right"><div className="login-form">
       <div className="mb-8"><h2 className="text-2xl font-bold">Sign in</h2><p className="text-[13px] muted mt-2">No password. Use Google, an OTP code, or a magic link.</p></div>

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Activity, CreditCard, KeyRound, LayoutDashboard, LogOut,
+  Activity, CreditCard, Download, KeyRound, LayoutDashboard, LogOut,
   Menu, RadioTower, Server, X,
 } from "lucide-react";
 import Link from "next/link";
@@ -12,12 +12,13 @@ import { useGateway } from "./gateway-provider";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 
 const NAV = [
-  ["/app",           "Overview",          LayoutDashboard],
-  ["/app/signals",   "Signal Performance", RadioTower],
-  ["/app/execution", "My Execution",       Activity],
-  ["/app/engines",   "Engines",            Server],
-  ["/app/licenses",  "Licenses & Keys",    KeyRound],
-  ["/app/billing",   "Billing",            CreditCard],
+  ["/app",             "Overview",           LayoutDashboard],
+  ["/app/signals",     "Signal Performance", RadioTower],
+  ["/app/execution",   "My Execution",       Activity],
+  ["/app/engines",     "Engines",            Server],
+  ["/app/licenses",    "Licenses & Keys",    KeyRound],
+  ["/app/billing",     "Billing",            CreditCard],
+  ["/app/downloads",   "Downloads",          Download],
 ] as const;
 
 
