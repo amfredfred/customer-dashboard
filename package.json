@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
-    "start": "next start",
+    "deploy": "next build --webpack && wrangler pages deploy out",
+    "preview": "wrangler pages dev out",
     "lint": "eslint"
   },
   "dependencies": {

@@ -76,6 +76,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
 const REJECTION_EVENT_TYPES = new Set([
   "strategy.rejected", "signal.rejected", "risk.rejected",
   "parity.warning",    "signal.filtered",
+  "trade.error",   // order failed (e.g. AutoTrading disabled, MT5 rejection)
 ]);
 const ACTIVITY_EVENT_TYPES = new Set([
   "trade.opened",    "trade.closed",    "trade.tp1_hit",
