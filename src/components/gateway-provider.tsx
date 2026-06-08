@@ -85,7 +85,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let socket: WebSocket | null = null;
     const url =
-      process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "ws://localhost:4000/dashboard";
+      process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://apex-gateway.somicast.com/dashboard";
 
     function connect() {
       if (stopped) return;
