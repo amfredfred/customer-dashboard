@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SwRegister } from "@/components/sw-register";
 import "./globals.css";
 
 const SITE_URL = "https://app.somicast.com";
@@ -52,18 +53,33 @@ export const metadata: Metadata = {
   },
 
   icons: { icon: "/icon.png", shortcut: "/icon.png", apple: "/icon.png" },
+
+  manifest: "/manifest.json",
+
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: SITE_NAME,
+  },
+
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  minimumScale: 1,
+  viewportFit: "cover",
   themeColor: "#0a0e14",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        <SwRegister />
+      </body>
     </html>
   );
 }
