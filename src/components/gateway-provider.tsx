@@ -122,6 +122,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             const payload = message.data as unknown as { snapshot?: ExecutionMetricsSnapshot };
             setExecutionMetrics(payload.snapshot ?? null);
             setExecutionMetricsError(null);
+          } else if (message.event === "engine.offline") {
+            setExecutionMetrics(null);
+            setExecutionMetricsError(null);
           } else if (message.event === "execution.metrics.forbidden") {
             setExecutionMetricsError(message.data?.reason ?? "Execution metrics access denied");
           } else if (

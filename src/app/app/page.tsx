@@ -26,16 +26,16 @@ type EngineRow = {
   session?: { last_heartbeat_at: string | null; disconnected_at: string | null } | null;
 };
 
-const ONLINE_THRESHOLD_MS  = 90_000;
+const ONLINE_THRESHOLD_MS = 90_000;
 const DEGRADED_THRESHOLD_MS = 300_000;
 
 function engineOnlineState(engine: EngineRow, nowMs: number): "online" | "degraded" | "offline" {
   const hb = engine.session?.last_heartbeat_at ?? engine.last_seen_at;
-  if (!hb || !nowMs)              return "offline";
+  if (!hb || !nowMs) return "offline";
   if (engine.session?.disconnected_at) return "offline";
   if (engine.status !== "active") return "offline";
   const age = nowMs - Date.parse(hb);
-  if (age <= ONLINE_THRESHOLD_MS)  return "online";
+  if (age <= ONLINE_THRESHOLD_MS) return "online";
   if (age <= DEGRADED_THRESHOLD_MS) return "degraded";
   return "offline";
 }
@@ -70,12 +70,12 @@ export default function Overview() {
   const { status: gwStatus } = gateway;
   const supabase = getBrowserSupabase();
 
-  const [licenses, setLicenses]         = useState<LicenseRow[]>([]);
-  const [engines, setEngines]           = useState<EngineRow[]>([]);
+  const [licenses, setLicenses] = useState<LicenseRow[]>([]);
+  const [engines, setEngines] = useState<EngineRow[]>([]);
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
-  const [loading, setLoading]           = useState(true);
-  const [dbError, setDbError]           = useState<string | null>(null);
-  const [nowMs, setNowMs]               = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(0);
 
   const load = useCallback(async () => {
     if (!supabase) { setDbError("Supabase is not configured."); setLoading(false); return; }
@@ -94,10 +94,10 @@ export default function Overview() {
     const deviceIds = ((devResult.data ?? []) as EngineRow[]).map(d => d.id);
     const sessResult = deviceIds.length
       ? await supabase
-          .from("engine_sessions")
-          .select("engine_device_id,last_heartbeat_at,disconnected_at")
-          .in("engine_device_id", deviceIds)
-          .order("connected_at", { ascending: false })
+        .from("engine_sessions")
+        .select("engine_device_id,last_heartbeat_at,disconnected_at")
+        .in("engine_device_id", deviceIds)
+        .order("connected_at", { ascending: false })
       : { data: [], error: null };
 
     if (sessResult.error) { setDbError(sessResult.error.message); setLoading(false); return; }
@@ -116,10 +116,12 @@ export default function Overview() {
     setLoading(false);
   }, [supabase]);
 
+  const nowMSCB = useCallback((ms: number) => setNowMs(ms), []);
+
   useEffect(() => {
-    const t     = setTimeout(() => void load(), 0);
-    const clock = setInterval(() => setNowMs(Date.now()), 10_000);
-    setNowMs(Date.now());
+    const t = setTimeout(() => void load(), 0);
+    const clock = setInterval(() => nowMSCB(Date.now()), 10_000);
+    (() => nowMSCB(Date.now()))();
     return () => { clearTimeout(t); clearInterval(clock); };
   }, [load]);
 
@@ -142,14 +144,14 @@ export default function Overview() {
   const activeLicense = licenses.find(l => l.status === "active") ?? licenses[0];
   const planLabel = activeLicense ? "Active license" : null;
 
-  const onlineCount   = engines.filter(e => engineOnlineState(e, nowMs) === "online").length;
+  const onlineCount = engines.filter(e => engineOnlineState(e, nowMs) === "online").length;
   const degradedCount = engines.filter(e => engineOnlineState(e, nowMs) === "degraded").length;
 
-  const gwReady      = gwStatus === "authenticated";
+  const gwReady = gwStatus === "authenticated";
   const gwConnecting = gwStatus === "connecting";
   const gwDot: "live" | "warn" | "dead" = gwReady ? "live" : gwConnecting ? "warn" : "dead";
   const sigLive = gwReady && Boolean(gateway.signalMetrics);
-  const exLive  = gwReady && Boolean(gateway.executionMetrics);
+  const exLive = gwReady && Boolean(gateway.executionMetrics);
 
   const accountMetrics = gateway.executionMetrics?.metrics ?? {};
   const numberMetric = (k: string) =>
@@ -160,10 +162,10 @@ export default function Overview() {
   const nextStep = !activeLicense
     ? { title: "Purchase a plan", detail: "Visit Billing to choose a license and receive an activation key.", href: "/app/billing" }
     : engines.length === 0
-    ? { title: "Install the Execution Engine", detail: "Download and install the engine on a Windows VPS beside MetaTrader 5, then activate it with a key from Licenses & Keys.", href: "/app/licenses" }
-    : onlineCount === 0
-    ? { title: "Connect your engine", detail: "Your engine is installed but not connected. Ensure it is running and has a valid activation key.", href: "/app/engines" }
-    : null;
+      ? { title: "Install the Execution Engine", detail: "Download and install the engine on a Windows VPS beside MetaTrader 5, then activate it with a key from Licenses & Keys.", href: "/app/licenses" }
+      : onlineCount === 0
+        ? { title: "Connect your engine", detail: "Your engine is installed but not connected. Ensure it is running and has a valid activation key.", href: "/app/engines" }
+        : null;
 
   return (
     <div className="page-wrap space-y-6">
@@ -301,10 +303,10 @@ export default function Overview() {
           {sigLive && gateway.signalMetrics && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
               {([
-                ["Scanner ticks",   (gateway.signalMetrics.metrics as Record<string, number>)?.scanner_ticks],
+                ["Scanner ticks", (gateway.signalMetrics.metrics as Record<string, number>)?.scanner_ticks],
                 ["Signals emitted", (gateway.signalMetrics.metrics as Record<string, number>)?.signals_emitted],
-                ["Active signals",  (gateway.signalMetrics.metrics as Record<string, number>)?.active_signals],
-                ["WS clients",      (gateway.signalMetrics.metrics as Record<string, number>)?.websocket_clients],
+                ["Active signals", (gateway.signalMetrics.metrics as Record<string, number>)?.active_signals],
+                ["WS clients", (gateway.signalMetrics.metrics as Record<string, number>)?.websocket_clients],
               ] as [string, number | undefined][]).map(([label, val]) => (
                 <div key={label} className="kpi">
                   <div className="kpi-label">{label}</div>
