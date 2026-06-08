@@ -146,7 +146,7 @@ function normalizeSigEvent(ev: EventEntry): NSig {
     ? (d.strength !== undefined ? Number(d.strength) / 100 : Number(rawConf))
     : undefined;
   return {
-    id:         String(d.id ?? d.signal_id ?? ev.id),
+    id:         ev.id,   // use event ID — unique by seenRef dedup, stable across re-renders
     symbol:     String(d.symbol ?? "?"),
     timeframe:  tf,
     strategy:   String(d.pattern ?? d.strategy ?? "CRT"),

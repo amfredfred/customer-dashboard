@@ -528,7 +528,7 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
           </thead>
           <tbody>
             {signals.map((sig, i) => (
-              <tr key={sig.id ?? i} style={TR_BORDER}
+              <tr key={`${sig.id}_${i}`} style={TR_BORDER}
                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "")}>
                 <TD mono><span className="muted">{fmtTs(sig.timestamp)}</span></TD>
