@@ -1,6 +1,6 @@
 "use client";
 
-import { PageHeader, StreamBanner, SectionHead } from "@/components/metric-detail";
+import { PageHeader, SectionHead } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
 import { useEffect, useRef, useState } from "react";
 
@@ -966,10 +966,6 @@ export default function Signals() {
           </div>
         }
       />
-
-      <StreamBanner domain="signal.metrics" ready={Boolean(snapshot)}>
-        Demand-driven gateway subscription — the upstream connection closes when the final viewer leaves.
-      </StreamBanner>
 
       {/* Loading state — shown until the first snapshot arrives */}
       {!snapshot && <SignalLoadingShell gwStatus={gwStatus} />}

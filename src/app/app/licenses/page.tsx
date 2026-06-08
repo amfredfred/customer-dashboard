@@ -3,7 +3,8 @@
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { useAuth } from "@/components/auth-provider";
 import { PageHeader, SectionHead } from "@/components/metric-detail";
-import { AlertCircle, CheckCircle, Copy, KeyRound, ShieldCheck, ShieldOff, X } from "lucide-react";
+import { Copy, X } from "lucide-react";
+import { ErrorIcon, LicenseKeyIcon, ShieldIcon, SuccessIcon, WarningIcon } from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
 
 /* ── types ────────────────────────────────────────────────────────────── */
@@ -60,7 +61,7 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
         <div className="px-6 pt-6 pb-4 flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
-              <KeyRound size={16} className="text-[#3ddc97]" />
+              <LicenseKeyIcon size={16} className="text-[#3ddc97]" />
             </div>
             <div>
               <div className="font-semibold">New activation key</div>
@@ -98,7 +99,7 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
                 border:     `1px solid ${copied ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.1)"}`,
               }}
             >
-              {copied ? <><CheckCircle size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+              {copied ? <><SuccessIcon size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
             </button>
           </div>
         </div>
@@ -131,7 +132,7 @@ function ConfirmRevokeDialog({ onConfirm, onCancel, busy }: {
            style={{ background: "#0e1015", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 24px 64px rgba(0,0,0,.7)" }}>
         <div className="px-6 pt-6 pb-4 flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#f43f5e]/10 border border-[#f43f5e]/25 grid place-items-center shrink-0 mt-0.5">
-            <ShieldOff size={16} className="text-[#f43f5e]" />
+            <WarningIcon size={16} className="text-[#f43f5e]" />
           </div>
           <div>
             <div className="font-semibold">Revoke activation key?</div>
@@ -321,7 +322,7 @@ export default function Licenses() {
       {error && !loading && (
         <div className="panel p-4 mt-2" style={{ borderColor: "rgba(244,63,94,.3)", background: "rgba(244,63,94,.05)" }}>
           <div className="flex items-center gap-2 text-[#f43f5e] text-sm font-semibold">
-            <AlertCircle size={14} /> {error}
+            <ErrorIcon size={14} /> {error}
           </div>
         </div>
       )}
@@ -331,7 +332,7 @@ export default function Licenses() {
         <div className="panel p-4 mt-2 flex items-center justify-between gap-3"
              style={{ borderColor: "rgba(244,63,94,.3)", background: "rgba(244,63,94,.05)" }}>
           <div className="flex items-center gap-2 text-[#f43f5e] text-sm">
-            <AlertCircle size={14} /> {actionError}
+            <ErrorIcon size={14} /> {actionError}
           </div>
           <button onClick={() => setActionError(null)} className="muted hover:text-white shrink-0">
             <X size={14} />
@@ -350,7 +351,7 @@ export default function Licenses() {
       {/* Empty */}
       {!loading && !error && supabase && licenses.length === 0 && (
         <div className="panel state-block mt-4">
-          <ShieldCheck size={28} className="text-white/10 mb-2" />
+          <ShieldIcon size={28} className="text-white/10 mb-2" />
           <div className="font-medium">No licenses found</div>
           <p className="muted text-xs max-w-xs">
             Purchase a plan from the Billing page to receive a license.
@@ -372,7 +373,7 @@ export default function Licenses() {
             <div className="panel-head flex-col sm:flex-row sm:items-center">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
-                  <ShieldCheck size={16} className="text-[#3ddc97]" />
+                  <ShieldIcon size={16} className="text-[#3ddc97]" />
                 </div>
                 <div>
                   <div className="font-semibold">Apex Quant Trader License</div>
@@ -429,7 +430,7 @@ export default function Licenses() {
                       className="pill text-xs"
                       style={{ opacity: canAct ? 1 : 0.45, cursor: canAct ? "pointer" : "not-allowed" }}
                     >
-                      <KeyRound size={12} />
+                      <LicenseKeyIcon size={12} />
                       {isRotating ? "Issuing…" : isActive ? "Rotate" : "Issue key"}
                     </button>
                     {isActive && (
@@ -444,7 +445,7 @@ export default function Licenses() {
                           borderColor: "rgba(244,63,94,.25)",
                         }}
                       >
-                        <ShieldOff size={12} /> Revoke
+                        <WarningIcon size={12} /> Revoke
                       </button>
                     )}
                   </div>

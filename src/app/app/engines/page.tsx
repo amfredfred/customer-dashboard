@@ -2,7 +2,7 @@
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { PageHeader } from "@/components/metric-detail";
-import { AlertCircle, Server } from "lucide-react";
+import { EngineIcon, ErrorIcon } from "@/components/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 /* ── types ────────────────────────────────────────────────────────────── */
@@ -194,7 +194,7 @@ export default function Engines() {
       {error && !loading && (
         <div className="panel mt-4 p-4 border-[#f43f5e]/30 bg-[#f43f5e]/05">
           <div className="flex items-center gap-2 text-[#f43f5e] text-sm font-semibold">
-            <AlertCircle size={14} /> {error}
+            <ErrorIcon size={14} /> {error}
           </div>
         </div>
       )}
@@ -202,7 +202,7 @@ export default function Engines() {
       {/* Empty */}
       {!loading && !error && engines.length === 0 && (
         <div className="panel mt-6 state-block">
-          <Server size={28} className="text-white/10 mb-2" />
+          <EngineIcon size={28} className="text-white/10 mb-2" />
           <div className="font-medium">No activated execution engines</div>
           <p className="muted text-xs max-w-xs">
             Generate an activation key from Licenses &amp; Keys and connect your engine to start

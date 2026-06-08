@@ -1,9 +1,10 @@
 "use client";
 
 import {
-  Activity, CreditCard, Download, KeyRound, LayoutDashboard, LogOut,
-  Menu, RadioTower, Server, X,
-} from "lucide-react";
+  DashboardIcon, SignalIcon, ExecutionIcon, EngineIcon,
+  LicenseKeyIcon, InstallIcon,
+} from "@/components/icons";
+import { CreditCard, LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -11,14 +12,29 @@ import { useAuth } from "./auth-provider";
 import { useGateway } from "./gateway-provider";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 
-const NAV = [
-  ["/app",             "Overview",           LayoutDashboard],
-  ["/app/signals",     "Signal Performance", RadioTower],
-  ["/app/execution",   "My Execution",       Activity],
-  ["/app/engines",     "Engines",            Server],
-  ["/app/licenses",    "Licenses & Keys",    KeyRound],
-  ["/app/billing",     "Billing",            CreditCard],
-  ["/app/downloads",   "Downloads",          Download],
+const NAV_GROUPS = [
+  {
+    label: "Monitor",
+    links: [
+      ["/app",           "Overview",           DashboardIcon],
+      ["/app/signals",   "Signal Performance", SignalIcon],
+      ["/app/execution", "My Execution",       ExecutionIcon],
+    ],
+  },
+  {
+    label: "Manage",
+    links: [
+      ["/app/engines",  "Engines",        EngineIcon],
+      ["/app/licenses", "Licenses & Keys", LicenseKeyIcon],
+    ],
+  },
+  {
+    label: "Account",
+    links: [
+      ["/app/billing",   "Billing",   CreditCard],
+      ["/app/downloads", "Downloads", InstallIcon],
+    ],
+  },
 ] as const;
 
 
@@ -45,21 +61,28 @@ function SidebarContent({
         </div>
       </div>
 
-      <nav className="py-3 flex-1 overflow-y-auto">
-        {NAV.map(([href, label, Icon]) => {
-          const active = path === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onNav}
-              className={`nav-link mx-1 my-0.5${active ? " active" : ""}`}
-            >
-              <Icon size={14} />
+      <nav className="py-3 flex-1 overflow-y-auto space-y-4">
+        {NAV_GROUPS.map(({ label, links }) => (
+          <div key={label}>
+            <div className="px-4 mb-1 text-[10px] font-bold uppercase tracking-[.12em] muted">
               {label}
-            </Link>
-          );
-        })}
+            </div>
+            {links.map(([href, linkLabel, Icon]) => {
+              const active = path === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onNav}
+                  className={`nav-link mx-1 my-1${active ? " active" : ""}`}
+                >
+                  <Icon size={18} />
+                  {linkLabel}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="p-4 border-t border-white/[.07] shrink-0">
@@ -109,17 +132,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     });
   }, [supabase, session]);
 
-  /* Signal metrics — always subscribed while gateway is authenticated.
-     No cleanup: shell never unmounts, subscription must survive navigation. */
+  /* Signal metrics — always subscribed while gateway is authenticated. */
   useEffect(() => {
     if (gwStatus !== "authenticated") return;
     setSignalMetricsSubscribed(true);
   }, [gwStatus, setSignalMetricsSubscribed]);
 
-  /* Execution metrics — subscribe to the first active engine.
-     No cleanup: let the subscription persist across page changes.
-     The execution page can call setExecutionMetricsEngine directly when
-     the user switches engines; the shell re-anchors on reconnect. */
+  /* Execution metrics — subscribe to the first active engine. */
   useEffect(() => {
     if (gwStatus === "authenticated" && activeEngineId) {
       setExecutionMetricsEngine(activeEngineId);

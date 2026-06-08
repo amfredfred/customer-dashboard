@@ -1,10 +1,11 @@
 "use client";
 
-import { PageHeader, SectionHead, StreamBanner } from "@/components/metric-detail";
+import { PageHeader, SectionHead } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
 import { useAuth } from "@/components/auth-provider";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
-import { ChevronDown, Pause, Play, AlertTriangle, Loader2 } from "lucide-react";
+import { ChevronDown, Pause, Play, Loader2 } from "lucide-react";
+import { WarningIcon } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -1613,7 +1614,7 @@ function RemoteControlPanel({
           />
           <CmdButton
             label="Emergency Stop"
-            icon={<AlertTriangle size={12} />}
+            icon={<WarningIcon size={12} />}
             enabled={canEmergency}
             disabledReason={emergencyReason}
             onClick={() => requestCommand("command.emergency_stop")}
@@ -1917,11 +1918,6 @@ export default function Execution() {
 
       {!enginesLoading && engines.length > 0 && (
         <>
-          <StreamBanner domain="execution.metrics" ready={streamReady} status={streamStatus}>
-            Private stream scoped to the selected engine. The Gateway verifies ownership before
-            forwarding any account data.
-          </StreamBanner>
-
           {/* Remote controls — always visible once an engine is selected */}
           <RemoteControlPanel engineId={selectedId} controlState={engineControlState} />
 

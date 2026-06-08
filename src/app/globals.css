@@ -233,9 +233,9 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Nav links ───────────────────────────────────────────────────────── */
 .nav-link {
-  display: flex; align-items: center; gap: 9px;
-  padding: 7px 13px; border-radius: var(--radius-control);
-  font-size: 12.5px; font-weight: 500; color: var(--muted);
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 14px; border-radius: var(--radius-control);
+  font-size: 13.5px; font-weight: 500; color: var(--muted);
   transition: color .10s, background .10s;
   border-left: 2px solid transparent;
 }

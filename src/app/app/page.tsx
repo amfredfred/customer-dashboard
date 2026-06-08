@@ -5,7 +5,8 @@ import { useGateway } from "@/components/gateway-provider";
 import { useAuth } from "@/components/auth-provider";
 import { SectionHead, PageHeader } from "@/components/metric-detail";
 import { StatCard } from "@/components/stat-card";
-import { ArrowRight, ChevronDown, KeyRound, Server, Terminal } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
+import { EngineIcon, LicenseKeyIcon, TerminalIcon } from "@/components/icons";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -330,7 +331,7 @@ export default function Overview() {
               return (
                 <div key={engine.id} className="panel p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    <Terminal size={14} className="muted shrink-0" />
+                    <TerminalIcon size={14} className="muted shrink-0" />
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate mono">{engine.engine_id}</div>
                       <div className="text-xs muted truncate">{engine.device_name}</div>
@@ -360,8 +361,8 @@ export default function Overview() {
             <div className="flex items-start gap-4">
               <div className="w-9 h-9 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
                 {nextStep.href === "/app/billing"
-                  ? <Server size={15} className="text-[#3ddc97]" />
-                  : <KeyRound size={15} className="text-[#3ddc97]" />
+                  ? <EngineIcon size={15} className="text-[#3ddc97]" />
+                  : <LicenseKeyIcon size={15} className="text-[#3ddc97]" />
                 }
               </div>
               <div className="flex-1 min-w-0">

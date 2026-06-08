@@ -1,7 +1,8 @@
 "use client";
 
 import { PageHeader } from "@/components/metric-detail";
-import { Download, Monitor, Cpu, HardDrive, Wifi, CheckCircle, FileDown } from "lucide-react";
+import { Monitor, HardDrive } from "lucide-react";
+import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/components/icons";
 
 const DOWNLOAD_URL =
   "https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/ApexQuantTraderSetup.exe";
@@ -52,7 +53,7 @@ export default function Downloads() {
         <div className="flex items-start justify-between gap-6 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
-              <FileDown size={24} className="text-[#3ddc97]" />
+              <InstallIcon size={24} className="text-[#3ddc97]" />
             </div>
             <div>
               <div className="font-bold text-lg tracking-tight">Apex Quant Trader Agent</div>
@@ -71,7 +72,7 @@ export default function Downloads() {
               color: "#0a0e14",
             }}
           >
-            <Download size={15} />
+            <InstallIcon size={15} />
             Download
           </a>
         </div>
@@ -95,10 +96,10 @@ export default function Downloads() {
         <section>
           <div className="text-[10px] uppercase tracking-[.12em] muted mb-4">System Requirements</div>
           <div className="panel p-5 space-y-5">
-            <Req icon={Monitor}   label="Windows 10 or 11 (64-bit)" detail="The agent runs as a Windows service." />
-            <Req icon={Cpu}       label="2+ CPU cores recommended"   detail="Signal processing and WebSocket relay." />
-            <Req icon={HardDrive} label="100 MB free disk space"     detail="Logs are written to Program Data." />
-            <Req icon={Wifi}      label="Stable internet connection"  detail="Connects to the Apex gateway over WSS." />
+            <Req icon={Monitor}        label="Windows 10 or 11 (64-bit)" detail="The agent runs as a Windows service." />
+            <Req icon={EngineIcon}     label="2+ CPU cores recommended"   detail="Signal processing and WebSocket relay." />
+            <Req icon={HardDrive}      label="100 MB free disk space"     detail="Logs are written to Program Data." />
+            <Req icon={ConnectionIcon} label="Stable internet connection"  detail="Connects to the Apex gateway over WSS." />
           </div>
         </section>
 
@@ -130,7 +131,7 @@ export default function Downloads() {
               ["Auto-updater ready",    "Version check endpoint wired in — future updates via installer."],
             ].map(([title, detail]) => (
               <div key={title} className="flex gap-3">
-                <CheckCircle size={14} className="text-[#3ddc97] shrink-0 mt-0.5" />
+                <SuccessIcon size={14} className="text-[#3ddc97] shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs font-semibold">{title}</div>
                   <div className="text-xs muted mt-0.5">{detail}</div>

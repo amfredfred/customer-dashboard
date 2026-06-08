@@ -1,245 +1,281 @@
 "use client";
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
-import { PageHeader, SectionHead } from "@/components/metric-detail";
-import { CheckCircle, CreditCard, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/metric-detail";
+import {
+  CreditCard, Loader2, Zap, Rocket, Building2,
+  ExternalLink, Download, Radio, KeyRound,
+} from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
 
 /* ── types ────────────────────────────────────────────────────────────── */
-// Real licenses columns: id, status, max_devices, expires_at, created_at, updated_at
-type LicenseRow = {
-  id: string;
-  status: string;
-  max_devices: number;
-  expires_at: string | null;
+type BillingPlan = {
+  variantId:   string;
+  planKey:     string;
+  interval:    "monthly" | "yearly" | "custom";
+  name:        string;
+  price:       string;
+  priceNote:   string;
+  currency:    string;
+  devices:     number;
+  desc:        string;
+  features:    string[];
+  highlight:   boolean;
+  checkoutUrl: string;
 };
 
-/* ── plan tiers (static, no backend pricing API yet) ──────────────────── */
-// Checkout URLs are set via environment variables at build time.
-// Example: NEXT_PUBLIC_LS_CHECKOUT_STARTER=https://apexquanttrader.lemonsqueezy.com/checkout/buy/<variant>
-// The customer portal URL is set via NEXT_PUBLIC_LS_PORTAL_URL.
-const LS_PORTAL_URL = process.env.NEXT_PUBLIC_LS_PORTAL_URL ?? null;
-
-const PLAN_TIERS = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: "$49",
-    interval: "/mo",
-    desc: "For testing and a single execution engine.",
-    features: ["1 Execution Engine", "Private signal access", "Core risk controls", "Customer dashboard"],
-    highlight: false,
-    checkoutUrl: process.env.NEXT_PUBLIC_LS_CHECKOUT_STARTER ?? null,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$129",
-    interval: "/mo",
-    desc: "For active traders running live execution.",
-    features: ["Up to 3 Execution Engines", "Multi-account monitoring", "Per-account risk settings", "Priority diagnostics"],
-    highlight: true,
-    checkoutUrl: process.env.NEXT_PUBLIC_LS_CHECKOUT_PRO ?? null,
-  },
-  {
-    id: "infrastructure",
-    name: "Infrastructure",
-    price: "Custom",
-    interval: "",
-    desc: "For advanced users or teams needing scale.",
-    features: ["Unlimited Execution Engines", "Prop firm drawdown rules", "Rule templates", "Dedicated support"],
-    highlight: false,
-    checkoutUrl: process.env.NEXT_PUBLIC_LS_CHECKOUT_INFRASTRUCTURE ?? null,
-  },
-] as const;
-
 /* ── helpers ──────────────────────────────────────────────────────────── */
-function fmtDate(v: string | null | undefined) {
-  if (!v) return "No expiry";
-  return new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+function gatewayHttpBase(): string {
+  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://apex-gateway.somicast.com/dashboard";
+  const http  = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
+  try { return new URL(http).origin; } catch { return "https://apex-gateway.somicast.com"; }
+}
+
+const PLAN_ICON: Record<string, React.ElementType> = {
+  starter:        Zap,
+  pro:            Rocket,
+  infrastructure: Building2,
+};
+
+const WHAT_YOU_GET = [
+  {
+    icon:  Download,
+    title: "Execution Engine",
+    desc:  "Install and run on any device or VPS. Connects to the gateway and executes trade signals automatically.",
+  },
+  {
+    icon:  Radio,
+    title: "Signal Delivery",
+    desc:  "Private trade signals delivered directly to your engine the moment they are released.",
+  },
+  {
+    icon:  KeyRound,
+    title: "Activation Keys",
+    desc:  "One key per device license. Use them to authenticate and register each engine instance.",
+  },
+];
+
+/* ── IntervalToggle ───────────────────────────────────────────────────── */
+function IntervalToggle({
+  value,
+  onChange,
+}: {
+  value: "monthly" | "yearly";
+  onChange: (v: "monthly" | "yearly") => void;
+}) {
+  return (
+    <div
+      className="inline-flex p-0.5 rounded-md gap-0.5"
+      style={{ background: "var(--surface-raised)", border: "1px solid var(--line)" }}
+    >
+      {(["monthly", "yearly"] as const).map((iv) => (
+        <button
+          key={iv}
+          onClick={() => onChange(iv)}
+          className="px-4 py-1.5 rounded text-xs font-semibold transition-all"
+          style={
+            value === iv
+              ? { background: "rgba(61,220,151,.15)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.25)" }
+              : { background: "transparent", color: "var(--muted)", border: "1px solid transparent" }
+          }
+        >
+          {iv === "monthly" ? "Monthly" : "Yearly"}
+          {iv === "yearly" && (
+            <span className="ml-1.5 text-[10px]" style={{ color: "#3ddc97" }}>−20%</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── PlanCard ─────────────────────────────────────────────────────────── */
+function PlanCard({ plan }: { plan: BillingPlan }) {
+  const Icon = PLAN_ICON[plan.planKey] ?? Zap;
+
+  return (
+    <div
+      className="panel p-6 flex flex-col"
+      style={plan.highlight ? { borderColor: "rgba(61,220,151,.3)" } : undefined}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-md grid place-items-center shrink-0"
+            style={{ background: "rgba(61,220,151,.08)", border: "1px solid rgba(61,220,151,.18)" }}
+          >
+            <Icon size={15} style={{ color: "#3ddc97" }} />
+          </div>
+          <div>
+            <div className="text-sm font-semibold">{plan.name}</div>
+            <div className="text-[11px] muted leading-snug mt-0.5">{plan.desc}</div>
+          </div>
+        </div>
+        {plan.highlight && (
+          <span className="badge badge-muted text-[10px] shrink-0">Popular</span>
+        )}
+      </div>
+
+      {/* Price */}
+      <div
+        className="mb-5 pb-5"
+        style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}
+      >
+        {plan.interval === "custom" ? (
+          <div className="text-2xl font-bold tracking-tight">Custom</div>
+        ) : (
+          <>
+            <div className="text-2xl font-bold tracking-tight">
+              {plan.price}
+              <span className="text-sm font-normal muted ml-1">/mo</span>
+            </div>
+            {plan.priceNote && plan.interval === "yearly" && (
+              <div className="text-[11px] muted mt-1">{plan.priceNote}</div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Device license count */}
+      <div className="flex-1 flex flex-col items-center justify-center py-6 gap-2">
+        <div className="font-bold tracking-tight" style={{ fontSize: "3.5rem", lineHeight: 1, color: "var(--text)" }}>
+          {plan.devices >= 9999 ? "∞" : plan.devices}
+        </div>
+        <div className="text-base font-semibold muted">
+          {plan.devices === 1 ? "device license" : "device licenses"}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="mt-6">
+        {plan.interval === "custom" ? (
+          <a
+            href="mailto:support@apexquanttrader.io"
+            className="block py-2.5 text-center rounded text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{
+              background: "rgba(255,255,255,.05)",
+              color: "rgba(255,255,255,.55)",
+              border: "1px solid rgba(255,255,255,.09)",
+            }}
+          >
+            Contact us
+          </a>
+        ) : (
+          <a
+            href={plan.checkoutUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
+            style={
+              plan.highlight
+                ? { background: "rgba(61,220,151,.14)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.28)" }
+                : { background: "rgba(255,255,255,.06)", color: "rgba(255,255,255,.75)", border: "1px solid rgba(255,255,255,.11)" }
+            }
+          >
+            Subscribe <ExternalLink size={11} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ── page ─────────────────────────────────────────────────────────────── */
 export default function Billing() {
-  const supabase = getBrowserSupabase();
-  const [license, setLicense] = useState<LicenseRow | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [plans, setPlans]               = useState<BillingPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [interval, setInterval]         = useState<"monthly" | "yearly">("yearly");
 
-  const load = useCallback(async () => {
-    if (!supabase) { setLoading(false); return; }
-    const { data, error: err } = await supabase
-      .from("licenses")
-      .select("id,status,max_devices,expires_at")
-      .eq("status", "active")
-      .limit(1);
-    if (err) { setError(err.message); setLoading(false); return; }
-    setLicense(((data ?? []) as LicenseRow[])[0] ?? null);
-    setLoading(false);
-  }, [supabase]);
+  const loadPlans = useCallback(async () => {
+    setPlansLoading(true);
+    try {
+      const res  = await fetch(`${gatewayHttpBase()}/billing/plans`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json() as { plans: BillingPlan[] };
+      setPlans(json.plans ?? []);
+    } catch {
+      setPlans([]);
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadPlans(); }, [loadPlans]);
+
+  // suppress unused import warning — supabase still needed by the module
+  void getBrowserSupabase;
+
+  const visiblePlans  = plans.filter((p) => p.interval === interval || p.interval === "custom");
+  const storeCurrency = plans[0]?.currency ?? null;
 
   return (
-    <div className="page-wrap space-y-4">
+    <div className="page-wrap space-y-8">
       <PageHeader
         eyebrow="Subscription"
         title="Billing"
-        description="Current license state and available pricing tiers."
+        description="Everything included in every plan. Only the device count changes."
       />
 
-      <SectionHead label="Current license" />
-
-      {loading && (
-        <div className="panel overflow-hidden">
-          <div className="panel-head">
-            <div><div className="skeleton h-4 w-36 mb-2" /><div className="skeleton h-2.5 w-24" /></div>
-            <div className="skeleton h-5 w-14 rounded" />
-          </div>
-          <div className="panel-body grid sm:grid-cols-3 gap-5">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i}><div className="skeleton h-2 w-20 mb-2" /><div className="skeleton h-4 w-24" /></div>
-            ))}
-          </div>
+      {/* ── What you get ───────────────────────────────────────────────── */}
+      <section>
+        <div className="text-[10px] font-bold uppercase tracking-[.1em] muted mb-3">
+          What&rsquo;s included
         </div>
-      )}
-
-      {!loading && error && (
-        <div className="panel p-4" style={{ borderColor: "rgba(244,63,94,.3)", background: "rgba(244,63,94,.05)" }}>
-          <p className="text-sm text-[#f43f5e]">{error}</p>
-        </div>
-      )}
-
-      {!loading && !error && supabase && !license && (
-        <div className="panel state-block">
-          <CreditCard size={28} className="text-white/10 mb-2" />
-          <div className="font-medium">No active license</div>
-          <p className="muted text-xs max-w-xs">
-            Choose a plan below to purchase a license and gain access to the Apex Quant Trader execution network.
-          </p>
-        </div>
-      )}
-
-      {!loading && !supabase && (
-        <div className="panel p-5" style={{ borderColor: "rgba(245,185,66,.3)" }}>
-          <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942]">Supabase required</div>
-          <p className="muted text-xs mt-2 leading-5">Configure the public Supabase environment variables to load billing state.</p>
-        </div>
-      )}
-
-      {!loading && license && (
-        <div className="panel overflow-hidden">
-          <div className="panel-head flex-col sm:flex-row sm:items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
-                <ShieldCheck size={16} className="text-[#3ddc97]" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {WHAT_YOU_GET.map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="panel p-4 flex gap-3">
+              <div
+                className="w-8 h-8 rounded shrink-0 grid place-items-center mt-0.5"
+                style={{ background: "rgba(61,220,151,.08)", border: "1px solid rgba(61,220,151,.15)" }}
+              >
+                <Icon size={13} style={{ color: "#3ddc97" }} />
               </div>
               <div>
-                <div className="font-semibold">Apex Quant Trader License</div>
-                <div className="text-xs muted mt-0.5 mono">{license.id}</div>
+                <div className="text-xs font-semibold mb-1">{title}</div>
+                <div className="text-[11px] muted leading-relaxed">{desc}</div>
               </div>
             </div>
-            <span className="badge badge-green">{license.status}</span>
-          </div>
-
-          <div className="panel-body grid sm:grid-cols-3 gap-5 text-sm">
-            <div>
-              <div className="muted text-xs">Max devices</div>
-              <div className="mt-2 mono font-medium">{license.max_devices}</div>
-            </div>
-            <div>
-              <div className="muted text-xs">Expires</div>
-              <div className="mt-2 mono font-medium">{fmtDate(license.expires_at)}</div>
-            </div>
-            <div>
-              <div className="muted text-xs">Billing</div>
-              <div className="mt-2 mono font-medium text-[var(--muted)]">
-                Managed externally
-              </div>
-            </div>
-          </div>
-
-          <div className="px-5 pb-5 space-y-3">
-            <div className="panel p-4" style={{ borderColor: "rgba(245,185,66,.2)", background: "rgba(245,185,66,.04)" }}>
-              <p className="text-xs muted leading-5">
-                Subscription changes require a verified payment-provider webhook.
-                Use the Lemon Squeezy customer portal to manage upgrades, downgrades, and cancellations.
-              </p>
-            </div>
-            {LS_PORTAL_URL && (
-              <a
-                href={LS_PORTAL_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
-                style={{
-                  background: "rgba(255,255,255,.07)",
-                  color: "rgba(255,255,255,.8)",
-                  border: "1px solid rgba(255,255,255,.12)",
-                }}
-              >
-                Manage Subscription →
-              </a>
-            )}
-          </div>
+          ))}
         </div>
-      )}
+      </section>
 
-      {/* Pricing tiers */}
-      <SectionHead label="Available plans" />
-      <div className="grid md:grid-cols-3 gap-4">
-        {PLAN_TIERS.map(tier => (
-          <div
-            key={tier.id}
-            className="panel p-6 flex flex-col"
-            style={tier.highlight ? { borderColor: "rgba(61,220,151,.25)", background: "rgba(61,220,151,.04)" } : undefined}
-          >
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <span className="text-sm font-semibold">{tier.name}</span>
-              {tier.highlight && <span className="badge badge-muted">Popular</span>}
-            </div>
-            <p className="muted text-xs leading-5">{tier.desc}</p>
-            <div className="mt-5 text-4xl font-semibold tracking-tight">
-              {tier.price}
-              <span className="text-base muted">{tier.interval}</span>
-            </div>
-            <div className="mt-6 space-y-3 flex-1">
-              {tier.features.map(f => (
-                <div key={f} className="flex items-start gap-2 text-sm muted">
-                  <CheckCircle size={12} className="text-[#3ddc97] shrink-0 mt-0.5" />
-                  {f}
-                </div>
-              ))}
-            </div>
-            {tier.checkoutUrl ? (
-              <a
-                href={tier.checkoutUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-8 block py-3 text-center rounded-lg text-sm font-medium transition-all"
-                style={{
-                  background: tier.highlight ? "rgba(61,220,151,.15)" : "rgba(255,255,255,.08)",
-                  color: tier.highlight ? "#3ddc97" : "rgba(255,255,255,.8)",
-                  border: `1px solid ${tier.highlight ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.12)"}`,
-                }}
-              >
-                Subscribe
-              </a>
-            ) : (
-              <div
-                className="mt-8 py-3 text-center rounded-lg text-sm font-medium border border-white/10 text-white/25 cursor-not-allowed select-none"
-                title="Set NEXT_PUBLIC_LS_CHECKOUT_* env vars to enable"
-              >
-                {tier.id === "infrastructure" ? "Contact us" : "Checkout required"}
-              </div>
-            )}
+      {/* ── Plans ─────────────────────────────────────────────────────── */}
+      <section>
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <div className="text-[10px] font-bold uppercase tracking-[.1em] muted">
+            Plans{storeCurrency ? ` · ${storeCurrency}` : ""}
           </div>
-        ))}
-      </div>
-      <p className="muted text-xs">
-        Checkout and subscription management require a verified payment-provider webhook before a license is issued.
-        No trial is activated automatically.
-      </p>
+          {!plansLoading && plans.length > 0 && (
+            <IntervalToggle value={interval} onChange={setInterval} />
+          )}
+        </div>
+
+        {plansLoading && (
+          <div className="flex items-center justify-center gap-2 py-12 muted text-xs">
+            <Loader2 size={13} className="animate-spin" />
+            Loading plans…
+          </div>
+        )}
+
+        {!plansLoading && plans.length === 0 && (
+          <div className="panel p-4 flex items-center gap-3">
+            <CreditCard size={16} className="muted shrink-0" />
+            <div>
+              <div className="text-sm font-medium">Plans coming soon</div>
+              <p className="muted text-xs mt-0.5">Pricing will be available here shortly. Contact support if you need access now.</p>
+            </div>
+          </div>
+        )}
+
+        {!plansLoading && visiblePlans.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+            {visiblePlans.map((plan) => (
+              <PlanCard key={plan.variantId} plan={plan} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
