@@ -288,7 +288,7 @@ function OverviewTab({ metrics, scheduler, activeSignals }: {
       </section>
 
       <div className="grid xl:grid-cols-[1fr_260px] gap-5">
-        <section>
+        <section className="min-w-0">
           <SectionHead label="Scheduler" />
           {scheduler.length === 0 ? (
             <div className="panel state-block">
@@ -337,7 +337,7 @@ function OverviewTab({ metrics, scheduler, activeSignals }: {
       </div>
 
       {activeSignals.length > 0 && (
-        <section>
+        <section className="min-w-0">
           <SectionHead label="Active Signals" />
           <div className="panel overflow-hidden">
             <div className="overflow-x-auto">
@@ -486,7 +486,7 @@ function MetricsTab({ metrics, api }: {
       {(Object.keys(signalCounters).length > 0 || Object.keys(scannerGauges).length > 0) && (
         <div className="grid xl:grid-cols-2 gap-4">
           {Object.keys(signalCounters).length > 0 && (
-            <details className="panel overflow-hidden">
+            <details className="panel overflow-hidden min-w-0">
               <summary className="panel-head cursor-pointer list-none">
                 <div className="text-sm font-semibold">Signal Counters</div>
                 <span className="badge badge-muted">{Object.keys(signalCounters).length}</span>
@@ -504,7 +504,7 @@ function MetricsTab({ metrics, api }: {
             </details>
           )}
           {Object.keys(scannerGauges).length > 0 && (
-            <details className="panel overflow-hidden">
+            <details className="panel overflow-hidden min-w-0">
               <summary className="panel-head cursor-pointer list-none">
                 <div className="text-sm font-semibold">Scanner Gauges</div>
                 <span className="badge badge-muted">{Object.keys(scannerGauges).length}</span>
@@ -526,7 +526,7 @@ function MetricsTab({ metrics, api }: {
       {(Object.keys(counters).length > 0 || Object.keys(gauges).length > 0) && (
         <div className="grid xl:grid-cols-2 gap-4">
           {Object.keys(counters).length > 0 && (
-            <details className="panel overflow-hidden">
+            <details className="panel overflow-hidden min-w-0">
               <summary className="panel-head cursor-pointer list-none">
                 <div className="text-sm font-semibold">Raw Counters</div>
                 <span className="badge badge-muted">{Object.keys(counters).length}</span>
@@ -544,7 +544,7 @@ function MetricsTab({ metrics, api }: {
             </details>
           )}
           {Object.keys(gauges).length > 0 && (
-            <details className="panel overflow-hidden">
+            <details className="panel overflow-hidden min-w-0">
               <summary className="panel-head cursor-pointer list-none">
                 <div className="text-sm font-semibold">Raw Gauges</div>
                 <span className="badge badge-muted">{Object.keys(gauges).length}</span>
@@ -748,10 +748,10 @@ function LogsTab({ items }: { items: EventEntry[] }) {
 /* ── Config tab ─────────────────────────────────────────────────────────── */
 function ConfigRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5"
+    <div className="flex items-start justify-between gap-4 py-2.5"
          style={{ borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-      <span className="text-xs muted">{label}</span>
-      <span className="font-mono text-xs text-right" style={{ color: "var(--text-soft)" }}>{value}</span>
+      <span className="text-xs muted shrink-0">{label}</span>
+      <span className="font-mono text-xs text-right min-w-0 break-all" style={{ color: "var(--text-soft)" }}>{value}</span>
     </div>
   );
 }
