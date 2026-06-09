@@ -85,23 +85,39 @@ function SidebarContent({
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/[.07] shrink-0">
-        {planName && (
-          <div className="mb-3">
-            <span className="badge badge-green">{planName}</span>
+      <div className="p-3 border-t border-white/[.07] shrink-0">
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg"
+             style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}>
+          {/* Avatar initial */}
+          <div className="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0"
+               style={{ background: "rgba(61,220,151,.12)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.2)" }}>
+            {session?.user.email?.[0]?.toUpperCase() ?? "?"}
           </div>
-        )}
-        <div className="text-[11px] truncate muted">
-          {session?.user.email ?? "Preview mode"}
+
+          {/* Email + badge */}
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,.75)" }}>
+              {session?.user.email ?? "Preview mode"}
+            </div>
+            {planName && (
+              <div className="text-[9px] font-semibold mt-0.5 tracking-wide"
+                   style={{ color: "#3ddc97" }}>
+                ● {planName}
+              </div>
+            )}
+          </div>
+
+          {/* Sign out */}
+          {session && (
+            <button
+              onClick={signOut}
+              title="Sign out"
+              className="shrink-0 muted hover:text-white transition-colors"
+            >
+              <LogOut size={13} />
+            </button>
+          )}
         </div>
-        {session && (
-          <button
-            onClick={signOut}
-            className="mt-3 text-xs flex items-center gap-2 muted hover:text-white transition-colors"
-          >
-            <LogOut size={12} /> Sign out
-          </button>
-        )}
       </div>
     </div>
   );
