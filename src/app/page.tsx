@@ -10,3 +10,4 @@ export default function Root() {
   useEffect(() => { router.replace("/app"); }, [router]);
   return null;
 }
+ 
