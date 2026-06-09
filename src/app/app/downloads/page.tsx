@@ -5,7 +5,7 @@ import { Monitor, HardDrive } from "lucide-react";
 import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/components/icons";
 
 const DOWNLOAD_URL =
-  process.env.NEXT_PUBLIC_ENGINE_DOWNLOAD_URL ?? "";
+  process.env.NEXT_PUBLIC_ENGINE_DOWNLOAD_URL ?? "https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/AQAgentSetup.exe";
 
 const VERSION      = "0.1.0" ;
 const FILE_SIZE    = "28.2 MB";

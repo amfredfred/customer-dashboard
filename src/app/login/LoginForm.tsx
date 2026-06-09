@@ -8,6 +8,9 @@ import { getBrowserSupabase } from "@/lib/supabase-singleton";
 
 type AuthMethod = "otp" | "magic";
 
+const DOWNLOAD_URL =
+  process.env.NEXT_PUBLIC_ENGINE_DOWNLOAD_URL ?? "https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/AQAgentSetup.exe";
+
 function OtpInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const cells = value.split("").concat(Array(6).fill("")).slice(0, 6);
   return <div className="otp-wrap">{cells.map((cell, index) => <input
@@ -110,7 +113,7 @@ export default function LoginForm() {
             <div className="text-[11px] muted mt-0.5">Windows installer · v0.1.0 · 28 MB</div>
           </div>
           <a
-            href={process.env.NEXT_PUBLIC_ENGINE_DOWNLOAD_URL ?? ""}
+            href={DOWNLOAD_URL}
             download="AQAgentSetup.exe"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold shrink-0 transition-opacity hover:opacity-80"
             style={{ background: "rgba(61,220,151,.15)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.25)" }}
