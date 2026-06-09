@@ -1,15 +1,15 @@
-"use client";
+﻿"use client";
 
 import { PageHeader } from "@/components/metric-detail";
 import { Monitor, HardDrive } from "lucide-react";
 import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/components/icons";
 
 const DOWNLOAD_URL =
-  "https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/ApexQuantTraderSetup.exe";
+  "https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/ApexQuantelSetup.exe";
 
 const VERSION      = "0.1.0";
 const FILE_SIZE    = "28.2 MB";
-const FILE_NAME    = "ApexQuantTraderSetup.exe";
+const FILE_NAME    = "ApexQuantelSetup.exe";
 
 function Req({ icon: Icon, label, detail }: { icon: React.ElementType; label: string; detail: string }) {
   return (
@@ -45,7 +45,7 @@ export default function Downloads() {
       <PageHeader
         eyebrow="Downloads"
         title="Execution Engine"
-        description="Install the Apex Quant Trader agent on your Windows VPS alongside MetaTrader 5."
+        description="Install the Apex Quantel agent on your Windows VPS alongside MetaTrader 5."
       />
 
       {/* Main download card */}
@@ -56,7 +56,7 @@ export default function Downloads() {
               <InstallIcon size={24} className="text-[#3ddc97]" />
             </div>
             <div>
-              <div className="font-bold text-lg tracking-tight">Apex Quant Trader Agent</div>
+              <div className="font-bold text-lg tracking-tight">Apex Quantel Agent</div>
               <div className="text-xs muted mt-1">
                 Windows installer · v{VERSION} · {FILE_SIZE}
               </div>
@@ -108,7 +108,7 @@ export default function Downloads() {
           <div className="text-[10px] uppercase tracking-[.12em] muted mb-4">Setup Steps</div>
           <div className="panel p-5 space-y-5">
             <Step n={1} title="Download and run the installer"
-              detail="Run ApexQuantTraderSetup.exe and follow the on-screen steps. The engine installs to Program Files and registers as a Windows service." />
+              detail="Run ApexQuantelSetup.exe and follow the on-screen steps. The engine installs to Program Files and registers as a Windows service." />
             <Step n={2} title="Activate a license key"
               detail="Open Licenses & Keys in this dashboard, copy an activation key, and paste it into the engine's config file." />
             <Step n={3} title="Start MetaTrader 5"

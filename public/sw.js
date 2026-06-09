@@ -1,5 +1,5 @@
-/**
- * Apex Quant Trader — Service Worker
+﻿/**
+ * Apex Quantel — Service Worker
  *
  * Strategy:
  *   - App shell (HTML, JS, CSS, fonts, icons) → Cache-first, update in background

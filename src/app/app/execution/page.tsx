@@ -1781,6 +1781,184 @@ function EngineDropdown({
   );
 }
 
+/* ── No-engines empty state ─────────────────────────────────────────────── */
+function NoEnginesState() {
+  return (
+    <div className="flex flex-col items-center gap-8 py-6">
+
+      {/* Illustration — 3-step flow */}
+      <svg viewBox="0 0 480 140" fill="none" xmlns="http://www.w3.org/2000/svg"
+           className="w-full max-w-lg h-auto" aria-hidden="true">
+
+        {/* ── Step 1: Subscribe / get key ── */}
+        {/* card body */}
+        <rect x="12" y="30" width="96" height="80" rx="8"
+              fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+        {/* card header stripe */}
+        <rect x="12" y="30" width="96" height="18" rx="8"
+              fill="rgba(255,255,255,.06)" stroke="none"/>
+        <rect x="12" y="44" width="96" height="4" rx="0"
+              fill="rgba(255,255,255,.06)" stroke="none"/>
+        {/* card chip */}
+        <rect x="23" y="56" width="18" height="13" rx="2.5"
+              fill="rgba(61,220,151,.18)" stroke="rgba(61,220,151,.35)" strokeWidth="1"/>
+        <line x1="28" y1="56" x2="28" y2="69" stroke="rgba(61,220,151,.4)" strokeWidth=".8"/>
+        <line x1="33" y1="56" x2="33" y2="69" stroke="rgba(61,220,151,.4)" strokeWidth=".8"/>
+        <line x1="23" y1="61" x2="41" y2="61" stroke="rgba(61,220,151,.4)" strokeWidth=".8"/>
+        {/* lines */}
+        <rect x="48" y="57" width="48" height="3" rx="1.5" fill="rgba(255,255,255,.1)"/>
+        <rect x="48" y="64" width="32" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
+        {/* key icon */}
+        <circle cx="32" cy="88" r="7" fill="none" stroke="rgba(61,220,151,.45)" strokeWidth="1.3"/>
+        <circle cx="32" cy="88" r="2.5" fill="rgba(61,220,151,.3)" stroke="#3ddc97" strokeWidth="1"/>
+        <rect x="38" y="86.5" width="18" height="3" rx="1.5" fill="rgba(255,255,255,.13)"/>
+        <rect x="48" y="89.5" width="4" height="5" rx="1" fill="rgba(255,255,255,.13)"/>
+        <rect x="54" y="89.5" width="4" height="7" rx="1" fill="rgba(255,255,255,.13)"/>
+        {/* step number */}
+        <circle cx="60" cy="30" r="9" fill="#0e1015" stroke="rgba(61,220,151,.5)" strokeWidth="1.2"/>
+        <text x="60" y="34" textAnchor="middle" fill="#3ddc97" fontSize="9" fontWeight="700">1</text>
+
+        {/* ── Arrow 1→2 ── */}
+        <line x1="118" y1="70" x2="148" y2="70"
+              stroke="rgba(255,255,255,.12)" strokeWidth="1.2" strokeDasharray="3,3"/>
+        <polyline points="145,66 149,70 145,74"
+                  stroke="rgba(255,255,255,.2)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+
+        {/* ── Step 2: Install engine ── */}
+        {/* chip body */}
+        <rect x="154" y="36" width="76" height="68" rx="7"
+              fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+        <rect x="165" y="46" width="54" height="48" rx="4"
+              fill="rgba(255,255,255,.025)" stroke="rgba(255,255,255,.06)" strokeWidth="1"/>
+        {/* left pins */}
+        <rect x="142" y="48" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
+        <rect x="142" y="56" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
+        <rect x="142" y="64" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
+        <rect x="142" y="72" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
+        {/* right pins */}
+        <rect x="230" y="48" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
+        <rect x="230" y="56" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
+        <rect x="230" y="64" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
+        <rect x="230" y="72" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
+        {/* waveform */}
+        <polyline points="167,70 171,70 174,60 177,80 180,60 183,80 186,70 193,70 196,66 200,66"
+                  stroke="#3ddc97" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".85"/>
+        <ellipse cx="192" cy="70" rx="16" ry="9" fill="#3ddc97" fillOpacity=".04"/>
+        {/* download arrow inside die */}
+        <circle cx="210" cy="68" r="7" fill="rgba(61,220,151,.1)" stroke="rgba(61,220,151,.3)" strokeWidth="1"/>
+        <line x1="210" y1="64" x2="210" y2="70" stroke="#3ddc97" strokeWidth="1.3" strokeLinecap="round"/>
+        <polyline points="207,68 210,72 213,68" stroke="#3ddc97" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* step number */}
+        <circle cx="192" cy="30" r="9" fill="#0e1015" stroke="rgba(61,220,151,.5)" strokeWidth="1.2"/>
+        <text x="192" y="34" textAnchor="middle" fill="#3ddc97" fontSize="9" fontWeight="700">2</text>
+
+        {/* ── Arrow 2→3 ── */}
+        <line x1="250" y1="70" x2="280" y2="70"
+              stroke="rgba(255,255,255,.12)" strokeWidth="1.2" strokeDasharray="3,3"/>
+        <polyline points="277,66 281,70 277,74"
+                  stroke="rgba(255,255,255,.2)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+
+        {/* ── Step 3: Activate → streaming ── */}
+        {/* chip */}
+        <rect x="286" y="46" width="44" height="48" rx="5"
+              fill="rgba(61,220,151,.06)" stroke="rgba(61,220,151,.18)" strokeWidth="1"/>
+        <rect x="293" y="53" width="30" height="34" rx="3"
+              fill="rgba(255,255,255,.025)" stroke="rgba(61,220,151,.1)" strokeWidth="1"/>
+        <polyline points="295,70 299,70 302,62 305,78 308,62 311,78 314,70 315,70"
+                  stroke="#3ddc97" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity=".9"/>
+        <circle cx="308" cy="88" r="2.5" fill="#3ddc97" opacity=".7"/>
+        <circle cx="308" cy="88" r="5" fill="#3ddc97" fillOpacity=".08"/>
+        {/* signal arcs */}
+        <path d="M342 52 Q356 70 342 88" stroke="#3ddc97" strokeWidth="1.4" fill="none" opacity=".55" strokeLinecap="round"/>
+        <path d="M350 44 Q370 70 350 96" stroke="#3ddc97" strokeWidth="1.1" fill="none" opacity=".28" strokeLinecap="round"/>
+        <path d="M358 37 Q384 70 358 103" stroke="#3ddc97" strokeWidth=".8" fill="none" opacity=".13" strokeLinecap="round"/>
+        {/* gateway node */}
+        <circle cx="408" cy="70" r="20" fill="rgba(61,220,151,.07)" stroke="rgba(61,220,151,.22)" strokeWidth="1.3"/>
+        <circle cx="408" cy="70" r="8" fill="rgba(61,220,151,.15)" stroke="rgba(61,220,151,.4)" strokeWidth="1.2"/>
+        <circle cx="408" cy="70" r="3.5" fill="#3ddc97" opacity=".9"/>
+        <ellipse cx="408" cy="70" rx="28" ry="18" fill="#3ddc97" fillOpacity=".04"/>
+        {/* pulse rings */}
+        <circle cx="408" cy="70" r="24" stroke="#3ddc97" strokeWidth=".6" opacity=".15"/>
+        <circle cx="408" cy="70" r="32" stroke="#3ddc97" strokeWidth=".4" opacity=".07"/>
+        {/* in-flight packet */}
+        <circle cx="382" cy="70" r="3" fill="#3ddc97" opacity=".6"/>
+        {/* step number */}
+        <circle cx="330" cy="30" r="9" fill="#0e1015" stroke="rgba(61,220,151,.5)" strokeWidth="1.2"/>
+        <text x="330" y="34" textAnchor="middle" fill="#3ddc97" fontSize="9" fontWeight="700">3</text>
+
+        {/* ── Labels ── */}
+        <text x="60"  y="122" textAnchor="middle" fill="rgba(255,255,255,.35)" fontSize="9.5" fontWeight="600">Subscribe</text>
+        <text x="192" y="122" textAnchor="middle" fill="rgba(255,255,255,.35)" fontSize="9.5" fontWeight="600">Install Engine</text>
+        <text x="370" y="122" textAnchor="middle" fill="rgba(255,255,255,.35)" fontSize="9.5" fontWeight="600">Activate &amp; Stream</text>
+      </svg>
+
+      {/* Heading */}
+      <div className="text-center">
+        <div className="text-sm font-semibold mb-1">No activated execution engines</div>
+        <p className="text-[11px] muted max-w-sm leading-relaxed">
+          Follow the steps below to connect your first Trading Agent and start streaming
+          private execution metrics to this dashboard.
+        </p>
+      </div>
+
+      {/* Step cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
+        {/* Step 1 */}
+        <a href="/app/billing" className="panel flex flex-col gap-3 p-4 group transition-all hover:border-white/10"
+           style={{ border: "none", textDecoration: "none" }}>
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  style={{ background: "rgba(61,220,151,.12)", border: "1px solid rgba(61,220,151,.3)", color: "#3ddc97" }}>
+              1
+            </span>
+            <span className="text-xs font-semibold">Get a subscription</span>
+          </div>
+          <p className="text-[11px] muted leading-relaxed flex-1">
+            Choose a plan on the Billing page. After checkout, an activation key is generated for each device slot on your license.
+          </p>
+          <span className="text-[10px] font-semibold" style={{ color: "#3ddc97" }}>
+            Go to Billing →
+          </span>
+        </a>
+
+        {/* Step 2 */}
+        <a href="/app/licenses" className="panel flex flex-col gap-3 p-4 group transition-all hover:border-white/10"
+           style={{ border: "none", textDecoration: "none" }}>
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  style={{ background: "rgba(61,220,151,.12)", border: "1px solid rgba(61,220,151,.3)", color: "#3ddc97" }}>
+              2
+            </span>
+            <span className="text-xs font-semibold">Install the engine</span>
+          </div>
+          <p className="text-[11px] muted leading-relaxed flex-1">
+            Download the Execution Engine installer from Licenses &amp; Keys. Run it on your Windows PC or VPS and follow the setup wizard.
+          </p>
+          <span className="text-[10px] font-semibold" style={{ color: "#3ddc97" }}>
+            View Licenses &amp; Keys →
+          </span>
+        </a>
+
+        {/* Step 3 */}
+        <div className="panel flex flex-col gap-3 p-4" style={{ border: "none" }}>
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  style={{ background: "rgba(61,220,151,.12)", border: "1px solid rgba(61,220,151,.3)", color: "#3ddc97" }}>
+              3
+            </span>
+            <span className="text-xs font-semibold">Activate &amp; connect</span>
+          </div>
+          <p className="text-[11px] muted leading-relaxed flex-1">
+            Paste your activation key into the engine&apos;s config file. The engine authenticates with the gateway and this page starts streaming live data.
+          </p>
+          <span className="text-[10px] muted">Metrics appear here automatically</span>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function Execution() {
   const gateway = useGateway();
@@ -1906,15 +2084,7 @@ export default function Execution() {
       {enginesLoading && <ExecutionLoadingShell phase="engines" />}
 
       {/* 2 — No engines registered */}
-      {!enginesLoading && engines.length === 0 && (
-        <div className="panel state-block">
-          <div className="font-medium">No activated execution engines</div>
-          <p className="muted text-xs max-w-xs">
-            Install the Execution Engine and activate it with a key from Licenses &amp; Keys
-            to stream private execution metrics.
-          </p>
-        </div>
-      )}
+      {!enginesLoading && engines.length === 0 && <NoEnginesState />}
 
       {!enginesLoading && engines.length > 0 && (
         <>

@@ -1,9 +1,9 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { SwRegister } from "@/components/sw-register";
 import "./globals.css";
 
 const SITE_URL = "https://app.somicast.com";
-const SITE_NAME = "Apex Quant Trader";
+const SITE_NAME = "Apex Quantel";
 const SITE_DESCRIPTION =
   "Private signal access and local MT5 execution. Monitor licensed engines, account risk, and signal performance from one secure control plane.";
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { useAuth } from "@/components/auth-provider";
@@ -78,7 +78,7 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
              style={{ background: "rgba(245,185,66,.08)", border: "1px solid rgba(245,185,66,.2)" }}>
           <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-1">Copy now — shown once</div>
           <p className="text-xs muted leading-5">
-            This key will not be displayed again. Apex Quant Trader stores only the hash.
+            This key will not be displayed again. Apex Quantel stores only the hash.
             Copy it before closing this window.
           </p>
         </div>
@@ -161,6 +161,248 @@ function ConfirmRevokeDialog({ onConfirm, onCancel, busy }: {
             {busy ? "Revoking…" : "Revoke key"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Step illustrations (200 × 88 viewBox, matches billing page style) ── */
+function SubscribeIllustration() {
+  return (
+    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
+      {/* subscription card body */}
+      <rect x="18" y="16" width="80" height="56" rx="7"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+      {/* card header band */}
+      <rect x="18" y="16" width="80" height="18" rx="7"
+            fill="rgba(255,255,255,.06)"/>
+      <rect x="18" y="30" width="80" height="4" fill="rgba(255,255,255,.06)"/>
+      {/* chip */}
+      <rect x="27" y="42" width="16" height="12" rx="2.5"
+            fill="rgba(61,220,151,.15)" stroke="rgba(61,220,151,.3)" strokeWidth="1"/>
+      <line x1="31" y1="42" x2="31" y2="54" stroke="rgba(61,220,151,.35)" strokeWidth=".7"/>
+      <line x1="35" y1="42" x2="35" y2="54" stroke="rgba(61,220,151,.35)" strokeWidth=".7"/>
+      <line x1="27" y1="47" x2="43" y2="47" stroke="rgba(61,220,151,.35)" strokeWidth=".7"/>
+      {/* card number dots */}
+      <circle cx="52" cy="45" r="1.5" fill="rgba(255,255,255,.18)"/>
+      <circle cx="57" cy="45" r="1.5" fill="rgba(255,255,255,.18)"/>
+      <circle cx="62" cy="45" r="1.5" fill="rgba(255,255,255,.18)"/>
+      <circle cx="67" cy="45" r="1.5" fill="rgba(255,255,255,.18)"/>
+      {/* expiry line */}
+      <rect x="27" y="60" width="26" height="2.5" rx="1.25" fill="rgba(255,255,255,.1)"/>
+      <rect x="59" y="60" width="16" height="2.5" rx="1.25" fill="rgba(255,255,255,.07)"/>
+      {/* arrow */}
+      <line x1="106" y1="44" x2="122" y2="44"
+            stroke="rgba(255,255,255,.12)" strokeWidth="1.1" strokeDasharray="2.5,2.5"/>
+      <polyline points="119,40.5 123,44 119,47.5"
+                stroke="rgba(255,255,255,.2)" strokeWidth="1.1" fill="none" strokeLinecap="round"/>
+      {/* shield */}
+      <path d="M135 22 L135 14 Q135 12 137 12 L153 12 Q155 12 155 14 L155 22 Q155 32 145 36 Q135 32 135 22Z"
+            fill="rgba(61,220,151,.1)" stroke="rgba(61,220,151,.35)" strokeWidth="1.2"/>
+      <path d="M140 23 L143.5 27 L151 19" stroke="#3ddc97" strokeWidth="1.5" fill="none"
+            strokeLinecap="round" strokeLinejoin="round"/>
+      {/* license rows below shield */}
+      <rect x="128" y="44" width="44" height="2.5" rx="1.25" fill="rgba(255,255,255,.1)"/>
+      <rect x="128" y="50" width="36" height="2.5" rx="1.25" fill="rgba(255,255,255,.07)"/>
+      <rect x="128" y="56" width="28" height="2.5" rx="1.25" fill="rgba(255,255,255,.05)"/>
+      {/* status dot */}
+      <circle cx="145" cy="70" r="3" fill="#3ddc97" opacity=".75"/>
+      <circle cx="145" cy="70" r="6" fill="#3ddc97" fillOpacity=".08"/>
+      {/* glow */}
+      <ellipse cx="145" cy="24" rx="20" ry="12" fill="#3ddc97" fillOpacity=".04"/>
+    </svg>
+  );
+}
+
+function KeyIllustration() {
+  return (
+    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
+      {/* modal frame */}
+      <rect x="22" y="8" width="156" height="72" rx="8"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+      {/* header band */}
+      <rect x="22" y="8" width="156" height="20" rx="8"
+            fill="rgba(255,255,255,.06)"/>
+      <rect x="22" y="24" width="156" height="4" fill="rgba(255,255,255,.06)"/>
+      {/* key icon in header */}
+      <circle cx="40" cy="18" r="5.5" fill="none" stroke="rgba(61,220,151,.45)" strokeWidth="1.2"/>
+      <circle cx="40" cy="18" r="2" fill="rgba(61,220,151,.3)" stroke="#3ddc97" strokeWidth=".9"/>
+      <rect x="45" y="16.5" width="11" height="3" rx="1.5" fill="rgba(255,255,255,.12)"/>
+      <rect x="50" y="19.5" width="3" height="4" rx="1" fill="rgba(255,255,255,.12)"/>
+      <rect x="54" y="19.5" width="3" height="6" rx="1" fill="rgba(255,255,255,.12)"/>
+      {/* "New activation key" title lines */}
+      <rect x="62" y="14" width="42" height="2.5" rx="1.25" fill="rgba(255,255,255,.2)"/>
+      <rect x="62" y="19" width="30" height="2" rx="1" fill="rgba(255,255,255,.1)"/>
+      {/* warning strip */}
+      <rect x="30" y="32" width="140" height="16" rx="4"
+            fill="rgba(245,185,66,.07)" stroke="rgba(245,185,66,.22)" strokeWidth=".8"/>
+      <rect x="36" y="36" width="48" height="2.5" rx="1.25" fill="rgba(245,185,66,.4)"/>
+      <rect x="36" y="40.5" width="80" height="2" rx="1" fill="rgba(245,185,66,.2)"/>
+      {/* key code block */}
+      <rect x="30" y="53" width="116" height="14" rx="4"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.1)" strokeWidth=".8"/>
+      <rect x="36" y="57" width="72" height="2.5" rx="1.25" fill="rgba(61,220,151,.45)"/>
+      <rect x="36" y="61.5" width="50" height="2" rx="1" fill="rgba(61,220,151,.22)"/>
+      {/* copy button */}
+      <rect x="150" y="53" width="20" height="14" rx="4"
+            fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.12)" strokeWidth=".8"/>
+      <rect x="154" y="57" width="12" height="2" rx="1" fill="rgba(255,255,255,.4)"/>
+      <rect x="154" y="61" width="9" height="2" rx="1" fill="rgba(255,255,255,.25)"/>
+      {/* glow under key block */}
+      <ellipse cx="100" cy="60" rx="55" ry="8" fill="#3ddc97" fillOpacity=".03"/>
+    </svg>
+  );
+}
+
+function ActivateIllustration() {
+  return (
+    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
+      {/* config file */}
+      <rect x="8" y="12" width="52" height="64" rx="5"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.08)" strokeWidth="1"/>
+      {/* dog-ear */}
+      <path d="M48 12 L60 24 L48 24 Z" fill="rgba(255,255,255,.07)"/>
+      <line x1="48" y1="12" x2="60" y2="24" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+      {/* yaml lines */}
+      <rect x="14" y="30" width="26" height="2" rx="1" fill="rgba(255,255,255,.1)"/>
+      <rect x="14" y="36" width="20" height="2" rx="1" fill="rgba(255,255,255,.07)"/>
+      <rect x="14" y="42" width="32" height="2.5" rx="1.25" fill="rgba(61,220,151,.45)"/>
+      <rect x="14" y="47" width="24" height="2.5" rx="1.25" fill="rgba(61,220,151,.28)"/>
+      <rect x="14" y="53" width="18" height="2" rx="1" fill="rgba(255,255,255,.07)"/>
+      <rect x="14" y="59" width="22" height="2" rx="1" fill="rgba(255,255,255,.05)"/>
+      {/* key icon (unlocking) */}
+      <circle cx="95" cy="32" r="12" fill="rgba(61,220,151,.07)" stroke="rgba(61,220,151,.22)" strokeWidth="1.2"/>
+      <circle cx="95" cy="32" r="5" fill="none" stroke="rgba(61,220,151,.5)" strokeWidth="1.3"/>
+      <circle cx="95" cy="32" r="2" fill="rgba(61,220,151,.4)" stroke="#3ddc97" strokeWidth="1"/>
+      <rect x="99" y="30.5" width="16" height="3" rx="1.5" fill="rgba(255,255,255,.15)"/>
+      <rect x="108" y="33.5" width="4" height="5" rx="1" fill="rgba(255,255,255,.15)"/>
+      <rect x="113" y="33.5" width="4" height="7" rx="1" fill="rgba(255,255,255,.15)"/>
+      {/* arrows */}
+      <line x1="66" y1="44" x2="80" y2="44"
+            stroke="rgba(255,255,255,.1)" strokeWidth="1" strokeDasharray="2,2"/>
+      <line x1="112" y1="44" x2="126" y2="44"
+            stroke="rgba(61,220,151,.25)" strokeWidth="1" strokeDasharray="2,2"/>
+      {/* engine chip */}
+      <rect x="128" y="28" width="44" height="40" rx="5"
+            fill="rgba(61,220,151,.06)" stroke="rgba(61,220,151,.2)" strokeWidth="1"/>
+      <rect x="135" y="34" width="30" height="28" rx="3"
+            fill="rgba(255,255,255,.025)" stroke="rgba(61,220,151,.1)" strokeWidth="1"/>
+      <polyline points="137,48 141,48 144,40 147,56 150,40 153,56 156,48 157,48"
+                stroke="#3ddc97" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity=".9"/>
+      <ellipse cx="150" cy="48" rx="13" ry="7" fill="#3ddc97" fillOpacity=".05"/>
+      {/* live dot */}
+      <circle cx="150" cy="73" r="2.5" fill="#3ddc97" opacity=".75"/>
+      <circle cx="150" cy="73" r="5" fill="#3ddc97" fillOpacity=".09"/>
+    </svg>
+  );
+}
+
+/* wave-edge badge style (matches billing page Trading Agent badge) */
+const WAVE_BADGE: React.CSSProperties = {
+  display: "inline-block",
+  background: "rgba(255,255,255,.022)",
+  color: "rgba(255,255,255,.65)",
+  fontWeight: 900,
+  fontSize: 10,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  padding: "7px 16px",
+  WebkitMaskImage: [
+    "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
+    "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
+    "linear-gradient(white, white)",
+  ].join(", "),
+  WebkitMaskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
+  WebkitMaskPosition: "top, bottom, 0 5px",
+  WebkitMaskRepeat:   "repeat-x, repeat-x, no-repeat",
+  maskImage: [
+    "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
+    "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
+    "linear-gradient(white, white)",
+  ].join(", "),
+  maskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
+  maskPosition: "top, bottom, 0 5px",
+  maskRepeat:   "repeat-x, repeat-x, no-repeat",
+};
+
+/* ── No-licenses empty state ─────────────────────────────────────────── */
+function NoLicensesState() {
+  const steps = [
+    {
+      Illustration: SubscribeIllustration,
+      badge: "Step 1",
+      name: "Subscribe to a plan",
+      desc: "Choose Starter or Pro on the Billing page. After checkout, a license is provisioned automatically with the correct device slot count.",
+      features: ["Starter — 1 Trading Agent", "Pro — 3 Trading Agents", "License created instantly", "Keys issued server-side"],
+      cta: { label: "Go to Billing →", href: "/app/billing", active: true },
+    },
+    {
+      Illustration: KeyIllustration,
+      badge: "Step 2",
+      name: "Issue your activation key",
+      desc: "Your license card appears here after subscribing. Click Issue key — the raw key is shown exactly once and never stored in plain text.",
+      features: ["Raw key shown once only", "Hash stored server-side", "Browser never holds the key", "Rotate anytime from this page"],
+      cta: { label: "Keys appear here after subscribing", href: null, active: false },
+    },
+    {
+      Illustration: ActivateIllustration,
+      badge: "Step 3",
+      name: "Activate & connect",
+      desc: "Paste the key into your engine's config.yaml under gateway.activation_key. The engine authenticates and streams live data to My Execution.",
+      features: ["Install on Windows PC or VPS", "Paste key into config.yaml", "Engine auto-connects to gateway", "Metrics stream in real time"],
+      cta: { label: "View My Execution →", href: "/app/execution", active: true },
+    },
+  ];
+
+  return (
+    <div className="flex justify-center mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl">
+        {steps.map(({ Illustration, badge, name, desc, features, cta }) => (
+          <div key={name}
+               className="panel flex flex-col overflow-hidden"
+               style={{ border: "none" }}>
+
+            {/* Illustration */}
+            <div className="px-4 pt-4 pb-1">
+              <Illustration />
+            </div>
+
+            {/* Header */}
+            <div className="px-5 pt-2 pb-4">
+              <div className="text-sm font-semibold mb-0.5">{name}</div>
+              <div className="text-[11px] muted leading-snug">{desc}</div>
+              <div className="mt-3" style={WAVE_BADGE}>{badge}</div>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 pt-1 pb-5 flex flex-col flex-1">
+              <ul className="mb-5 flex flex-col gap-1.5" style={{ minHeight: 88 }}>
+                {features.map(f => (
+                  <li key={f} className="flex items-center gap-2 text-[11px] muted">
+                    <span className="w-1 h-1 rounded-full shrink-0"
+                          style={{ background: "var(--success)", opacity: 0.7 }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              {cta.href ? (
+                <a href={cta.href}
+                   className="flex items-center justify-center py-2.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
+                   style={{ background: "rgba(61,220,151,.1)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.25)", textDecoration: "none" }}>
+                  {cta.label}
+                </a>
+              ) : (
+                <div className="flex items-center justify-center py-2.5 rounded text-xs font-semibold"
+                     style={{ background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.25)", border: "1px solid rgba(255,255,255,.06)" }}>
+                  {cta.label}
+                </div>
+              )}
+            </div>
+
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -296,7 +538,7 @@ export default function Licenses() {
       <PageHeader
         eyebrow="Access control"
         title="Licenses & Keys"
-        description="Activation keys are issued server-side and displayed once. Apex Quant Trader stores only the keyed hash — the browser never generates, derives, or holds raw keys."
+        description="Activation keys are issued server-side and displayed once. Apex Quantel stores only the keyed hash — the browser never generates, derives, or holds raw keys."
       />
 
       {/* Loading */}
@@ -349,15 +591,7 @@ export default function Licenses() {
       )}
 
       {/* Empty */}
-      {!loading && !error && supabase && licenses.length === 0 && (
-        <div className="panel state-block mt-4">
-          <ShieldIcon size={28} className="text-white/10 mb-2" />
-          <div className="font-medium">No licenses found</div>
-          <p className="muted text-xs max-w-xs">
-            Purchase a plan from the Billing page to receive a license.
-          </p>
-        </div>
-      )}
+      {!loading && !error && supabase && licenses.length === 0 && <NoLicensesState />}
 
       {/* License cards */}
       {!loading && licenses.map(lic => {
@@ -376,7 +610,7 @@ export default function Licenses() {
                   <ShieldIcon size={16} className="text-[#3ddc97]" />
                 </div>
                 <div>
-                  <div className="font-semibold">Apex Quant Trader License</div>
+                  <div className="font-semibold">Apex Quantel License</div>
                   <div className="text-xs muted mt-0.5 mono">{lic.id}</div>
                 </div>
               </div>
@@ -456,7 +690,7 @@ export default function Licenses() {
                   <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-2">Key security</div>
                   <p className="muted text-xs leading-5">
                     Raw keys are shown once at issuance and never stored in plain text.
-                    Apex Quant Trader stores only a keyed HMAC hash. The browser never generates or hashes activation keys.
+                    Apex Quantel stores only a keyed HMAC hash. The browser never generates or hashes activation keys.
                     Rotating immediately invalidates the previous key — re-activate any affected engines with the new key.
                   </p>
                 </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
@@ -138,7 +138,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           setError("Gateway returned an invalid message");
         }
       };
-      socket.onerror = () => setError("Cannot reach Apex Quant Trader Gateway");
+      socket.onerror = () => setError("Cannot reach Apex Quantel Gateway");
       socket.onclose = event => {
         socket = null;
         socketRef.current = null;

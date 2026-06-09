@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { useAuth } from "@/components/auth-provider";
@@ -125,12 +125,12 @@ const WHAT_YOU_GET = [
   {
     Illustration: SignalIllustration,
     title: "Signal Delivery",
-    desc:  "Private trade signals delivered directly to your engine the moment they are released.",
+    desc:  "Private trade signals delivered directly to your Trading Agent the moment they are released.",
   },
   {
     Illustration: KeyIllustration,
     title: "Activation Keys",
-    desc:  "One key per device license. Use them to authenticate and register each engine instance.",
+    desc:  "One key per device license. Use them to authenticate and register each Trading Agent.",
   },
 ];
 
@@ -250,14 +250,14 @@ function IntervalToggle({
 }) {
   return (
     <div
-      className="inline-flex p-0.5 rounded-md gap-0.5"
+      className="inline-flex p-1 rounded-full gap-1"
       style={{ background: "var(--surface-raised)", border: "1px solid var(--line)" }}
     >
       {(["monthly", "yearly"] as const).map((iv) => (
         <button
           key={iv}
           onClick={() => onChange(iv)}
-          className="px-4 py-1.5 rounded text-xs font-semibold transition-all"
+          className="px-5 py-1.5 rounded-full text-xs font-semibold transition-all"
           style={
             value === iv
               ? { background: "var(--success-bg)", color: "var(--success)", border: "1px solid var(--success-border)" }
@@ -308,7 +308,7 @@ function PlanCardSkeleton({ highlight }: { highlight?: boolean }) {
       </div>
 
       {/* header */}
-      <div className="px-5 pt-2 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+      <div className="px-5 pt-2 pb-4" style={{ borderBottom: "none" }}>
         <div className="skeleton h-3.5 w-24 mb-2" />
         <div className="skeleton h-2.5 w-40" />
       </div>
@@ -340,74 +340,124 @@ function PlanCard({
 }) {
   const Illustration = PLAN_ILLUSTRATION[plan.planKey] ?? StarterIllustration;
 
-  return (
+  const card = (
     <div
-      className="panel flex flex-col overflow-hidden"
-      style={plan.highlight ? { borderColor: "var(--success-border)" } : undefined}
+      className="panel flex flex-col overflow-hidden h-full"
+      style={{
+        border: "none",
+        position: "relative",
+        ...(plan.highlight ? {
+          background: "linear-gradient(145deg, rgba(168,85,247,0.13) 0%, rgba(61,220,151,0.07) 100%)",
+        } : {}),
+      }}
     >
-      {/* Most popular accent strip */}
-      {plan.highlight && (
-        <div className="flex items-center gap-2 px-5 py-2"
-             style={{ background: "var(--success-bg)", borderBottom: "1px solid var(--success-border)" }}>
-          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--success)", boxShadow: "0 0 6px var(--success)" }} />
-          <span className="text-[10px] font-bold uppercase tracking-[.12em]" style={{ color: "var(--success)" }}>Most popular</span>
-        </div>
-      )}
-
       {/* Illustration */}
       <div className="px-4 pt-4 pb-1">
         <Illustration />
       </div>
 
-      {/* Header */}
-      <div className="px-5 pt-2 pb-4 flex items-start justify-between gap-3"
-           style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-        <div>
-          <div className="text-sm font-semibold">{plan.name}</div>
-          <div className="text-[11px] muted leading-snug mt-0.5">{plan.desc}</div>
+      {/* Corner ribbon */}
+      {plan.highlight && (
+        <div style={{
+          position: "absolute",
+          top: 14,
+          right: -22,
+          width: 90,
+          background: "linear-gradient(135deg, #a855f7, #3ddc97)",
+          color: "#fff",
+          fontSize: 8,
+          fontWeight: 700,
+          textAlign: "center",
+          padding: "4px 0",
+          transform: "rotate(45deg)",
+          letterSpacing: "0.12em",
+          pointerEvents: "none",
+        }}>
+          POPULAR
         </div>
+      )}
+
+      {/* Header */}
+      <div className="px-5 pt-2 pb-4"
+           style={{ borderBottom: "none" }}>
+        <div className="flex items-center gap-2 mb-0.5">
+          <div className="text-sm font-semibold">{plan.name}</div>
+        </div>
+        <div className="text-[11px] muted leading-snug">{plan.desc}</div>
+        {plan.interval !== "custom" && (
+          <div className="inline-block mt-3" style={{
+            background: "rgba(255,255,255,.022)",
+            color: "rgba(255,255,255,.75)",
+            fontWeight: 900,
+            fontSize: 11,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            padding: "8px 18px",
+            WebkitMaskImage: [
+              "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
+              "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
+              "linear-gradient(white, white)",
+            ].join(", "),
+            WebkitMaskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
+            WebkitMaskPosition: "top, bottom, 0 5px",
+            WebkitMaskRepeat:   "repeat-x, repeat-x, no-repeat",
+            maskImage: [
+              "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
+              "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
+              "linear-gradient(white, white)",
+            ].join(", "),
+            maskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
+            maskPosition: "top, bottom, 0 5px",
+            maskRepeat:   "repeat-x, repeat-x, no-repeat",
+          }}>
+            {plan.devices} {plan.devices === 1 ? "Trading Agent" : "Trading Agents"}
+          </div>
+        )}
       </div>
 
-      <div className="px-5 py-5 flex flex-col">
+      <div className="px-5 pt-3 pb-5 flex flex-col flex-1">
 
       {/* Price */}
-      <div
-        className="mb-5 pb-5"
-        style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}
-      >
+      <div className="mb-4">
         {plan.interval === "custom" ? (
-          <div className="text-2xl font-bold tracking-tight">Custom</div>
+          <div className="text-4xl font-bold tracking-tight">Custom</div>
         ) : (
           <>
-            <div className="text-2xl font-bold tracking-tight">
+            <div className="text-4xl font-bold tracking-tight">
               {plan.price}
-              <span className="text-sm font-normal muted ml-1">/mo</span>
+              <span className="text-base font-normal muted ml-1">/mo</span>
             </div>
-            {plan.priceNote && plan.interval === "yearly" && (
+            {plan.priceNote && (
               <div className="text-[11px] muted mt-1">{plan.priceNote}</div>
             )}
-            {plan.interval === "yearly" && (
-              plan.trialDays ? (
-                <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-md"
-                     style={{ background: "var(--success-bg)", border: "1px solid var(--success-border)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--success)" }} />
-                  <span className="text-[11px] font-semibold" style={{ color: "var(--success)" }}>
-                    {plan.trialDays}-day free trial
-                  </span>
-                </div>
-              ) : (
-                <div className="mt-3 h-[26px]" /> // placeholder to keep height consistent
-              )
+            {plan.trialDays && (
+              <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-md"
+                   style={{ background: "var(--success-bg)", border: "1px solid var(--success-border)" }}>
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--success)" }} />
+                <span className="text-[11px] font-semibold" style={{ color: "var(--success)" }}>
+                  {plan.trialDays}-day free trial
+                </span>
+              </div>
             )}
           </>
         )}
       </div>
 
+      {/* Features — always 5 rows, fixed height for button alignment */}
+      <ul className="mb-5 w-full flex flex-col gap-1.5 text-left" style={{ minHeight: 112 }}>
+        {plan.features.slice(0, 5).map((f) => (
+          <li key={f} className="flex items-center gap-2 text-[11px] muted">
+            <span className="w-1 h-1 rounded-full shrink-0" style={{ background: "var(--success)", opacity: 0.7 }} />
+            {f}
+          </li>
+        ))}
+      </ul>
+
       {/* CTA */}
-      <div className="mt-6">
+      <div>
         {plan.interval === "custom" ? (
           <a
-            href="mailto:support@apexquanttrader.io"
+            href="mailto:support@apexquantel.io"
             className="block py-2.5 text-center rounded text-xs font-semibold transition-opacity hover:opacity-80"
             style={{
               background: "rgba(255,255,255,.05)",
@@ -440,6 +490,8 @@ function PlanCard({
       </div>{/* end px-5 body */}
     </div>
   );
+
+  return card;
 }
 
 /* ── page ─────────────────────────────────────────────────────────────── */
@@ -489,7 +541,7 @@ export default function Billing() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {WHAT_YOU_GET.map(({ Illustration, title, desc }) => (
-            <div key={title} className="panel flex flex-col overflow-hidden">
+            <div key={title} className="panel flex flex-col overflow-hidden" style={{ border: "none" }}>
               <div className="px-4 pt-4 pb-1">
                 <Illustration />
               </div>
@@ -535,10 +587,12 @@ export default function Billing() {
         )}
 
         {!plansLoading && visiblePlans.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
-            {visiblePlans.map((plan) => (
-              <PlanCard key={plan.variantId} plan={plan} userEmail={userEmail} userId={userId} />
-            ))}
+          <div className="flex justify-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch w-full max-w-3xl">
+              {visiblePlans.map((plan) => (
+                <PlanCard key={plan.variantId} plan={plan} userEmail={userEmail} userId={userId} />
+              ))}
+            </div>
           </div>
         )}
       </section>
