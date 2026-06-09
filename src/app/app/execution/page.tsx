@@ -1782,184 +1782,249 @@ function EngineDropdown({
 }
 
 /* ── No-engines empty state ─────────────────────────────────────────────── */
-function NoEnginesState() {
+
+const WAVE_BADGE: React.CSSProperties = {
+  display: "inline-block",
+  background: "rgba(255,255,255,.022)",
+  color: "rgba(255,255,255,.65)",
+  fontWeight: 900,
+  fontSize: 10,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase" as const,
+  padding: "7px 16px",
+  WebkitMaskImage: [
+    "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
+    "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
+    "linear-gradient(white, white)",
+  ].join(", "),
+  WebkitMaskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
+  WebkitMaskPosition: "top, bottom, 0 5px",
+  WebkitMaskRepeat:   "repeat-x, repeat-x, no-repeat",
+  maskImage: [
+    "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
+    "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
+    "linear-gradient(white, white)",
+  ].join(", "),
+  maskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
+  maskPosition: "top, bottom, 0 5px",
+  maskRepeat:   "repeat-x, repeat-x, no-repeat",
+};
+
+function SubscribeIllustration() {
   return (
-    <div className="flex flex-col items-center gap-8 py-6">
+    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
+      {/* billing card */}
+      <rect x="14" y="14" width="80" height="60" rx="7"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+      <rect x="14" y="14" width="80" height="18" rx="7" fill="rgba(255,255,255,.06)"/>
+      <rect x="14" y="28" width="80" height="4" fill="rgba(255,255,255,.06)"/>
+      {/* plan badge */}
+      <rect x="22" y="38" width="30" height="8" rx="3"
+            fill="rgba(61,220,151,.12)" stroke="rgba(61,220,151,.3)" strokeWidth=".8"/>
+      <rect x="26" y="41" width="22" height="2" rx="1" fill="rgba(61,220,151,.55)"/>
+      {/* price */}
+      <rect x="22" y="52" width="44" height="5" rx="2" fill="rgba(255,255,255,.1)"/>
+      <rect x="22" y="60" width="28" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
+      {/* checkmark */}
+      <circle cx="80" cy="22" r="6" fill="rgba(61,220,151,.15)" stroke="rgba(61,220,151,.4)" strokeWidth="1"/>
+      <path d="M77 22 L79.5 24.5 L83 20" stroke="#3ddc97" strokeWidth="1.3"
+            strokeLinecap="round" strokeLinejoin="round"/>
+      {/* right side — license key block */}
+      <rect x="110" y="22" width="72" height="44" rx="6"
+            fill="rgba(61,220,151,.05)" stroke="rgba(61,220,151,.18)" strokeWidth="1"/>
+      <rect x="118" y="30" width="56" height="3" rx="1.5" fill="rgba(255,255,255,.1)"/>
+      <rect x="118" y="37" width="42" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
+      <rect x="118" y="44" width="50" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
+      {/* key icon */}
+      <circle cx="122" cy="56" r="5" fill="none" stroke="rgba(61,220,151,.45)" strokeWidth="1.1"/>
+      <circle cx="122" cy="56" r="2" fill="rgba(61,220,151,.3)" stroke="#3ddc97" strokeWidth=".9"/>
+      <rect x="126" y="54.5" width="14" height="3" rx="1.5" fill="rgba(255,255,255,.12)"/>
+      <rect x="132" y="57.5" width="3" height="4" rx="1" fill="rgba(255,255,255,.12)"/>
+      <rect x="137" y="57.5" width="3" height="5.5" rx="1" fill="rgba(255,255,255,.12)"/>
+      {/* connect dash */}
+      <line x1="94" y1="44" x2="110" y2="44"
+            stroke="rgba(61,220,151,.2)" strokeWidth="1" strokeDasharray="3,2.5"/>
+    </svg>
+  );
+}
 
-      {/* Illustration — 3-step flow */}
-      <svg viewBox="0 0 480 140" fill="none" xmlns="http://www.w3.org/2000/svg"
-           className="w-full max-w-lg h-auto" aria-hidden="true">
+function InstallEngineIllustration() {
+  return (
+    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
+      {/* installer window */}
+      <rect x="14" y="10" width="88" height="68" rx="7"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+      <rect x="14" y="10" width="88" height="18" rx="7" fill="rgba(255,255,255,.06)"/>
+      <rect x="14" y="24" width="88" height="4" fill="rgba(255,255,255,.06)"/>
+      <circle cx="24" cy="19" r="2.5" fill="rgba(244,63,94,.35)"/>
+      <circle cx="32" cy="19" r="2.5" fill="rgba(245,185,66,.35)"/>
+      <circle cx="40" cy="19" r="2.5" fill="rgba(61,220,151,.35)"/>
+      <rect x="50" y="16" width="30" height="3" rx="1.5" fill="rgba(255,255,255,.12)"/>
+      {/* chip icon */}
+      <rect x="30" y="34" width="28" height="24" rx="4"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+      <rect x="35" y="38" width="18" height="16" rx="2"
+            fill="rgba(255,255,255,.025)" stroke="rgba(255,255,255,.06)" strokeWidth="1"/>
+      <polyline points="37,46 40,46 42,41 44,51 46,41 48,51 50,46 51,46"
+                stroke="#3ddc97" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".8"/>
+      {/* progress bar */}
+      <rect x="24" y="64" width="68" height="5" rx="2.5" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.07)" strokeWidth=".8"/>
+      <rect x="24" y="64" width="48" height="5" rx="2.5" fill="rgba(61,220,151,.4)"/>
+      {/* download arrow */}
+      <circle cx="148" cy="36" r="18" fill="rgba(61,220,151,.07)" stroke="rgba(61,220,151,.2)" strokeWidth="1.2"/>
+      <line x1="148" y1="27" x2="148" y2="38" stroke="#3ddc97" strokeWidth="1.6" strokeLinecap="round"/>
+      <polyline points="141,35 148,43 155,35" stroke="#3ddc97" strokeWidth="1.6" fill="none"
+                strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="137" y="47" width="22" height="2.5" rx="1.25" fill="rgba(61,220,151,.3)"/>
+      <rect x="140" y="52" width="16" height="2" rx="1" fill="rgba(61,220,151,.18)"/>
+      <line x1="102" y1="44" x2="128" y2="36"
+            stroke="rgba(255,255,255,.08)" strokeWidth="1" strokeDasharray="2.5,2.5"/>
+    </svg>
+  );
+}
 
-        {/* ── Step 1: Subscribe / get key ── */}
-        {/* card body */}
-        <rect x="12" y="30" width="96" height="80" rx="8"
-              fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
-        {/* card header stripe */}
-        <rect x="12" y="30" width="96" height="18" rx="8"
-              fill="rgba(255,255,255,.06)" stroke="none"/>
-        <rect x="12" y="44" width="96" height="4" rx="0"
-              fill="rgba(255,255,255,.06)" stroke="none"/>
-        {/* card chip */}
-        <rect x="23" y="56" width="18" height="13" rx="2.5"
-              fill="rgba(61,220,151,.18)" stroke="rgba(61,220,151,.35)" strokeWidth="1"/>
-        <line x1="28" y1="56" x2="28" y2="69" stroke="rgba(61,220,151,.4)" strokeWidth=".8"/>
-        <line x1="33" y1="56" x2="33" y2="69" stroke="rgba(61,220,151,.4)" strokeWidth=".8"/>
-        <line x1="23" y1="61" x2="41" y2="61" stroke="rgba(61,220,151,.4)" strokeWidth=".8"/>
-        {/* lines */}
-        <rect x="48" y="57" width="48" height="3" rx="1.5" fill="rgba(255,255,255,.1)"/>
-        <rect x="48" y="64" width="32" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
-        {/* key icon */}
-        <circle cx="32" cy="88" r="7" fill="none" stroke="rgba(61,220,151,.45)" strokeWidth="1.3"/>
-        <circle cx="32" cy="88" r="2.5" fill="rgba(61,220,151,.3)" stroke="#3ddc97" strokeWidth="1"/>
-        <rect x="38" y="86.5" width="18" height="3" rx="1.5" fill="rgba(255,255,255,.13)"/>
-        <rect x="48" y="89.5" width="4" height="5" rx="1" fill="rgba(255,255,255,.13)"/>
-        <rect x="54" y="89.5" width="4" height="7" rx="1" fill="rgba(255,255,255,.13)"/>
-        {/* step number */}
-        <circle cx="60" cy="30" r="9" fill="#0e1015" stroke="rgba(61,220,151,.5)" strokeWidth="1.2"/>
-        <text x="60" y="34" textAnchor="middle" fill="#3ddc97" fontSize="9" fontWeight="700">1</text>
+function StreamIllustration() {
+  return (
+    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
+      {/* engine chip */}
+      <rect x="14" y="24" width="52" height="48" rx="6"
+            fill="rgba(61,220,151,.06)" stroke="rgba(61,220,151,.2)" strokeWidth="1"/>
+      <rect x="21" y="32" width="38" height="32" rx="3"
+            fill="rgba(255,255,255,.025)" stroke="rgba(61,220,151,.1)" strokeWidth="1"/>
+      {/* live waveform */}
+      <polyline points="23,48 27,48 30,39 33,57 36,39 39,57 42,48 45,48 48,43 52,43"
+                stroke="#3ddc97" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".9"/>
+      <ellipse cx="38" cy="48" rx="14" ry="8" fill="#3ddc97" fillOpacity=".05"/>
+      {/* status dot */}
+      <circle cx="40" cy="64" r="2.5" fill="#3ddc97" opacity=".8"/>
+      <circle cx="40" cy="64" r="5" fill="#3ddc97" fillOpacity=".1"/>
+      {/* connection dash */}
+      <line x1="70" y1="48" x2="96" y2="48"
+            stroke="rgba(61,220,151,.25)" strokeWidth="1.2" strokeDasharray="3,2"/>
+      <circle cx="84" cy="48" r="2.5" fill="#3ddc97" opacity=".5"/>
+      {/* dashboard panel */}
+      <rect x="100" y="12" width="84" height="64" rx="7"
+            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
+      <rect x="100" y="12" width="84" height="16" rx="7" fill="rgba(255,255,255,.05)"/>
+      <rect x="100" y="24" width="84" height="4" fill="rgba(255,255,255,.05)"/>
+      <rect x="108" y="14" width="28" height="2.5" rx="1.25" fill="rgba(255,255,255,.12)"/>
+      {/* mini chart inside dashboard */}
+      <polyline points="108,52 115,46 122,54 129,42 136,50 143,44 150,48 157,38 165,46 172,42 179,44"
+                stroke="#3ddc97" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".7"/>
+      <rect x="108" y="58" width="66" height="2.5" rx="1.25" fill="rgba(255,255,255,.07)"/>
+      <rect x="108" y="63" width="44" height="2" rx="1" fill="rgba(255,255,255,.05)"/>
+      {/* live badge on dashboard */}
+      <rect x="142" y="13" width="24" height="10" rx="3"
+            fill="rgba(61,220,151,.12)" stroke="rgba(61,220,151,.3)" strokeWidth=".8"/>
+      <circle cx="148" cy="18" r="1.8" fill="#3ddc97" opacity=".8"/>
+      <rect x="151" y="16.5" width="12" height="2" rx="1" fill="rgba(61,220,151,.6)"/>
+    </svg>
+  );
+}
 
-        {/* ── Arrow 1→2 ── */}
-        <line x1="118" y1="70" x2="148" y2="70"
-              stroke="rgba(255,255,255,.12)" strokeWidth="1.2" strokeDasharray="3,3"/>
-        <polyline points="145,66 149,70 145,74"
-                  stroke="rgba(255,255,255,.2)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
+  const steps = [
+    {
+      Illustration: SubscribeIllustration,
+      done: hasLicense,
+      badge: "Step 1",
+      name: "Get a subscription",
+      desc: hasLicense
+        ? "License active. Your subscription is set up — head to Licenses & Keys to manage keys and install AQ Agent."
+        : "Choose a plan on the Billing page. After checkout, an activation key is provisioned for each device slot on your license.",
+      features: ["Choose Starter or Pro plan", "License provisioned instantly", "One key per device slot", "Managed from Licenses & Keys"],
+      cta: { label: hasLicense ? "View Licenses & Keys →" : "Go to Billing →", href: hasLicense ? "/app/licenses" : "/app/billing", active: true },
+    },
+    {
+      Illustration: InstallEngineIllustration,
+      done: false,
+      badge: "Step 2",
+      name: "Install AQ Agent",
+      desc: "Download the AQ Agent installer from Licenses & Keys. Run it on your Windows PC or VPS — the setup wizard handles everything.",
+      features: ["Windows 10 / 11 or Server", "Runs on any VPS provider", "MT5 must be installed", "One AQ Agent per device slot"],
+      cta: { label: "Download from Licenses & Keys →", href: "/app/licenses", active: true },
+    },
+    {
+      Illustration: StreamIllustration,
+      done: false,
+      badge: "Step 3",
+      name: "Activate & stream live data",
+      desc: "Paste your activation key into AQ Agent's config.yaml. AQ Agent connects, registers itself, and this page starts streaming live execution telemetry.",
+      features: ["Paste key into config.yaml", "AQ Agent auto-registers on first run", "Live P&L, signals & guards", "Telemetry updates in real time"],
+      cta: { label: "Data appears here automatically", href: null, active: false },
+    },
+  ];
 
-        {/* ── Step 2: Install engine ── */}
-        {/* chip body */}
-        <rect x="154" y="36" width="76" height="68" rx="7"
-              fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
-        <rect x="165" y="46" width="54" height="48" rx="4"
-              fill="rgba(255,255,255,.025)" stroke="rgba(255,255,255,.06)" strokeWidth="1"/>
-        {/* left pins */}
-        <rect x="142" y="48" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
-        <rect x="142" y="56" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
-        <rect x="142" y="64" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
-        <rect x="142" y="72" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
-        {/* right pins */}
-        <rect x="230" y="48" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
-        <rect x="230" y="56" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.09)"/>
-        <rect x="230" y="64" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
-        <rect x="230" y="72" width="12" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
-        {/* waveform */}
-        <polyline points="167,70 171,70 174,60 177,80 180,60 183,80 186,70 193,70 196,66 200,66"
-                  stroke="#3ddc97" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".85"/>
-        <ellipse cx="192" cy="70" rx="16" ry="9" fill="#3ddc97" fillOpacity=".04"/>
-        {/* download arrow inside die */}
-        <circle cx="210" cy="68" r="7" fill="rgba(61,220,151,.1)" stroke="rgba(61,220,151,.3)" strokeWidth="1"/>
-        <line x1="210" y1="64" x2="210" y2="70" stroke="#3ddc97" strokeWidth="1.3" strokeLinecap="round"/>
-        <polyline points="207,68 210,72 213,68" stroke="#3ddc97" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        {/* step number */}
-        <circle cx="192" cy="30" r="9" fill="#0e1015" stroke="rgba(61,220,151,.5)" strokeWidth="1.2"/>
-        <text x="192" y="34" textAnchor="middle" fill="#3ddc97" fontSize="9" fontWeight="700">2</text>
+  const doneBadge: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    background: "rgba(61,220,151,.12)",
+    color: "#3ddc97",
+    fontWeight: 700,
+    fontSize: 10,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    padding: "5px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(61,220,151,.3)",
+  };
 
-        {/* ── Arrow 2→3 ── */}
-        <line x1="250" y1="70" x2="280" y2="70"
-              stroke="rgba(255,255,255,.12)" strokeWidth="1.2" strokeDasharray="3,3"/>
-        <polyline points="277,66 281,70 277,74"
-                  stroke="rgba(255,255,255,.2)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-
-        {/* ── Step 3: Activate → streaming ── */}
-        {/* chip */}
-        <rect x="286" y="46" width="44" height="48" rx="5"
-              fill="rgba(61,220,151,.06)" stroke="rgba(61,220,151,.18)" strokeWidth="1"/>
-        <rect x="293" y="53" width="30" height="34" rx="3"
-              fill="rgba(255,255,255,.025)" stroke="rgba(61,220,151,.1)" strokeWidth="1"/>
-        <polyline points="295,70 299,70 302,62 305,78 308,62 311,78 314,70 315,70"
-                  stroke="#3ddc97" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity=".9"/>
-        <circle cx="308" cy="88" r="2.5" fill="#3ddc97" opacity=".7"/>
-        <circle cx="308" cy="88" r="5" fill="#3ddc97" fillOpacity=".08"/>
-        {/* signal arcs */}
-        <path d="M342 52 Q356 70 342 88" stroke="#3ddc97" strokeWidth="1.4" fill="none" opacity=".55" strokeLinecap="round"/>
-        <path d="M350 44 Q370 70 350 96" stroke="#3ddc97" strokeWidth="1.1" fill="none" opacity=".28" strokeLinecap="round"/>
-        <path d="M358 37 Q384 70 358 103" stroke="#3ddc97" strokeWidth=".8" fill="none" opacity=".13" strokeLinecap="round"/>
-        {/* gateway node */}
-        <circle cx="408" cy="70" r="20" fill="rgba(61,220,151,.07)" stroke="rgba(61,220,151,.22)" strokeWidth="1.3"/>
-        <circle cx="408" cy="70" r="8" fill="rgba(61,220,151,.15)" stroke="rgba(61,220,151,.4)" strokeWidth="1.2"/>
-        <circle cx="408" cy="70" r="3.5" fill="#3ddc97" opacity=".9"/>
-        <ellipse cx="408" cy="70" rx="28" ry="18" fill="#3ddc97" fillOpacity=".04"/>
-        {/* pulse rings */}
-        <circle cx="408" cy="70" r="24" stroke="#3ddc97" strokeWidth=".6" opacity=".15"/>
-        <circle cx="408" cy="70" r="32" stroke="#3ddc97" strokeWidth=".4" opacity=".07"/>
-        {/* in-flight packet */}
-        <circle cx="382" cy="70" r="3" fill="#3ddc97" opacity=".6"/>
-        {/* step number */}
-        <circle cx="330" cy="30" r="9" fill="#0e1015" stroke="rgba(61,220,151,.5)" strokeWidth="1.2"/>
-        <text x="330" y="34" textAnchor="middle" fill="#3ddc97" fontSize="9" fontWeight="700">3</text>
-
-        {/* ── Labels ── */}
-        <text x="60"  y="122" textAnchor="middle" fill="rgba(255,255,255,.35)" fontSize="9.5" fontWeight="600">Subscribe</text>
-        <text x="192" y="122" textAnchor="middle" fill="rgba(255,255,255,.35)" fontSize="9.5" fontWeight="600">Install Engine</text>
-        <text x="370" y="122" textAnchor="middle" fill="rgba(255,255,255,.35)" fontSize="9.5" fontWeight="600">Activate &amp; Stream</text>
-      </svg>
-
-      {/* Heading */}
-      <div className="text-center">
-        <div className="text-sm font-semibold mb-1">No activated execution engines</div>
-        <p className="text-[11px] muted max-w-sm leading-relaxed">
-          Follow the steps below to connect your first Trading Agent and start streaming
-          private execution metrics to this dashboard.
-        </p>
+  return (
+    <div className="flex justify-center mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl">
+        {steps.map(({ Illustration, done, badge, name, desc, features, cta }) => (
+          <div key={name}
+               className="panel flex flex-col overflow-hidden"
+               style={{ border: "none", opacity: done ? 0.55 : 1, transition: "opacity .2s" }}>
+            <div className="px-4 pt-4 pb-1"><Illustration /></div>
+            <div className="px-5 pt-2 pb-4">
+              <div className="text-sm font-semibold mb-0.5">{name}</div>
+              <div className="text-[11px] muted leading-snug">{desc}</div>
+              <div className="mt-3">
+                {done ? (
+                  <span style={doneBadge}>
+                    <svg viewBox="0 0 12 12" fill="none" className="w-2.5 h-2.5">
+                      <path d="M2 6 L5 9 L10 3" stroke="#3ddc97" strokeWidth="1.6"
+                            strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Done
+                  </span>
+                ) : (
+                  <div style={WAVE_BADGE}>{badge}</div>
+                )}
+              </div>
+            </div>
+            <div className="px-5 pt-1 pb-5 flex flex-col flex-1">
+              <ul className="mb-5 flex flex-col gap-1.5" style={{ minHeight: 88 }}>
+                {features.map(f => (
+                  <li key={f} className="flex items-center gap-2 text-[11px] muted">
+                    <span className="w-1 h-1 rounded-full shrink-0"
+                          style={{ background: "var(--success)", opacity: done ? 0.4 : 0.7 }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              {cta.href ? (
+                <a href={cta.href}
+                   className="flex items-center justify-center py-2.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
+                   style={{ background: "rgba(61,220,151,.1)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.25)", textDecoration: "none" }}>
+                  {cta.label}
+                </a>
+              ) : (
+                <div className="flex items-center justify-center py-2.5 rounded text-xs font-semibold"
+                     style={{ background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.25)", border: "1px solid rgba(255,255,255,.06)" }}>
+                  {cta.label}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
-
-      {/* Step cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
-        {/* Step 1 */}
-        <a href="/app/billing" className="panel flex flex-col gap-3 p-4 group transition-all hover:border-white/10"
-           style={{ border: "none", textDecoration: "none" }}>
-          <div className="flex items-center gap-2.5">
-            <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                  style={{ background: "rgba(61,220,151,.12)", border: "1px solid rgba(61,220,151,.3)", color: "#3ddc97" }}>
-              1
-            </span>
-            <span className="text-xs font-semibold">Get a subscription</span>
-          </div>
-          <p className="text-[11px] muted leading-relaxed flex-1">
-            Choose a plan on the Billing page. After checkout, an activation key is generated for each device slot on your license.
-          </p>
-          <span className="text-[10px] font-semibold" style={{ color: "#3ddc97" }}>
-            Go to Billing →
-          </span>
-        </a>
-
-        {/* Step 2 */}
-        <a href="/app/licenses" className="panel flex flex-col gap-3 p-4 group transition-all hover:border-white/10"
-           style={{ border: "none", textDecoration: "none" }}>
-          <div className="flex items-center gap-2.5">
-            <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                  style={{ background: "rgba(61,220,151,.12)", border: "1px solid rgba(61,220,151,.3)", color: "#3ddc97" }}>
-              2
-            </span>
-            <span className="text-xs font-semibold">Install the engine</span>
-          </div>
-          <p className="text-[11px] muted leading-relaxed flex-1">
-            Download the Execution Engine installer from Licenses &amp; Keys. Run it on your Windows PC or VPS and follow the setup wizard.
-          </p>
-          <span className="text-[10px] font-semibold" style={{ color: "#3ddc97" }}>
-            View Licenses &amp; Keys →
-          </span>
-        </a>
-
-        {/* Step 3 */}
-        <div className="panel flex flex-col gap-3 p-4" style={{ border: "none" }}>
-          <div className="flex items-center gap-2.5">
-            <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                  style={{ background: "rgba(61,220,151,.12)", border: "1px solid rgba(61,220,151,.3)", color: "#3ddc97" }}>
-              3
-            </span>
-            <span className="text-xs font-semibold">Activate &amp; connect</span>
-          </div>
-          <p className="text-[11px] muted leading-relaxed flex-1">
-            Paste your activation key into the engine&apos;s config file. The engine authenticates with the gateway and this page starts streaming live data.
-          </p>
-          <span className="text-[10px] muted">Metrics appear here automatically</span>
-        </div>
-      </div>
-
     </div>
   );
 }
 
-/* ── page ───────────────────────────────────────────────────────────────── */
 export default function Execution() {
   const gateway = useGateway();
   const { setExecutionMetricsEngine, status: gwStatus } = gateway;
@@ -1968,6 +2033,7 @@ export default function Execution() {
   const [engines, setEngines]         = useState<EngineOption[]>([]);
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [enginesLoading, setEnginesLoading] = useState(true);
+  const [hasLicense, setHasLicense]   = useState(false);
   const [activeTab, setActiveTab]     = useState<TabId>("overview");
 
   /* ── event accumulation ─────────────────────────────────────────────── */
@@ -1978,13 +2044,20 @@ export default function Execution() {
 
   const loadEngines = useCallback(async () => {
     if (!supabase) { setEnginesLoading(false); return; }
-    const { data } = await supabase
-      .from("engine_devices")
-      .select("id,engine_id,device_name")
-      .eq("status", "active")
-      .order("activated_at", { ascending: false });
-    const rows = (data ?? []) as EngineOption[];
+    const [devResult, licResult] = await Promise.all([
+      supabase
+        .from("engine_devices")
+        .select("id,engine_id,device_name")
+        .eq("status", "active")
+        .order("activated_at", { ascending: false }),
+      supabase
+        .from("licenses")
+        .select("id")
+        .limit(1),
+    ]);
+    const rows = (devResult.data ?? []) as EngineOption[];
     setEngines(rows);
+    setHasLicense((licResult.data?.length ?? 0) > 0);
     if (rows.length > 0) setSelectedId(prev => prev ?? rows[0].engine_id);
     setEnginesLoading(false);
   }, [supabase]);
@@ -2084,7 +2157,7 @@ export default function Execution() {
       {enginesLoading && <ExecutionLoadingShell phase="engines" />}
 
       {/* 2 — No engines registered */}
-      {!enginesLoading && engines.length === 0 && <NoEnginesState />}
+      {!enginesLoading && engines.length === 0 && <NoEnginesState hasLicense={hasLicense} />}
 
       {!enginesLoading && engines.length > 0 && (
         <>

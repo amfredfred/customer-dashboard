@@ -227,51 +227,85 @@ const WAVE_BADGE: React.CSSProperties = {
   maskRepeat:   "repeat-x, repeat-x, no-repeat",
 };
 
-function NoEnginesState() {
+function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
   const steps = [
     {
       Illustration: GetKeyIllustration,
+      done: hasLicense,
       badge: "Step 1",
       name: "Get an activation key",
-      desc: "Subscribe on Billing to receive a license, then visit Licenses & Keys to issue your activation key. The raw key is shown once — copy it immediately.",
+      desc: hasLicense
+        ? "License detected. Head to Licenses & Keys to issue your AQ Agent activation key if you haven't already."
+        : "Subscribe on Billing to receive a license, then visit Licenses & Keys to issue your activation key. The raw key is shown once — copy it immediately.",
       features: ["Subscribe on the Billing page", "License provisioned automatically", "Issue key from Licenses & Keys", "Raw key shown once only"],
-      cta: { label: "Go to Licenses & Keys →", href: "/app/licenses", active: true },
+      cta: { label: hasLicense ? "View Licenses & Keys →" : "Go to Licenses & Keys →", href: "/app/licenses", active: true },
     },
     {
       Illustration: InstallIllustration,
+      done: false,
       badge: "Step 2",
-      name: "Install the engine",
-      desc: "Download the Apex Quantel Execution Engine installer. Run it on any Windows PC or VPS — the setup wizard handles everything.",
-      features: ["Windows 10 / 11 or Server", "Runs on any VPS provider", "MT5 must be installed", "One installer per Trading Agent"],
+      name: "Install AQ Agent",
+      desc: "Download the AQ Agent installer. Run it on any Windows PC or VPS — the setup wizard handles everything.",
+      features: ["Windows 10 / 11 or Server", "Runs on any VPS provider", "MT5 must be installed", "One AQ Agent per device slot"],
       cta: { label: "Download from Licenses & Keys →", href: "/app/licenses", active: true },
     },
     {
       Illustration: HeartbeatIllustration,
+      done: false,
       badge: "Step 3",
       name: "Connect & go online",
-      desc: "Paste the key into the engine's config.yaml under gateway.activation_key. The engine connects, registers here, and starts sending heartbeats.",
-      features: ["Paste key into config.yaml", "Engine auto-registers on first run", "Heartbeat every 30 seconds", "Status updates in real time"],
-      cta: { label: "Engines appear here when connected", href: null, active: false },
+      desc: "Paste the key into AQ Agent's config.yaml under gateway.activation_key. AQ Agent connects, registers here, and starts sending heartbeats.",
+      features: ["Paste key into config.yaml", "AQ Agent auto-registers on first run", "Heartbeat every 30 seconds", "Status updates in real time"],
+      cta: { label: "AQ Agents appear here when connected", href: null, active: false },
     },
   ];
+
+  const doneBadge: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    background: "rgba(61,220,151,.12)",
+    color: "#3ddc97",
+    fontWeight: 700,
+    fontSize: 10,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    padding: "5px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(61,220,151,.3)",
+  };
 
   return (
     <div className="flex justify-center mt-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl">
-        {steps.map(({ Illustration, badge, name, desc, features, cta }) => (
-          <div key={name} className="panel flex flex-col overflow-hidden" style={{ border: "none" }}>
+        {steps.map(({ Illustration, done, badge, name, desc, features, cta }) => (
+          <div key={name}
+               className="panel flex flex-col overflow-hidden"
+               style={{ border: "none", opacity: done ? 0.55 : 1, transition: "opacity .2s" }}>
             <div className="px-4 pt-4 pb-1"><Illustration /></div>
             <div className="px-5 pt-2 pb-4">
               <div className="text-sm font-semibold mb-0.5">{name}</div>
               <div className="text-[11px] muted leading-snug">{desc}</div>
-              <div className="mt-3" style={WAVE_BADGE}>{badge}</div>
+              <div className="mt-3">
+                {done ? (
+                  <span style={doneBadge}>
+                    <svg viewBox="0 0 12 12" fill="none" className="w-2.5 h-2.5">
+                      <path d="M2 6 L5 9 L10 3" stroke="#3ddc97" strokeWidth="1.6"
+                            strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Done
+                  </span>
+                ) : (
+                  <div style={WAVE_BADGE}>{badge}</div>
+                )}
+              </div>
             </div>
             <div className="px-5 pt-1 pb-5 flex flex-col flex-1">
               <ul className="mb-5 flex flex-col gap-1.5" style={{ minHeight: 88 }}>
                 {features.map(f => (
                   <li key={f} className="flex items-center gap-2 text-[11px] muted">
                     <span className="w-1 h-1 rounded-full shrink-0"
-                          style={{ background: "var(--success)", opacity: 0.7 }} />
+                          style={{ background: done ? "var(--success)" : "var(--success)", opacity: done ? 0.4 : 0.7 }} />
                     {f}
                   </li>
                 ))}
@@ -299,10 +333,11 @@ function NoEnginesState() {
 /* ── page ─────────────────────────────────────────────────────────────── */
 export default function Engines() {
   const supabase = getBrowserSupabase();
-  const [engines, setEngines] = useState<EngineView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [nowMs, setNowMs]     = useState(0);
+  const [engines, setEngines]     = useState<EngineView[]>([]);
+  const [hasLicense, setHasLicense] = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [nowMs, setNowMs]         = useState(0);
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -323,7 +358,7 @@ export default function Engines() {
     const licIds    = [...new Set(devices.map(d => d.license_id))];
     const deviceIds = devices.map(d => d.id);
 
-    const [licResult, entResult, sessResult] = await Promise.all([
+    const [licResult, entResult, sessResult, anyLicResult] = await Promise.all([
       licIds.length
         ? supabase.from("licenses").select("id,status,max_devices,expires_at").in("id", licIds)
         : Promise.resolve({ data: [], error: null }),
@@ -337,6 +372,8 @@ export default function Engines() {
             .in("engine_device_id", deviceIds)
             .order("connected_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
+      // Direct license check — needed when no devices are registered yet
+      supabase.from("licenses").select("id").limit(1),
     ]);
 
     const err = licResult.error ?? entResult.error ?? sessResult.error;
@@ -354,6 +391,7 @@ export default function Engines() {
     const slotsByLicense = new Map<string, number>();
     for (const d of devices) slotsByLicense.set(d.license_id, (slotsByLicense.get(d.license_id) ?? 0) + 1);
 
+    setHasLicense((anyLicResult.data?.length ?? 0) > 0);
     setEngines(devices.map(d => ({
       ...d,
       license:    licenses.get(d.license_id),
@@ -376,9 +414,9 @@ export default function Engines() {
   return (
     <div className="page-wrap space-y-4">
       <PageHeader
-        eyebrow="Installed engines"
-        title="Engines"
-        description="Activated execution engines and their latest Gateway session heartbeat. Online = heartbeat within 90 s · Degraded = 90 s–5 min · Offline = >5 min or disconnected."
+        eyebrow="AQ Agents"
+        title="AQ Agents"
+        description="Activated AQ Agents and their latest Gateway session heartbeat. Online = heartbeat within 90 s · Degraded = 90 s–5 min · Offline = >5 min or disconnected."
       />
 
       {/* Loading */}
@@ -410,7 +448,7 @@ export default function Engines() {
       )}
 
       {/* Empty */}
-      {!loading && !error && engines.length === 0 && <NoEnginesState />}
+      {!loading && !error && engines.length === 0 && <NoEnginesState hasLicense={hasLicense} />}
 
       {/* Engine cards */}
       <div className="space-y-3">

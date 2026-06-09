@@ -348,8 +348,8 @@ function NoLicensesState() {
       Illustration: ActivateIllustration,
       badge: "Step 3",
       name: "Activate & connect",
-      desc: "Paste the key into your engine's config.yaml under gateway.activation_key. The engine authenticates and streams live data to My Execution.",
-      features: ["Install on Windows PC or VPS", "Paste key into config.yaml", "Engine auto-connects to gateway", "Metrics stream in real time"],
+      desc: "Paste the key into AQ Agent's config.yaml under gateway.activation_key. AQ Agent authenticates and streams live data to My Execution.",
+      features: ["Install AQ Agent on Windows PC or VPS", "Paste key into config.yaml", "AQ Agent auto-connects to gateway", "Metrics stream in real time"],
       cta: { label: "View My Execution →", href: "/app/execution", active: true },
     },
   ];
@@ -409,10 +409,91 @@ function NoLicensesState() {
 }
 
 /* ── page ────────────────────────────────────────────────────────────── */
+/* ── AQ Agent download card (shown when license exists but no AQ Agent connected yet) ── */
+function EngineDownloadCard() {
+  const [info, setInfo] = useState<{ version: string; download_url: string | null } | null>(null);
+
+  useEffect(() => {
+    fetch(`${gatewayHttpBase()}/engine-version`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setInfo(d as { version: string; download_url: string | null }))
+      .catch(() => null);
+  }, []);
+
+  return (
+    <div className="panel overflow-hidden mt-6" style={{ border: "none" }}>
+      {/* header strip */}
+      <div className="px-5 pt-5 pb-4 flex items-center justify-between gap-4 flex-wrap"
+           style={{ borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+        <div className="flex items-center gap-3">
+          {/* chip icon */}
+          <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0"
+               style={{ background: "rgba(61,220,151,.1)", border: "1px solid rgba(61,220,151,.25)" }}>
+            <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+              <rect x="3" y="3" width="14" height="14" rx="3"
+                    fill="none" stroke="#3ddc97" strokeWidth="1.4"/>
+              <rect x="6" y="6" width="8" height="8" rx="1.5"
+                    fill="none" stroke="rgba(61,220,151,.5)" strokeWidth="1"/>
+              <polyline points="6,10 7.5,10 8.5,7.5 9.5,12.5 10.5,7.5 11.5,12.5 12.5,10 14,10"
+                        stroke="#3ddc97" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <div className="text-sm font-semibold">AQ Agent</div>
+            <div className="text-xs muted mt-0.5">
+              {info ? `v${info.version} · Windows 10/11 or Server` : "Fetching version info…"}
+            </div>
+          </div>
+        </div>
+
+        {/* download CTA */}
+        {info?.download_url ? (
+          <a href={info.download_url}
+             className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+             style={{ background: "rgba(61,220,151,.12)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.28)", textDecoration: "none" }}>
+            <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5">
+              <line x1="8" y1="2" x2="8" y2="10" stroke="#3ddc97" strokeWidth="1.5" strokeLinecap="round"/>
+              <polyline points="4,7 8,11 12,7" stroke="#3ddc97" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="2" y1="14" x2="14" y2="14" stroke="#3ddc97" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Download installer
+          </a>
+        ) : (
+          <span className="text-xs muted px-4 py-2 rounded-lg"
+                style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)" }}>
+            {info ? "Download not configured" : "Loading…"}
+          </span>
+        )}
+      </div>
+
+      {/* next steps row */}
+      <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-[11px]">
+        {[
+          { n: "1", label: "Run the installer", body: "Execute the .exe on your Windows PC or VPS and follow the setup wizard." },
+          { n: "2", label: "Paste your activation key", body: "Open config.yaml and set gateway.activation_key to the key you issued above." },
+          { n: "3", label: "Start AQ Agent", body: "Run AQ Agent. It registers here automatically and begins streaming to My Execution." },
+        ].map(({ n, label, body }) => (
+          <div key={n} className="flex gap-3">
+            <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5"
+                  style={{ background: "rgba(61,220,151,.12)", border: "1px solid rgba(61,220,151,.28)", color: "#3ddc97" }}>
+              {n}
+            </span>
+            <div>
+              <div className="font-semibold text-white/70 mb-0.5">{label}</div>
+              <div className="muted leading-relaxed">{body}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Licenses() {
   const supabase  = getBrowserSupabase();
   const { session } = useAuth();
   const [licenses, setLicenses] = useState<LicenseView[]>([]);
+  const [totalEngines, setTotalEngines] = useState(0);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -461,6 +542,7 @@ export default function Licenses() {
       deviceCountByLicense.set(d.license_id, (deviceCountByLicense.get(d.license_id) ?? 0) + 1);
     }
 
+    setTotalEngines((devResult.data ?? []).length);
     setLicenses(rows.map(r => ({
       ...r,
       symbols:     symbolsByLicense.get(r.id) ?? [],
@@ -590,8 +672,11 @@ export default function Licenses() {
         </div>
       )}
 
-      {/* Empty */}
+      {/* Empty — no license yet */}
       {!loading && !error && supabase && licenses.length === 0 && <NoLicensesState />}
+
+      {/* Has license but no engine connected — show install prompt */}
+      {!loading && licenses.length > 0 && totalEngines === 0 && <EngineDownloadCard />}
 
       {/* License cards */}
       {!loading && licenses.map(lic => {
