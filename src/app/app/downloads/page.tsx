@@ -5,11 +5,11 @@ import { Monitor, HardDrive } from "lucide-react";
 import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/components/icons";
 
 const DOWNLOAD_URL =
-  "https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/ApexQuantelSetup.exe";
+  process.env.NEXT_PUBLIC_ENGINE_DOWNLOAD_URL ?? "";
 
 const VERSION      = "0.1.0";
 const FILE_SIZE    = "28.2 MB";
-const FILE_NAME    = "ApexQuantelSetup.exe";
+const FILE_NAME    = "AQAgentSetup.exe";
 
 function Req({ icon: Icon, label, detail }: { icon: React.ElementType; label: string; detail: string }) {
   return (
@@ -44,8 +44,8 @@ export default function Downloads() {
     <div className="page-wrap space-y-6">
       <PageHeader
         eyebrow="Downloads"
-        title="Execution Engine"
-        description="Install the Apex Quantel agent on your Windows VPS alongside MetaTrader 5."
+        title="AQ Agent"
+        description="Install AQ Agent on your Windows PC or VPS alongside MetaTrader 5."
       />
 
       {/* Main download card */}
@@ -56,7 +56,7 @@ export default function Downloads() {
               <InstallIcon size={24} className="text-[#3ddc97]" />
             </div>
             <div>
-              <div className="font-bold text-lg tracking-tight">Apex Quantel Agent</div>
+              <div className="font-bold text-lg tracking-tight">AQ Agent</div>
               <div className="text-xs muted mt-1">
                 Windows installer · v{VERSION} · {FILE_SIZE}
               </div>
@@ -96,7 +96,7 @@ export default function Downloads() {
         <section>
           <div className="text-[10px] uppercase tracking-[.12em] muted mb-4">System Requirements</div>
           <div className="panel p-5 space-y-5">
-            <Req icon={Monitor}        label="Windows 10 or 11 (64-bit)" detail="The agent runs as a Windows service." />
+            <Req icon={Monitor}        label="Windows 10 or 11 (64-bit)" detail="AQ Agent runs as a Windows Task Scheduler task." />
             <Req icon={EngineIcon}     label="2+ CPU cores recommended"   detail="Signal processing and WebSocket relay." />
             <Req icon={HardDrive}      label="100 MB free disk space"     detail="Logs are written to Program Data." />
             <Req icon={ConnectionIcon} label="Stable internet connection"  detail="Connects to the Apex gateway over WSS." />
@@ -108,11 +108,11 @@ export default function Downloads() {
           <div className="text-[10px] uppercase tracking-[.12em] muted mb-4">Setup Steps</div>
           <div className="panel p-5 space-y-5">
             <Step n={1} title="Download and run the installer"
-              detail="Run ApexQuantelSetup.exe and follow the on-screen steps. The engine installs to Program Files and registers as a Windows service." />
+              detail="Run AQAgentSetup.exe and follow the on-screen steps. AQ Agent installs to Program Files and registers as a Windows Task Scheduler task." />
             <Step n={2} title="Activate a license key"
-              detail="Open Licenses & Keys in this dashboard, copy an activation key, and paste it into the engine's config file." />
+              detail="Open Licenses & Keys in this dashboard, copy an activation key, and paste it into AQ Agent's config.yaml." />
             <Step n={3} title="Start MetaTrader 5"
-              detail="Open MT5 on the same machine. The agent connects automatically on startup and appears in the Engines page." />
+              detail="Open MT5 on the same machine. AQ Agent connects automatically on startup and appears in the My Execution page." />
           </div>
         </section>
       </div>
@@ -126,7 +126,7 @@ export default function Downloads() {
               ["Execution agent",       "Core service that connects to MT5 and executes signals."],
               ["Gateway connector",     "Secure WebSocket link to the Apex cloud gateway."],
               ["Config file",           "config.yaml pre-filled with gateway URL and safe defaults."],
-              ["Windows service setup", "Automatic service registration via NSSM — starts at boot."],
+              ["Task Scheduler setup",  "Registers as a Windows Task Scheduler task — starts at boot."],
               ["Uninstaller",           "Clean removal included via standard Windows Programs panel."],
               ["Auto-updater ready",    "Version check endpoint wired in — future updates via installer."],
             ].map(([title, detail]) => (

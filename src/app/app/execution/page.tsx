@@ -1158,18 +1158,18 @@ function ExecutionLoadingShell({
       ? "Gateway offline"
       : connecting
       ? "Connecting to gateway…"
-      : "Waiting for execution engine…";
+      : "Waiting for AQ Agent…";
 
   const body =
     phase === "engines"
       ? "Fetching your activated engine list from the database."
       : forbidden
-      ? (error ?? "The gateway could not verify ownership of this engine. Check that the engine is activated under your license.")
+      ? (error ?? "The gateway could not verify ownership of this AQ Agent. Check that it is activated under your license.")
       : offline
       ? "Start the execution gateway and reload to stream execution metrics."
       : connecting
       ? "Authenticating with the gateway — this only takes a moment."
-      : "Gateway is subscribed and waiting for the first metrics snapshot from the upstream execution engine.";
+      : "Gateway is subscribed and waiting for the first metrics snapshot from AQ Agent.";
 
   return (
     <div className="space-y-4">
@@ -1725,7 +1725,7 @@ function EngineDropdown({
           <div className="px-3.5 py-2.5 border-b"
                style={{ borderColor: "rgba(255,255,255,.06)" }}>
             <div className="text-[10px] font-bold uppercase tracking-widest muted">
-              Execution engines
+              AQ Agents
             </div>
           </div>
 

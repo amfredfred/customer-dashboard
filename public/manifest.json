@@ -1,14 +1,18 @@
 {
   "name": "Apex Quantel",
-  "short_name": "Apex",
-  "description": "Private signal access and local MT5 execution. Monitor licensed engines, account risk, and signal performance from one secure control plane.",
+  "short_name": "Apex Quantel",
+  "description": "Automated trading infrastructure. Private signal access and local MT5 execution from one secure dashboard.",
+  "id": "/app",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "display_override": ["standalone", "browser"],
+  "orientation": "any",
+  "lang": "en-US",
+  "dir": "ltr",
   "background_color": "#0a0e14",
   "theme_color": "#0a0e14",
-  "categories": ["finance", "productivity"],
+  "categories": ["finance", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icon.png",
@@ -26,10 +30,10 @@
       "src": "/icon.png",
       "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "maskable"
     }
   ],
   "screenshots": [],
-  "related_applications": [],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "related_applications": []
 }

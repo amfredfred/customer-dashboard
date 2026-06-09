@@ -119,8 +119,8 @@ function KeyIllustration() {
 const WHAT_YOU_GET = [
   {
     Illustration: EngineIllustration,
-    title: "Execution Engine",
-    desc:  "Install and run on any device or VPS. Connects to the gateway and executes trade signals automatically.",
+    title: "AQ Agent",
+    desc:  "Install and run on any Windows PC or VPS. Connects to the gateway and executes trade signals automatically.",
   },
   {
     Illustration: SignalIllustration,
