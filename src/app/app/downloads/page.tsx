@@ -7,7 +7,7 @@ import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/componen
 const DOWNLOAD_URL =
   process.env.NEXT_PUBLIC_ENGINE_DOWNLOAD_URL ?? "";
 
-const VERSION      = "0.1.0";
+const VERSION      = "0.1.0" ;
 const FILE_SIZE    = "28.2 MB";
 const FILE_NAME    = "AQAgentSetup.exe";
 
