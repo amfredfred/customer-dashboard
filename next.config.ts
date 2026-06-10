@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
   // Disable React StrictMode's double-invocation in dev - prevents the
   // Supabase "multiple GoTrueClient instances" warning from auth-provider.tsx.
   reactStrictMode: false,
+
+  output: "export",
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;
