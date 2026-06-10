@@ -4,7 +4,7 @@ import {
   DashboardIcon, SignalIcon, ExecutionIcon, EngineIcon,
   LicenseKeyIcon, InstallIcon,
 } from "@/components/icons";
-import { CreditCard, LogOut, Menu, X } from "lucide-react";
+import { CreditCard, LogOut, Menu, Shield, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -42,12 +42,14 @@ function SidebarContent({
   path,
   session,
   planName,
+  isAdmin,
   onNav,
   signOut,
 }: {
   path: string;
   session: { user: { email?: string } } | null;
   planName: string;
+  isAdmin: boolean;
   onNav?: () => void;
   signOut: () => void;
 }) {
@@ -84,6 +86,20 @@ function SidebarContent({
           </div>
         ))}
       </nav>
+
+      {isAdmin && (
+        <div className="px-1 pb-1 border-t border-white/[.07] pt-2">
+          <Link
+            href="/admin"
+            onClick={onNav}
+            className={`nav-link mx-0 my-1${path.startsWith("/admin") ? " active" : ""}`}
+            style={{ color: path.startsWith("/admin") ? "#f43f5e" : undefined }}
+          >
+            <Shield size={16} style={{ color: path.startsWith("/admin") ? "#f43f5e" : "currentColor" }} />
+            Admin Panel
+          </Link>
+        </div>
+      )}
 
       <div className="p-3 border-t border-white/[.07] shrink-0">
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg"
@@ -129,11 +145,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { status: gwStatus, setSignalMetricsSubscribed, setExecutionMetricsEngine } = useGateway();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [planName, setPlanName] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [activeEngineId, setActiveEngineId] = useState<string | null>(null);
   const supabase = getBrowserSupabase();
   const fetchedRef = useRef(false);
 
-  /* One-time fetch: plan badge + first active engine for subscription */
+  /* One-time fetch: plan badge + first active engine + admin flag */
   useEffect(() => {
     if (!supabase || !session || fetchedRef.current) return;
     fetchedRef.current = true;
@@ -141,10 +158,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       supabase.from("licenses").select("id,status").eq("status", "active").limit(1),
       supabase.from("engine_devices").select("engine_id").eq("status", "active")
         .order("activated_at", { ascending: false }).limit(1),
-    ]).then(([licResult, devResult]) => {
+      // Check admin access silently — 403 is expected for non-admins
+      session.access_token
+        ? fetch("/api/admin/me", { headers: { Authorization: `Bearer ${session.access_token}` } })
+            .then((r) => r.ok)
+            .catch(() => false)
+        : Promise.resolve(false),
+    ]).then(([licResult, devResult, adminOk]) => {
       if (licResult.data?.[0]) setPlanName("Licensed");
       const engineId = (devResult.data?.[0] as { engine_id: string } | undefined)?.engine_id ?? null;
       if (engineId) setActiveEngineId(engineId);
+      if (adminOk === true) setIsAdmin(true);
     });
   }, [supabase, session]);
 
@@ -169,6 +193,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           path={path}
           session={session}
           planName={planName}
+          isAdmin={isAdmin}
           signOut={() => void signOut()}
         />
       </aside>
@@ -194,6 +219,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               path={path}
               session={session}
               planName={planName}
+              isAdmin={isAdmin}
               onNav={() => setDrawerOpen(false)}
               signOut={() => { void signOut(); setDrawerOpen(false); }}
             />
