@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "@/components/auth-provider";
 import { AdminShell } from "@/components/admin-shell";
-import { getBrowserSupabase } from "@/lib/supabase-singleton";
+import { adminFetch } from "@/lib/admin-api";
 
 function AdminLoader() {
   return (
@@ -37,13 +37,8 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     if (!loading && session) {
       // Verify admin status via API route
       void (async () => {
-        const supabase = getBrowserSupabase();
-        const { data: { session: s } } = await supabase!.auth.getSession();
-        const token = s?.access_token ?? "";
         try {
-          const res = await fetch("/api/admin/me", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await adminFetch("/admin/me");
           if (res.ok) {
             setAllowed(true);
           } else {

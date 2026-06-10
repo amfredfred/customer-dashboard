@@ -3,6 +3,7 @@
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { useAuth } from "@/components/auth-provider";
 import { PageHeader, SectionHead } from "@/components/metric-detail";
+import { gatewayHttpBase } from "@/lib/gateway";
 import { Copy, X } from "lucide-react";
 import { ErrorIcon, LicenseKeyIcon, ShieldIcon, SuccessIcon, WarningIcon } from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
@@ -30,11 +31,6 @@ function fmtDate(value: string | null | undefined) {
   });
 }
 
-function gatewayHttpBase(): string {
-  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://apex-gateway.somicast.com/dashboard";
-  const http = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
-  try { return new URL(http).origin; } catch { return "https://apex-gateway.somicast.com"; }
-}
 
 /* ── Key reveal modal ─────────────────────────────────────────────────── */
 function KeyRevealModal({ licenseId, rawKey, onClose }: {

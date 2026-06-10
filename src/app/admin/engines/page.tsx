@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/metric-detail";
-import { getBrowserSupabase } from "@/lib/supabase-singleton";
+import { adminFetch } from "@/lib/admin-api";
 import { X, Zap } from "lucide-react";
 import { ErrorIcon, RefreshIcon } from "@/components/icons";
 
@@ -38,8 +38,8 @@ function fmtAgo(v: string | null) {
 
 type CommandType = "command.pause" | "command.resume" | "command.emergency_stop";
 
-function CommandPanel({ engineId, onClose, token }: {
-  engineId: string; onClose: () => void; token: string;
+function CommandPanel({ engineId, onClose }: {
+  engineId: string; onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -48,9 +48,8 @@ function CommandPanel({ engineId, onClose, token }: {
     setBusy(true);
     setResult(null);
     try {
-      const res = await fetch(`/api/admin/engines/${engineId}/command`, {
+      const res = await adminFetch(`/admin/engines/${engineId}/command`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ command_type: commandType }),
       });
       const body = await res.json() as { status?: string; error?: string };
@@ -156,23 +155,13 @@ export default function AdminEnginesPage() {
   const [rows, setRows] = useState<EngineRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState("");
   const [commandTarget, setCommandTarget] = useState<EngineRow | null>(null);
-
-  const loadToken = useCallback(async () => {
-    const sb = getBrowserSupabase();
-    const { data: { session } } = await sb!.auth.getSession();
-    const t = session?.access_token ?? "";
-    setToken(t);
-    return t;
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const tok = await loadToken();
     try {
-      const res = await fetch("/api/admin/engines", { headers: { Authorization: `Bearer ${tok}` } });
+      const res = await adminFetch("/admin/engines");
       if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
       setRows(await res.json() as EngineRow[]);
     } catch (e) {
@@ -180,7 +169,7 @@ export default function AdminEnginesPage() {
     } finally {
       setLoading(false);
     }
-  }, [loadToken]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -192,7 +181,6 @@ export default function AdminEnginesPage() {
       {commandTarget && (
         <CommandPanel
           engineId={commandTarget.engine_id}
-          token={token}
           onClose={() => setCommandTarget(null)}
         />
       )}

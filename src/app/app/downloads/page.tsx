@@ -2,6 +2,7 @@
 
 import { PageHeader } from "@/components/metric-detail";
 import { Monitor, HardDrive } from "lucide-react";
+import { gatewayHttpBase } from "@/lib/gateway";
 import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/components/icons";
 import { useEffect, useState } from "react";
 
@@ -12,11 +13,6 @@ const FALLBACK_VERSION = "0.1.2";
 const FILE_SIZE        = "28.1 MB";
 const FILE_NAME        = "AQAgentSetup.exe";
 
-function gatewayHttpBase(): string {
-  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://apex-gateway.somicast.com/dashboard";
-  const http = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
-  try { return new URL(http).origin; } catch { return "https://apex-gateway.somicast.com"; }
-}
 
 /** Live version from the gateway's /engine-version endpoint; static fallback. */
 function useEngineVersion(): string {

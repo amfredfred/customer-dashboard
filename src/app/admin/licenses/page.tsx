@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/metric-detail";
-import { getBrowserSupabase } from "@/lib/supabase-singleton";
+import { adminFetch } from "@/lib/admin-api";
 import { Copy, X } from "lucide-react";
 import { SuccessIcon, ErrorIcon, LicenseKeyIcon, RefreshIcon } from "@/components/icons";
 
@@ -121,7 +121,6 @@ export default function AdminLicensesPage() {
   const [rows, setRows] = useState<LicenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Modals
@@ -131,19 +130,11 @@ export default function AdminLicensesPage() {
     onConfirm: () => void;
   } | null>(null);
 
-  const loadToken = useCallback(async () => {
-    const sb = getBrowserSupabase();
-    const { data: { session } } = await sb!.auth.getSession();
-    setToken(session?.access_token ?? "");
-    return session?.access_token ?? "";
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const tok = await loadToken();
     try {
-      const res = await fetch("/api/admin/licenses", { headers: { Authorization: `Bearer ${tok}` } });
+      const res = await adminFetch("/admin/licenses");
       if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
       setRows(await res.json() as LicenseRow[]);
     } catch (e) {
@@ -151,16 +142,14 @@ export default function AdminLicensesPage() {
     } finally {
       setLoading(false);
     }
-  }, [loadToken]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
   async function patch(id: string, body: Record<string, unknown>) {
     setActionError(null);
-    const tok = token || await loadToken();
-    const res = await fetch(`/api/admin/licenses/${id}`, {
+    const res = await adminFetch(`/admin/licenses/${id}`, {
       method: "PATCH",
-      headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -173,11 +162,7 @@ export default function AdminLicensesPage() {
 
   async function issueKey(id: string) {
     setActionError(null);
-    const tok = token || await loadToken();
-    const res = await fetch(`/api/admin/licenses/${id}/keys`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${tok}` },
-    });
+    const res = await adminFetch(`/admin/licenses/${id}/keys`, { method: "POST" });
     const body = await res.json() as { key?: string; error?: string };
     if (!res.ok) { setActionError(body.error ?? "Failed to issue key"); return; }
     setKeyModal({ licenseId: id, rawKey: body.key ?? "" });
@@ -186,11 +171,7 @@ export default function AdminLicensesPage() {
 
   async function revokeKey(id: string) {
     setActionError(null);
-    const tok = token || await loadToken();
-    const res = await fetch(`/api/admin/licenses/${id}/keys`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${tok}` },
-    });
+    const res = await adminFetch(`/admin/licenses/${id}/keys`, { method: "DELETE" });
     if (!res.ok && res.status !== 204) {
       const body = await res.json().catch(() => ({})) as { error?: string };
       setActionError(body.error ?? "Failed to revoke key");

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader, SectionHead } from "@/components/metric-detail";
 import { StatCard } from "@/components/stat-card";
-import { getBrowserSupabase } from "@/lib/supabase-singleton";
+import { adminFetch } from "@/lib/admin-api";
 import { RefreshIcon } from "@/components/icons";
 
 type Stats = {
@@ -21,12 +21,7 @@ export default function AdminOverviewPage() {
     setLoading(true);
     setError(null);
     try {
-      const supabase = getBrowserSupabase();
-      const { data: { session } } = await supabase!.auth.getSession();
-      const token = session?.access_token ?? "";
-      const res = await fetch("/api/admin/stats", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch("/admin/stats");
       if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
       setStats(await res.json() as Stats);
     } catch (e) {

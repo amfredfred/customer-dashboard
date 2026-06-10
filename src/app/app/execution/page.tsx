@@ -3,6 +3,7 @@
 import { PageHeader, SectionHead } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
 import { useAuth } from "@/components/auth-provider";
+import { gatewayHttpBase } from "@/lib/gateway";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -1093,12 +1094,6 @@ function ExecutionLoadingShell({
   );
 }
 
-/* ── Gateway HTTP base URL helper ───────────────────────────────────────── */
-function gatewayHttpBase(): string {
-  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://apex-gateway.somicast.com/dashboard";
-  const http = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
-  try { return new URL(http).origin; } catch { return "https://apex-gateway.somicast.com"; }
-}
 
 /* ── Remote control types ───────────────────────────────────────────────── */
 type CmdType  = "command.pause" | "command.resume" | "command.emergency_stop";
