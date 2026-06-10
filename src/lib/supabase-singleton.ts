@@ -19,7 +19,7 @@ let _instance: BrowserClient | undefined;
 
 export function getBrowserSupabase(): BrowserClient {
   if (typeof window === "undefined") {
-    // Never cache on the server — each SSR request is independent.
+    // Never cache on the server - each SSR request is independent.
     return null;
   }
   if (_instance === undefined) {

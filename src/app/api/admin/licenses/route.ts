@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/admin-auth";
 import { getAdminSupabase } from "@/lib/admin-supabase";
 
-/** GET /api/admin/licenses — all licenses with owner email and symbol list. */
+/** GET /api/admin/licenses - all licenses with owner email and symbol list. */
 export async function GET(req: NextRequest) {
   const auth = await verifyAdmin(req);
   if (auth instanceof NextResponse) return auth;

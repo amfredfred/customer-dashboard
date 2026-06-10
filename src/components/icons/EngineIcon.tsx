@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Execution engine module — rounded square with three compute rails inside. */
+/** Execution engine module - rounded square with three compute rails inside. */
 export function EngineIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

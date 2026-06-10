@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/login" },
   robots: { index: true, follow: false },
   openGraph: {
-    title: "Sign In — Apex Quantel",
+    title: "Sign In - Apex Quantel",
     description:
       "Sign in to your Apex Quantel dashboard. Secure access via Google, magic link, or one-time code.",
     url: "https://app.somicast.com/login",
@@ -18,14 +18,14 @@ export const metadata: Metadata = {
         url: "https://app.somicast.com/apex-quantel-og.png",
         width: 1200,
         height: 630,
-        alt: "Sign In — Apex Quantel",
+        alt: "Sign In - Apex Quantel",
         type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sign In — Apex Quantel",
+    title: "Sign In - Apex Quantel",
     description: "Sign in to your Apex Quantel dashboard.",
     images: ["https://app.somicast.com/apex-quantel-og.png"],
   },

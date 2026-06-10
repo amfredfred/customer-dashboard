@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Installer / download — module package with a downward mount rail. */
+/** Installer / download - module package with a downward mount rail. */
 export function InstallIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

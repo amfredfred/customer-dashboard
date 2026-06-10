@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Server-side Supabase client using the service role key.
- * Never import this in client components — it would expose the key.
+ * Never import this in client components - it would expose the key.
  * Only use in Next.js Route Handlers (app/api/**\/route.ts).
  */
 export function getAdminSupabase() {

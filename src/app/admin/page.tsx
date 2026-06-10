@@ -45,7 +45,7 @@ export default function AdminOverviewPage() {
         title="System Overview"
         description="Platform-wide license and engine health at a glance."
         right={
-          <button className="btn-ghost flex items-center gap-1.5" onClick={() => void load()}>
+          <button className="btn btn-ghost btn-sm" onClick={() => void load()}>
             <RefreshIcon size={14} className={loading ? "animate-spin" : ""} />
             Refresh
           </button>
@@ -53,33 +53,33 @@ export default function AdminOverviewPage() {
       />
 
       {error && (
-        <div className="card mb-6 p-4 text-sm" style={{ borderColor: "var(--danger-border)", color: "var(--danger)" }}>
+        <div className="surface mb-6 p-4 text-sm" style={{ borderColor: "var(--danger-border)", color: "var(--danger)" }}>
           {error}
         </div>
       )}
 
       <SectionHead label="Licenses" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Total"     value={stats ? String(stats.licenses.total)     : "—"} />
-        <StatCard label="Active"    value={stats ? String(stats.licenses.active)    : "—"} tone={stats && stats.licenses.active > 0 ? "good" : "normal"} />
-        <StatCard label="Suspended" value={stats ? String(stats.licenses.suspended) : "—"} tone={stats && stats.licenses.suspended > 0 ? "warn" : "normal"} />
-        <StatCard label="Expired"   value={stats ? String(stats.licenses.expired)   : "—"} tone={stats && stats.licenses.expired > 0 ? "danger" : "normal"} />
+        <StatCard label="Total"     value={stats ? String(stats.licenses.total)     : "-"} />
+        <StatCard label="Active"    value={stats ? String(stats.licenses.active)    : "-"} tone={stats && stats.licenses.active > 0 ? "good" : "normal"} />
+        <StatCard label="Suspended" value={stats ? String(stats.licenses.suspended) : "-"} tone={stats && stats.licenses.suspended > 0 ? "warn" : "normal"} />
+        <StatCard label="Expired"   value={stats ? String(stats.licenses.expired)   : "-"} tone={stats && stats.licenses.expired > 0 ? "danger" : "normal"} />
       </div>
 
       <SectionHead label="Execution Engines" />
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        <StatCard label="Registered Devices" value={stats ? String(stats.devices.total)          : "—"} />
-        <StatCard label="Active Devices"     value={stats ? String(stats.devices.active)         : "—"} tone={stats && stats.devices.active > 0 ? "good" : "normal"} />
-        <StatCard label="Live WS Connections" value={stats ? String(stats.connectedEngines) : "—"} tone={stats && stats.connectedEngines > 0 ? "good" : "normal"} />
+        <StatCard label="Registered Devices" value={stats ? String(stats.devices.total)          : "-"} />
+        <StatCard label="Active Devices"     value={stats ? String(stats.devices.active)         : "-"} tone={stats && stats.devices.active > 0 ? "good" : "normal"} />
+        <StatCard label="Live WS Connections" value={stats ? String(stats.connectedEngines) : "-"} tone={stats && stats.connectedEngines > 0 ? "good" : "normal"} />
       </div>
 
       <SectionHead label="Quick links" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <a href="/admin/licenses" className="card p-4 hover:border-white/20 transition-colors block">
+        <a href="/admin/licenses" className="surface p-4 hover:border-white/20 transition-colors block">
           <div className="text-sm font-semibold mb-1">License Management</div>
           <div className="text-xs muted">View all licenses, suspend, extend expiry, rotate keys</div>
         </a>
-        <a href="/admin/engines" className="card p-4 hover:border-white/20 transition-colors block">
+        <a href="/admin/engines" className="surface p-4 hover:border-white/20 transition-colors block">
           <div className="text-sm font-semibold mb-1">Engine Management</div>
           <div className="text-xs muted">Monitor all connected engines, dispatch remote commands</div>
         </a>

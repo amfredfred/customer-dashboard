@@ -47,9 +47,12 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
           if (res.ok) {
             setAllowed(true);
           } else {
+            const body = await res.text().catch(() => "");
+            console.warn(`[admin] access denied (HTTP ${res.status}): ${body}`);
             router.replace("/app");
           }
-        } catch {
+        } catch (err) {
+          console.warn("[admin] access check failed:", err);
           router.replace("/app");
         } finally {
           setChecking(false);

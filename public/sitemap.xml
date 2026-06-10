@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
 
-  <!-- Public login page — the only publicly crawlable route -->
+  <!-- Public login page - the only publicly crawlable route -->
   <url>
     <loc>https://app.somicast.com/login</loc>
     <lastmod>2026-06-09</lastmod>

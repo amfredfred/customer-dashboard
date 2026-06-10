@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Terminal log viewer — framed terminal with prompt and output lines. */
+/** Terminal log viewer - framed terminal with prompt and output lines. */
 export function LogsIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

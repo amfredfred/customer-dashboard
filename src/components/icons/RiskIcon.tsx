@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Risk guardrail — shield boundary with inner threshold line and guarded point. */
+/** Risk guardrail - shield boundary with inner threshold line and guarded point. */
 export function RiskIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

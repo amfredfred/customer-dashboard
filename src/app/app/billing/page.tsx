@@ -199,7 +199,7 @@ function ProIllustration() {
 function InfraIllustration() {
   return (
     <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
-      {/* 6 chips — 2 cols × 3 rows */}
+      {/* 6 chips - 2 cols × 3 rows */}
       {[0,1,2].map((row) => [0,1].map((col) => (
         <g key={`${row}-${col}`}>
           <rect x={4 + col * 44} y={6 + row * 27} width="38" height="18" rx="3"
@@ -344,11 +344,10 @@ function PlanCard({
     <div
       className="panel flex flex-col overflow-hidden h-full"
       style={{
-        border: "none",
         position: "relative",
-        ...(plan.highlight ? {
-          background: "linear-gradient(145deg, rgba(168,85,247,0.13) 0%, rgba(61,220,151,0.07) 100%)",
-        } : {}),
+        ...(plan.highlight
+          ? { borderColor: "var(--success-border)" }
+          : { border: "none" }),
       }}
     >
       {/* Illustration */}
@@ -356,32 +355,12 @@ function PlanCard({
         <Illustration />
       </div>
 
-      {/* Corner ribbon */}
-      {plan.highlight && (
-        <div style={{
-          position: "absolute",
-          top: 14,
-          right: -22,
-          width: 90,
-          background: "linear-gradient(135deg, #a855f7, #3ddc97)",
-          color: "#fff",
-          fontSize: 8,
-          fontWeight: 700,
-          textAlign: "center",
-          padding: "4px 0",
-          transform: "rotate(45deg)",
-          letterSpacing: "0.12em",
-          pointerEvents: "none",
-        }}>
-          POPULAR
-        </div>
-      )}
-
       {/* Header */}
       <div className="px-5 pt-2 pb-4"
            style={{ borderBottom: "none" }}>
         <div className="flex items-center gap-2 mb-0.5">
           <div className="text-sm font-semibold">{plan.name}</div>
+          {plan.highlight && <span className="badge badge-green">Popular</span>}
         </div>
         <div className="text-[11px] muted leading-snug">{plan.desc}</div>
         {plan.interval !== "custom" && (
@@ -443,7 +422,7 @@ function PlanCard({
         )}
       </div>
 
-      {/* Features — always 5 rows, fixed height for button alignment */}
+      {/* Features - always 5 rows, fixed height for button alignment */}
       <ul className="mb-5 w-full flex flex-col gap-1.5 text-left" style={{ minHeight: 112 }}>
         {plan.features.slice(0, 5).map((f) => (
           <li key={f} className="flex items-center gap-2 text-[11px] muted">
@@ -520,7 +499,7 @@ export default function Billing() {
 
   useEffect(() => { void loadPlans(); }, [loadPlans]);
 
-  // suppress unused import warning — supabase still needed by the module
+  // suppress unused import warning - supabase still needed by the module
   void getBrowserSupabase;
 
   const visiblePlans  = plans.filter((p) => p.interval === interval || p.interval === "custom");
@@ -560,6 +539,10 @@ export default function Billing() {
           <div className="text-[10px] font-bold uppercase tracking-[.1em] muted">
             Plans{storeCurrency ? ` · ${storeCurrency}` : ""}
           </div>
+          <p className="text-xs muted text-center max-w-md leading-5">
+            Your plan controls how many AQ Agents can be activated. Signals and
+            execution are delivered through the gateway after activation.
+          </p>
           {plansLoading && (
             <div className="skeleton h-8 w-40 rounded-md" />
           )}

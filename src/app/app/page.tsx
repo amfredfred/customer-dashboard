@@ -2,13 +2,17 @@
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { useGateway } from "@/components/gateway-provider";
-import { useAuth } from "@/components/auth-provider";
-import { SectionHead, PageHeader } from "@/components/metric-detail";
-import { StatCard } from "@/components/stat-card";
+import { Page, SectionRule } from "@/components/ui/page";
+import { MetricCard, MetricGrid } from "@/components/ui/metric-card";
+import { StatusBadge, type StatusKind } from "@/components/ui/status-badge";
+import { SurfaceSection } from "@/components/ui/surface";
+import { ActionCard, type SetupStep } from "@/components/ui/action-card";
+import { EventFeed, type FeedEvent } from "@/components/ui/event-feed";
+import { Alert } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, ChevronDown } from "lucide-react";
-import { EngineIcon, LicenseKeyIcon, TerminalIcon } from "@/components/icons";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /* ── types ────────────────────────────────────────────────────────────── */
 type LicenseRow = {
@@ -27,6 +31,14 @@ type EngineRow = {
   session?: { last_heartbeat_at: string | null; disconnected_at: string | null } | null;
 };
 
+type SignalEventEntry = {
+  id: string;
+  event_type: string;
+  ts: string;
+  summary: string;
+  data: Record<string, unknown>;
+};
+
 const ONLINE_THRESHOLD_MS = 90_000;
 const DEGRADED_THRESHOLD_MS = 300_000;
 
@@ -41,32 +53,8 @@ function engineOnlineState(engine: EngineRow, nowMs: number): "online" | "degrad
   return "offline";
 }
 
-/* ── tiny components ─────────────────────────────────────────────────── */
-function StatusRow({ label, value, dot }: { label: string; value: string; dot: "live" | "warn" | "dead" | "muted" }) {
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-white/[.05] last:border-0">
-      <span className="text-xs muted">{label}</span>
-      <span className="flex items-center gap-2 text-xs font-medium">
-        <span className={`dot dot-${dot}${dot === "live" ? " pulse" : ""}`} />
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="kpi">
-      <div className="skeleton h-2 w-20 mb-4" />
-      <div className="skeleton h-5 w-24 mb-2" />
-      <div className="skeleton h-2 w-28" />
-    </div>
-  );
-}
-
 /* ── page ────────────────────────────────────────────────────────────── */
 export default function Overview() {
-  const { session } = useAuth();
   const gateway = useGateway();
   const { status: gwStatus } = gateway;
   const supabase = getBrowserSupabase();
@@ -111,22 +99,18 @@ export default function Overview() {
     setLicenses((licResult.data ?? []) as LicenseRow[]);
     const engineRows = ((devResult.data ?? []) as EngineRow[]).map(d => ({ ...d, session: sessionMap.get(d.id) ?? null }));
     setEngines(engineRows);
-    // Auto-select first engine (preserve existing selection on refresh)
     setSelectedEngineId(prev => prev ?? engineRows[0]?.engine_id ?? null);
     setDbError(null);
     setLoading(false);
   }, [supabase]);
 
-  const nowMSCB = useCallback((ms: number) => setNowMs(ms), []);
-
   useEffect(() => {
-    const t = setTimeout(() => void load(), 0);
-    const clock = setInterval(() => nowMSCB(Date.now()), 10_000);
-    (() => nowMSCB(Date.now()))();
+    const t = setTimeout(() => { void load(); setNowMs(Date.now()); }, 0);
+    const clock = setInterval(() => setNowMs(Date.now()), 10_000);
     return () => { clearTimeout(t); clearInterval(clock); };
   }, [load]);
 
-  // 3.14 — Live push: refresh overview data when licenses or devices change.
+  // 3.14 - Live push: refresh overview data when licenses or devices change.
   useEffect(() => {
     if (!supabase) return;
     const channel = supabase
@@ -141,244 +125,254 @@ export default function Overview() {
     return () => { void supabase.removeChannel(channel); };
   }, [supabase, load]);
 
-
+  /* ── derived readiness ─────────────────────────────────────────────── */
   const activeLicense = licenses.find(l => l.status === "active") ?? licenses[0];
-  const planLabel = activeLicense ? "Active license" : null;
+  const licenseExpired = activeLicense
+    ? activeLicense.status !== "active" ||
+      (activeLicense.expires_at !== null && Date.parse(activeLicense.expires_at) < nowMs)
+    : false;
 
   const onlineCount = engines.filter(e => engineOnlineState(e, nowMs) === "online").length;
   const degradedCount = engines.filter(e => engineOnlineState(e, nowMs) === "degraded").length;
 
   const gwReady = gwStatus === "authenticated";
-  const gwConnecting = gwStatus === "connecting";
-  const gwDot: "live" | "warn" | "dead" = gwReady ? "live" : gwConnecting ? "warn" : "dead";
   const sigLive = gwReady && Boolean(gateway.signalMetrics);
   const exLive = gwReady && Boolean(gateway.executionMetrics);
+  const exForbidden = Boolean(gateway.executionMetricsError);
 
-  const accountMetrics = gateway.executionMetrics?.metrics ?? {};
-  const numberMetric = (k: string) =>
-    typeof accountMetrics[k] === "number" ? (accountMetrics[k] as number) : undefined;
-  const moneyFmt = (v?: number) =>
+  const licenseState: { kind: StatusKind; label: string; detail: string } = !activeLicense
+    ? { kind: "none", label: "Missing", detail: "Purchase a plan to begin" }
+    : licenseExpired
+      ? { kind: "expired", label: activeLicense.status === "active" ? "Expired" : activeLicense.status, detail: "Renew in Billing" }
+      : { kind: "active", label: "Active", detail: `${activeLicense.max_devices} device${activeLicense.max_devices === 1 ? "" : "s"} max` };
+
+  const agentState: { kind: StatusKind; label: string; detail: string } =
+    engines.length === 0
+      ? { kind: "none", label: "None", detail: "No AQ Agent activated" }
+      : onlineCount > 0
+        ? { kind: "online", label: "Online", detail: `${onlineCount} of ${engines.length} connected${degradedCount > 0 ? ` · ${degradedCount} degraded` : ""}` }
+        : degradedCount > 0
+          ? { kind: "degraded", label: "Degraded", detail: "Heartbeat is stale" }
+          : { kind: "offline", label: "Offline", detail: "Agent is not connected" };
+
+  const gatewayState: { kind: StatusKind; label: string; detail: string } =
+    gwReady
+      ? { kind: "online", label: "Online", detail: "Dashboard session authenticated" }
+      : gwStatus === "connecting"
+        ? { kind: "connecting", label: "Connecting", detail: "Reaching the gateway…" }
+        : gwStatus === "rejected"
+          ? { kind: "rejected", label: "Rejected", detail: gateway.error ?? "Session rejected" }
+          : { kind: "offline", label: "Offline", detail: "Reconnecting automatically" };
+
+  const executionState: { kind: StatusKind; label: string; detail: string } =
+    exForbidden
+      ? { kind: "forbidden", label: "Forbidden", detail: gateway.executionMetricsError ?? "Access denied" }
+      : exLive
+        ? { kind: "live", label: "Live", detail: "Private telemetry streaming" }
+        : onlineCount > 0
+          ? { kind: "waiting", label: "Waiting", detail: "Awaiting first snapshot" }
+          : { kind: "offline", label: "Offline", detail: "Requires a connected agent" };
+
+  /* ── setup flow ────────────────────────────────────────────────────── */
+  const setupComplete = Boolean(activeLicense) && !licenseExpired && onlineCount > 0;
+  const steps: SetupStep[] = [
+    {
+      label: "Purchase a plan",
+      state: activeLicense && !licenseExpired ? "done" : "current",
+      action: <Link href="/app/billing" className="btn btn-sm">Billing <ArrowRight size={11} /></Link>,
+    },
+    {
+      label: "Download and install AQ Agent beside MetaTrader 5",
+      state: engines.length > 0 ? "done" : activeLicense && !licenseExpired ? "current" : "upcoming",
+      action: <Link href="/app/downloads" className="btn btn-sm">Downloads <ArrowRight size={11} /></Link>,
+    },
+    {
+      label: "Activate the agent with your license key",
+      state: engines.length > 0 ? "done" : "upcoming",
+      action: <Link href="/app/licenses" className="btn btn-sm">Keys <ArrowRight size={11} /></Link>,
+    },
+    {
+      label: "Wait for the engine stream to come online",
+      state: onlineCount > 0 ? "done" : engines.length > 0 ? "current" : "upcoming",
+      action: <Link href="/app/engines" className="btn btn-sm">Engines <ArrowRight size={11} /></Link>,
+    },
+  ];
+
+  /* ── execution snapshot values ─────────────────────────────────────── */
+  const metrics = (gateway.executionMetrics?.metrics ?? {}) as Record<string, unknown>;
+  const num = (...keys: string[]): number | undefined => {
+    for (const k of keys) {
+      const v = metrics[k];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+    }
+    return undefined;
+  };
+  const money = (v?: number) =>
     v === undefined ? "--" : `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const dailyPnl = num("daily_pnl");
 
-  const nextStep = !activeLicense
-    ? { title: "Purchase a plan", detail: "Visit Billing to choose a license and receive an activation key.", href: "/app/billing" }
-    : engines.length === 0
-      ? { title: "Install AQ Agent", detail: "Download and install AQ Agent on a Windows PC or VPS beside MetaTrader 5, then activate it with a key from Licenses & Keys.", href: "/app/downloads" }
-      : onlineCount === 0
-        ? { title: "Connect AQ Agent", detail: "AQ Agent is installed but not connected. Ensure it is running and has a valid activation key.", href: "/app/engines" }
-        : null;
+  /* ── signal telemetry ──────────────────────────────────────────────── */
+  const sigCounters = (gateway.signalMetrics?.metrics ?? {}) as Record<string, number>;
+  const sigCount = (k: string): string =>
+    typeof sigCounters[k] === "number" ? Number(sigCounters[k]).toLocaleString() : "--";
+  const recentSignalEvents: FeedEvent[] = (
+    ((gateway.signalMetrics as Record<string, unknown> | null)?.recent_events as SignalEventEntry[] | undefined) ?? []
+  )
+    .slice(-8)
+    .reverse()
+    .map((e) => ({
+      id: e.id,
+      type: e.event_type,
+      time: e.ts,
+      summary: e.summary,
+      tone: e.event_type.includes("reject") ? "warning"
+        : e.event_type.includes("emit") || e.event_type.includes("signal") ? "success"
+        : "neutral",
+      details: e.data,
+    }));
 
   return (
-    <div className="page-wrap space-y-6">
-      <PageHeader
-        eyebrow="Dashboard"
-        title="Overview"
-        description="System status and account snapshot."
-        right={
-          <span className="pill">
-            <span className={`dot dot-${gwDot}${gwReady ? " pulse" : ""}`} />
-            {gwReady ? "Gateway Online" : gwConnecting ? "Connecting…" : "Gateway Offline"}
-          </span>
-        }
-      />
-
-      {/* DB error */}
-      {dbError && (
-        <div className="panel p-4" style={{ borderColor: "rgba(244,63,94,.3)", background: "rgba(244,63,94,.05)" }}>
-          <p className="text-sm text-[#f43f5e]">{dbError}</p>
-        </div>
-      )}
-
-      {/* Supabase not configured */}
+    <Page
+      eyebrow="Dashboard"
+      title="Overview"
+      description="System readiness, private execution snapshot, and global signal health."
+    >
+      {dbError && <Alert tone="danger" title="Database error">{dbError}</Alert>}
       {!supabase && !loading && (
-        <div className="panel p-4" style={{ borderColor: "rgba(245,185,66,.3)", background: "rgba(245,185,66,.05)" }}>
-          <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-2">
-            Supabase setup required
-          </div>
-          <p className="text-xs muted leading-5">
-            Add <code className="text-white">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-            <code className="text-white">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> to the
-            environment and restart the server.
-          </p>
-        </div>
+        <Alert tone="warning" title="Supabase setup required">
+          Add <code className="text-white">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+          <code className="text-white">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> to the
+          environment and restart the server.
+        </Alert>
       )}
 
-      {/* System status */}
+      {/* ── System readiness ── */}
       <section>
-        <SectionHead label="System status" />
-        <div className="panel p-4">
-          <StatusRow label="Gateway" value={gwReady ? "Authenticated" : gwConnecting ? "Connecting…" : gwStatus === "rejected" ? "Rejected" : "Offline"} dot={gwDot} />
-          <StatusRow label="Signal stream" value={sigLive ? "Live" : gwReady ? "Idle — not subscribed" : "Offline"} dot={sigLive ? "live" : gwReady ? "muted" : "dead"} />
-          <StatusRow label="Execution stream" value={exLive ? "Live (private)" : gateway.executionMetricsError ?? "Not connected"} dot={exLive ? "live" : "muted"} />
-          <StatusRow label="Session" value={session ? session.user.email ?? "Authenticated" : "Not signed in"} dot={session ? "live" : "dead"} />
-        </div>
+        <SectionRule label="System readiness" />
+        {loading ? (
+          <MetricGrid cols={4}>
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="kpi"><Skeleton height={12} width={70} /><Skeleton height={22} width={90} className="mt-3" /></div>
+            ))}
+          </MetricGrid>
+        ) : (
+          <MetricGrid cols={4}>
+            <MetricCard label="License" value={<StatusBadge kind={licenseState.kind} label={licenseState.label} />} detail={licenseState.detail} />
+            <MetricCard label="AQ Agent" value={<StatusBadge kind={agentState.kind} label={agentState.label} />} detail={agentState.detail} />
+            <MetricCard label="Gateway" value={<StatusBadge kind={gatewayState.kind} label={gatewayState.label} />} detail={gatewayState.detail} />
+            <MetricCard label="Execution" value={<StatusBadge kind={executionState.kind} label={executionState.label} />} detail={executionState.detail} />
+          </MetricGrid>
+        )}
       </section>
 
-      {/* Account snapshot */}
-      <section>
-        <SectionHead
-          label="Account snapshot"
-          action={
-            !loading && engines.length > 1 ? (
-              <div className="relative">
-                <select
-                  value={selectedEngineId ?? ""}
-                  onChange={e => setSelectedEngineId(e.target.value || null)}
-                  className="appearance-none pl-2.5 pr-7 py-1 text-[11px] cursor-pointer"
-                  style={{
-                    background: "var(--surface-raised)",
-                    border: "1px solid var(--line-strong)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-soft)",
-                    outline: "none",
-                  }}
-                >
-                  {engines.map(e => (
-                    <option key={e.id} value={e.engine_id} style={{ background: "#0d1015" }}>
-                      {e.device_name || e.engine_id}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 muted pointer-events-none" />
-              </div>
-            ) : !loading && engines.length === 1 ? (
-              <span className="text-[11px] muted mono">{engines[0].device_name || engines[0].engine_id}</span>
-            ) : undefined
-          }
-        />
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-          ) : (
-            <>
-              <StatCard
-                label="License"
-                value={planLabel ?? "No license"}
-                detail={activeLicense ? `${activeLicense.status} · ${activeLicense.max_devices} device${activeLicense.max_devices === 1 ? "" : "s"}` : "Purchase a plan to begin"}
-                tone={activeLicense ? "good" : "warn"}
-              />
-              <StatCard
-                label="Engines"
-                value={String(engines.length)}
-                detail={onlineCount > 0 ? `${onlineCount} online${degradedCount > 0 ? ` · ${degradedCount} degraded` : ""}` : engines.length > 0 ? "All offline" : "No engines activated"}
-                tone={onlineCount > 0 ? "good" : engines.length > 0 ? "warn" : "normal"}
-              />
-              <StatCard
-                label="Balance"
-                value={exLive ? moneyFmt(numberMetric("balance")) : "--"}
-                detail={exLive ? String(accountMetrics.currency ?? "Account currency") : "Connect execution stream"}
-              />
-              <StatCard
-                label="Daily P&L"
-                value={exLive ? moneyFmt(numberMetric("daily_pnl")) : "--"}
-                detail={exLive ? "From private execution stream" : "Requires engine connection"}
-              />
-            </>
-          )}
-        </div>
-      </section>
+      {/* ── Next action OR private execution snapshot ── */}
+      {!loading && !setupComplete && (
+        <section>
+          <SectionRule label="Next step" />
+          <ActionCard
+            title="Finish setting up your execution network"
+            description="Your AQ Agent receives private signals and executes on your MT5 account once these steps are complete."
+            steps={steps}
+          />
+        </section>
+      )}
 
-      {/* Signal Engine availability */}
-      <section>
-        <SectionHead label="Signal Engine" />
-        <div className="panel p-5">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <div className="font-semibold text-sm">Signal Engine status</div>
-              <p className="muted text-xs mt-1 leading-5">
-                Global sanitised metrics. Available to all authenticated customers.
-                Subscribe by opening the Signal Performance page.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              {sigLive ? (
-                <span className="badge badge-green">Live</span>
+      {!loading && setupComplete && (
+        <section>
+          <SectionRule
+            label="My execution - private"
+            action={
+              engines.length > 1 ? (
+                <div className="relative">
+                  <select
+                    value={selectedEngineId ?? ""}
+                    onChange={e => {
+                      const id = e.target.value || null;
+                      setSelectedEngineId(id);
+                      gateway.setExecutionMetricsEngine(id);
+                    }}
+                    className="appearance-none pl-2.5 pr-7 py-1 text-[11px] cursor-pointer"
+                    style={{
+                      background: "var(--surface-3)",
+                      border: "1px solid var(--line-strong)",
+                      borderRadius: "var(--radius-sm)",
+                      color: "var(--text-soft)",
+                      outline: "none",
+                    }}
+                  >
+                    {engines.map(e => (
+                      <option key={e.id} value={e.engine_id} style={{ background: "var(--surface-2)" }}>
+                        {e.device_name || e.engine_id}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 muted pointer-events-none" />
+                </div>
               ) : (
-                <span className="badge badge-muted">Not subscribed</span>
-              )}
-              <Link href="/app/signals" className="pill text-xs hover:border-white/20 transition-colors inline-flex items-center gap-1">
-                View <ArrowRight size={10} />
-              </Link>
-            </div>
+                <span className="text-[11px] muted mono">
+                  {engines[0]?.device_name || engines[0]?.engine_id}
+                </span>
+              )
+            }
+          />
+          <MetricGrid cols={3}>
+            <MetricCard label="Balance" value={exLive ? money(num("balance", "current_balance")) : "--"} detail={exLive ? undefined : "Waiting for stream"} />
+            <MetricCard label="Equity" value={exLive ? money(num("equity")) : "--"} />
+            <MetricCard
+              label="Daily P&L"
+              value={exLive ? money(dailyPnl) : "--"}
+              tone={dailyPnl === undefined ? "neutral" : dailyPnl > 0 ? "success" : dailyPnl < 0 ? "danger" : "neutral"}
+            />
+            <MetricCard label="Daily Budget" value={exLive ? money(num("daily_budget")) : "--"} detail={exLive ? `Used ${money(num("daily_budget_used"))}` : undefined} />
+            <MetricCard label="Risk Per Trade" value={exLive ? money(num("risk_per_trade")) : "--"} />
+            <MetricCard
+              label="Open Positions"
+              value={exLive ? String(num("open_trades", "trades_open_count") ?? "--") : "--"}
+              tone={(num("open_trades", "trades_open_count") ?? 0) > 0 ? "info" : "neutral"}
+            />
+          </MetricGrid>
+          <div className="mt-3">
+            <Link href="/app/execution" className="muted text-xs hover:text-white inline-flex items-center gap-1">
+              Open execution cockpit <ArrowRight size={11} />
+            </Link>
           </div>
-          {sigLive && gateway.signalMetrics && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5">
-              {([
-                ["Scanner ticks", (gateway.signalMetrics.metrics as Record<string, number>)?.scanner_ticks],
-                ["Signals emitted", (gateway.signalMetrics.metrics as Record<string, number>)?.signals_emitted],
-                ["Active signals", (gateway.signalMetrics.metrics as Record<string, number>)?.active_signals],
-                ["WS clients", (gateway.signalMetrics.metrics as Record<string, number>)?.websocket_clients],
-              ] as [string, number | undefined][]).map(([label, val]) => (
-                <div key={label} className="kpi">
-                  <div className="kpi-label">{label}</div>
-                  <div className="kpi-value">{val === undefined ? "--" : Number(val).toLocaleString()}</div>
-                </div>
-              ))}
-            </div>
-          )}
+        </section>
+      )}
+
+      {/* ── Signal health - global ── */}
+      <section>
+        <SectionRule label="Signal health - global" />
+        <div className="grid lg:grid-cols-2 gap-4">
+          <SurfaceSection
+            title="Signal stream"
+            subtitle="Sanitised telemetry from the signal engine. Shared by all customers."
+            badge={<StatusBadge kind={sigLive ? "live" : gwReady ? "waiting" : "offline"} label={sigLive ? "Live" : gwReady ? "Waiting" : "Offline"} />}
+            actions={
+              <Link href="/app/signals" className="btn btn-sm btn-ghost">
+                Details <ArrowRight size={11} />
+              </Link>
+            }
+          >
+            <MetricGrid cols={3}>
+              <MetricCard label="Scanner ticks" value={sigCount("scanner_ticks")} size="sm" />
+              <MetricCard label="Signals emitted" value={sigCount("signals_emitted")} size="sm" />
+              <MetricCard label="Active signals" value={sigCount("active_signals")} size="sm" />
+            </MetricGrid>
+          </SurfaceSection>
+
+          <SurfaceSection
+            title="Recent signal events"
+            subtitle="Latest events forwarded by the gateway."
+            flush
+          >
+            <EventFeed
+              events={recentSignalEvents}
+              emptyMessage={sigLive ? "No recent events in this snapshot." : "Events appear once the signal stream is live."}
+              maxHeight={252}
+            />
+          </SurfaceSection>
         </div>
       </section>
-
-      {/* Engines list preview */}
-      {!loading && engines.length > 0 && (
-        <section>
-          <SectionHead label="My engines" />
-          <div className="space-y-2">
-            {engines.slice(0, 3).map(engine => {
-              const state = engineOnlineState(engine, nowMs);
-              const dotClass = state === "online" ? "dot-live pulse" : state === "degraded" ? "dot-warn" : "dot-dead";
-              const stateLabel = state === "online" ? "Online" : state === "degraded" ? "Degraded" : "Offline";
-              return (
-                <div key={engine.id} className="panel p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <TerminalIcon size={14} className="muted shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate mono">{engine.engine_id}</div>
-                      <div className="text-xs muted truncate">{engine.device_name}</div>
-                    </div>
-                  </div>
-                  <span className="pill shrink-0">
-                    <span className={`dot ${dotClass}`} />
-                    {stateLabel}
-                  </span>
-                </div>
-              );
-            })}
-            {engines.length > 3 && (
-              <Link href="/app/engines" className="muted text-xs hover:text-white flex items-center gap-1 px-1 pt-1">
-                View all {engines.length} engines <ArrowRight size={11} />
-              </Link>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Next setup step */}
-      {nextStep && (
-        <section>
-          <SectionHead label="Next step" />
-          <div className="panel p-5" style={{ borderColor: "rgba(61,220,151,.2)", background: "rgba(61,220,151,.03)" }}>
-            <div className="flex items-start gap-4">
-              <div className="w-9 h-9 rounded-xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
-                {nextStep.href === "/app/billing"
-                  ? <EngineIcon size={15} className="text-[#3ddc97]" />
-                  : <LicenseKeyIcon size={15} className="text-[#3ddc97]" />
-                }
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm">{nextStep.title}</div>
-                <p className="muted text-xs mt-1 leading-5">{nextStep.detail}</p>
-              </div>
-              <Link
-                href={nextStep.href}
-                className="pill shrink-0 hover:border-white/20 transition-colors inline-flex items-center gap-1 text-xs"
-              >
-                Go <ArrowRight size={10} />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
-    </div>
+    </Page>
   );
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Protected state — clean shield with inner guard check line. */
+/** Protected state - clean shield with inner guard check line. */
 export function ShieldIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

@@ -6,7 +6,7 @@ import "./globals.css";
 const SITE_URL  = "https://app.somicast.com";
 const SITE_NAME = "Apex Quantel";
 const SITE_DESC =
-  "Automated trading infrastructure for MetaTrader 5. Private signal access, local MT5 execution, live risk controls, and AQ Agent management — all in one secure dashboard.";
+  "Automated trading infrastructure for MetaTrader 5. Private signal access, local MT5 execution, live risk controls, and AQ Agent management - all in one secure dashboard.";
 
 // ── JSON-LD structured data ────────────────────────────────────────────────────
 const jsonLd = {
@@ -46,7 +46,7 @@ const jsonLd = {
         "@type": "Offer",
         price: "0",
         priceCurrency: "USD",
-        description: "Plans available — see billing page",
+        description: "Plans available - see billing page",
       },
       publisher: { "@id": `${SITE_URL}/#organization` },
     },
@@ -58,8 +58,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 
   title: {
-    default: `${SITE_NAME} — Automated Trading Infrastructure`,
-    template: `%s — ${SITE_NAME}`,
+    default: `${SITE_NAME} - Automated Trading Infrastructure`,
+    template: `%s - ${SITE_NAME}`,
   },
   description: SITE_DESC,
 
@@ -93,14 +93,14 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME} — Automated Trading Infrastructure`,
+    title: `${SITE_NAME} - Automated Trading Infrastructure`,
     description: SITE_DESC,
     images: [
       {
         url: `${SITE_URL}/apex-quantel-og.png`,
         width: 1200,
         height: 630,
-        alt: `${SITE_NAME} — Automated Trading Infrastructure`,
+        alt: `${SITE_NAME} - Automated Trading Infrastructure`,
         type: "image/png",
       },
     ],
@@ -109,7 +109,7 @@ export const metadata: Metadata = {
   // Twitter / X card
   twitter: {
     card: "summary_large_image",
-    title: `${SITE_NAME} — Automated Trading Infrastructure`,
+    title: `${SITE_NAME} - Automated Trading Infrastructure`,
     description: SITE_DESC,
     images: [`${SITE_URL}/apex-quantel-og.png`],
   },
@@ -127,7 +127,7 @@ export const metadata: Metadata = {
     },
   },
 
-  // Icons — all pointing to icon.png (1024×1024)
+  // Icons - all pointing to icon.png (1024×1024)
   icons: {
     icon: [
       { url: "/icon.png", type: "image/png" },

@@ -7,7 +7,7 @@ import {
 import { CreditCard, LogOut, Menu, Shield, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
 import { useGateway } from "./gateway-provider";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
@@ -139,10 +139,40 @@ function SidebarContent({
   );
 }
 
+/** Compact global state chip for the top status bar. */
+function StatusChip({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "success" | "warning" | "danger" | "neutral";
+}) {
+  const dot =
+    tone === "success" ? "dot-live"
+    : tone === "warning" ? "dot-warn pulse"
+    : tone === "danger" ? "dot-dead"
+    : "dot-muted";
+  return (
+    <span className="statusbar-chip">
+      <span className={`dot ${dot}`} />
+      {label} <b>{value}</b>
+    </span>
+  );
+}
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { session, signOut } = useAuth();
-  const { status: gwStatus, setSignalMetricsSubscribed, setExecutionMetricsEngine } = useGateway();
+  const {
+    status: gwStatus,
+    signalMetrics,
+    executionMetrics,
+    executionMetricsError,
+    setSignalMetricsSubscribed,
+    setExecutionMetricsEngine,
+  } = useGateway();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [planName, setPlanName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -158,7 +188,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       supabase.from("licenses").select("id,status").eq("status", "active").limit(1),
       supabase.from("engine_devices").select("engine_id").eq("status", "active")
         .order("activated_at", { ascending: false }).limit(1),
-      // Check admin access silently — 403 is expected for non-admins
+      // Check admin access silently - 403 is expected for non-admins
       session.access_token
         ? fetch("/api/admin/me", { headers: { Authorization: `Bearer ${session.access_token}` } })
             .then((r) => r.ok)
@@ -172,13 +202,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     });
   }, [supabase, session]);
 
-  /* Signal metrics — always subscribed while gateway is authenticated. */
+  /* Signal metrics - always subscribed while gateway is authenticated. */
   useEffect(() => {
     if (gwStatus !== "authenticated") return;
     setSignalMetricsSubscribed(true);
   }, [gwStatus, setSignalMetricsSubscribed]);
 
-  /* Execution metrics — subscribe to the first active engine. */
+  /* Execution metrics - subscribe to the first active engine. */
   useEffect(() => {
     if (gwStatus === "authenticated" && activeEngineId) {
       setExecutionMetricsEngine(activeEngineId);
@@ -188,7 +218,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen md:h-screen md:flex overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 shrink-0 bg-[#0b0d10] border-r border-white/[.07] flex-col">
+      <aside className="hidden md:flex w-64 shrink-0 bg-[var(--surface-1)] border-r border-[var(--line-soft)] flex-col">
         <SidebarContent
           path={path}
           session={session}
@@ -204,9 +234,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           className="fixed inset-0 z-40 flex md:hidden"
           onClick={() => setDrawerOpen(false)}
         >
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/55" />
           <aside
-            className="relative w-72 bg-[#0b0d10] border-r border-white/[.07] flex flex-col h-full z-50"
+            className="relative w-72 bg-[var(--surface-1)] border-r border-[var(--line-soft)] flex flex-col h-full z-50"
             onClick={e => e.stopPropagation()}
           >
             <button
@@ -240,6 +270,50 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </button>
           <img src="/icon.png" alt="Apex" className="w-6 h-6 ml-3" />
           <span className="text-xs font-bold tracking-[.15em] ml-2">APEX</span>
+        </div>
+
+        {/* Global state bar */}
+        <div className="statusbar">
+          <StatusChip
+            label="Gateway"
+            value={
+              gwStatus === "authenticated" ? "online"
+              : gwStatus === "connecting" ? "connecting"
+              : gwStatus === "rejected" ? "rejected"
+              : "offline"
+            }
+            tone={
+              gwStatus === "authenticated" ? "success"
+              : gwStatus === "connecting" ? "warning"
+              : gwStatus === "rejected" ? "danger"
+              : "neutral"
+            }
+          />
+          <StatusChip
+            label="Signals"
+            value={signalMetrics ? "live" : gwStatus === "authenticated" ? "waiting" : "-"}
+            tone={signalMetrics ? "success" : gwStatus === "authenticated" ? "warning" : "neutral"}
+          />
+          <StatusChip
+            label="Execution"
+            value={
+              executionMetricsError ? "forbidden"
+              : executionMetrics ? "live"
+              : activeEngineId ? "waiting"
+              : "no engine"
+            }
+            tone={
+              executionMetricsError ? "danger"
+              : executionMetrics ? "success"
+              : activeEngineId ? "warning"
+              : "neutral"
+            }
+          />
+          <StatusChip
+            label="License"
+            value={planName ? "active" : "none"}
+            tone={planName ? "success" : "neutral"}
+          />
         </div>
 
         {/* Page content */}

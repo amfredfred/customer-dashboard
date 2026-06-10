@@ -4,10 +4,15 @@ import { PageHeader, SectionHead } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
 import { useAuth } from "@/components/auth-provider";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
-import { ChevronDown, Pause, Play, Loader2 } from "lucide-react";
-import { WarningIcon } from "@/components/icons";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { MetricCard } from "@/components/ui/metric-card";
+import { Tabs } from "@/components/ui/tabs";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { EventFeed, type FeedEvent, type FeedTone } from "@/components/ui/event-feed";
+import { CommandBar } from "@/components/ui/command-bar";
+import { SurfaceSection } from "@/components/ui/surface";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type EngineOption = { id: string; engine_id: string; device_name: string };
@@ -85,65 +90,44 @@ const ACTIVITY_EVENT_TYPES = new Set([
   "position.partial_tp", "position.updated", "position.sync",
 ]);
 
-const EVENT_COLORS: Record<string, string> = {
-  "trade.opened":        "#3ddc97",
-  "trade.closed":        "#f43f5e",
-  "trade.tp1_hit":       "#3ddc97",
-  "trade.tp2_hit":       "#3ddc97",
-  "trade.sl_hit":        "#f43f5e",
-  "order.filled":        "#3ddc97",
-  "position.partial_tp": "#f5b942",
-  "position.updated":    "rgba(255,255,255,.5)",
-  "position.sync":       "rgba(255,255,255,.5)",
-  "strategy.rejected":   "#f43f5e",
-  "signal.rejected":     "#f43f5e",
-  "risk.rejected":       "#f43f5e",
-  "parity.warning":      "#f5b942",
-  "signal.filtered":     "#f5b942",
-  "health.check":        "rgba(255,255,255,.3)",
-};
-function eventColor(type: string): string {
-  return EVENT_COLORS[type] ?? "rgba(255,255,255,.45)";
-}
-
 /* ── format helpers ─────────────────────────────────────────────────────── */
 function isN(v: unknown): v is number { return typeof v === "number" && !isNaN(v); }
 
 function money(v: unknown, signed = false): string {
-  if (!isN(v)) return "—";
+  if (!isN(v)) return "-";
   const sign = signed && v >= 0 ? "+" : v < 0 ? "-" : "";
   return `${sign}$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function pct(v: unknown, signed = false): string {
-  if (!isN(v)) return "—";
+  if (!isN(v)) return "-";
   return `${signed && v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 
 function cnt(v: unknown): string {
-  if (!isN(v)) return "—";
+  if (!isN(v)) return "-";
   return v.toLocaleString("en-US");
 }
 
 function ratio(v: unknown): string {
-  if (!isN(v)) return "—";
+  if (!isN(v)) return "-";
   return v.toFixed(2);
 }
 
 function msf(v: unknown): string {
-  if (!isN(v)) return "—";
+  if (!isN(v)) return "-";
   return `${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}ms`;
 }
 
 function fmtPrice(n: number): string {
-  if (n === 0) return "—";
+  if (n === 0) return "-";
   if (n > 1000) return n.toFixed(2);
   if (n > 10)   return n.toFixed(3);
   return n.toFixed(5);
 }
 
 function fmtTs(ts: unknown): string {
-  if (!ts) return "—";
+  if (!ts) return "-";
   try {
     const num = Number(ts);
     if (!isNaN(num) && String(ts).trim() !== "") {
@@ -199,7 +183,7 @@ function normalizeDir(v: unknown): "BUY" | "SELL" {
 
 function normalizePos(t: Record<string, unknown>): NPos {
   return {
-    ticket:     (t.ticket ?? t.id ?? "—") as string | number,
+    ticket:     (t.ticket ?? t.id ?? "-") as string | number,
     symbol:     String(t.symbol ?? "?"),
     direction:  normalizeDir(t.side ?? t.direction),
     openPrice:  Number(t.entry_price ?? t.openPrice ?? t.open_price ?? 0) || 0,
@@ -219,8 +203,8 @@ function normalizeSig(raw: Record<string, unknown>, idx: number): NSig {
   return {
     id:         String(raw.id ?? idx),
     symbol:     String(raw.symbol ?? "?"),
-    timeframe:  String(raw.timeframe ?? raw.tf ?? "—"),
-    strategy:   String(raw.strategy ?? raw.strat ?? "—"),
+    timeframe:  String(raw.timeframe ?? raw.tf ?? "-"),
+    strategy:   String(raw.strategy ?? raw.strat ?? "-"),
     direction:  normalizeDir(raw.direction ?? raw.side ?? raw.dir),
     confidence: conf !== undefined && !isNaN(conf) ? conf : undefined,
     entry:      Number(raw.entry ?? raw.entry_price ?? raw.entryPrice ?? 0) || 0,
@@ -238,15 +222,14 @@ function normalizeSig(raw: Record<string, unknown>, idx: number): NSig {
 function MeterBar({ value, tone = "normal" }: { value?: number; tone?: Tone }) {
   const p = value === undefined || isNaN(value) ? undefined : Math.max(0, Math.min(100, value));
   const bg =
-    tone === "good"   ? "#3ddc97" :
-    tone === "warn"   ? "#f5b942" :
-    tone === "danger" ? "#f43f5e" :
+    tone === "good"   ? "var(--success)" :
+    tone === "warn"   ? "var(--warning)" :
+    tone === "danger" ? "var(--danger)"  :
     "rgba(255,255,255,.22)";
   return (
-    <div className="h-1.5 w-full rounded-full overflow-hidden"
-         style={{ background: "rgba(255,255,255,.06)", marginTop: 8 }}>
+    <div className="meter-track" style={{ marginTop: 8 }}>
       {p !== undefined && (
-        <div className="h-full rounded-full" style={{ width: `${p}%`, background: bg, transition: "width .3s" }} />
+        <div className="meter-fill" style={{ width: `${p}%`, background: bg }} />
       )}
     </div>
   );
@@ -300,16 +283,13 @@ function TD({ mono, children }: { mono?: boolean; children: ReactNode }) {
   );
 }
 
+const TONE_MAP = { normal: "neutral", good: "success", warn: "warning", danger: "danger" } as const;
+
+/** Thin wrapper over the shared MetricCard, kept for the page's Tone type. */
 function StatCard({ label, value, detail, tone = "normal" }: {
   label: string; value: string; detail?: string; tone?: Tone;
 }) {
-  return (
-    <div className={`kpi${kpiCls(tone)}`}>
-      <div className="kpi-label">{label}</div>
-      <div className={`kpi-value${valCls(tone)}`}>{value}</div>
-      {detail && <div className="kpi-detail">{detail}</div>}
-    </div>
-  );
+  return <MetricCard label={label} value={value} detail={detail} tone={TONE_MAP[tone]} />;
 }
 
 function GaugeCard({ label, value, display, context, tone = "normal" }: {
@@ -426,7 +406,7 @@ function OverviewTab({ metrics, engineMode }: {
           <StatCard label="Signal Age"         value={msf(signalAgeMs)}  tone={latTone(signalAgeMs)} />
           <StatCard label="Execution Pipeline" value={msf(execPipeMs)}   tone={latTone(execPipeMs)} />
           <StatCard label="Broker RTT"         value={msf(brokerRttMs)}  tone={latTone(brokerRttMs)} />
-          <StatCard label="Engine Mode"        value={engineMode || "—"} />
+          <StatCard label="Engine Mode"        value={engineMode || "-"} />
         </div>
       </section>
     </div>
@@ -434,10 +414,35 @@ function OverviewTab({ metrics, engineMode }: {
 }
 
 /* ── Positions tab ──────────────────────────────────────────────────────── */
+function PnlText({ value, suffix = "" }: { value: number; suffix?: string }) {
+  return (
+    <span className="mono" style={{ color: value >= 0 ? "var(--success)" : "var(--danger)", fontWeight: 600 }}>
+      {value >= 0 ? "+" : ""}{value.toFixed(2)}{suffix}
+    </span>
+  );
+}
+
+function posPnlPct(pos: NPos): number {
+  return pos.openPrice > 0 ? (pos.profit / (pos.openPrice * pos.volume)) * 100 : 0;
+}
+
+const POSITION_COLUMNS: ColumnDef<NPos>[] = [
+  { key: "ticket",   label: "Ticket",   render: p => <span className="muted mono">{String(p.ticket)}</span> },
+  { key: "symbol",   label: "Symbol",   render: p => <span className="font-bold text-white mono">{p.symbol}</span> },
+  { key: "side",     label: "Side",     render: p => <DirBadge dir={p.direction} /> },
+  { key: "size",     label: "Size",     render: p => <span className="mono">{p.volume}</span> },
+  { key: "entry",    label: "Entry",    render: p => <span className="mono">{fmtPrice(p.openPrice)}</span> },
+  { key: "sl",       label: "SL",       render: p => <span className="muted mono">{fmtPrice(p.stopLoss)}</span> },
+  { key: "tp",       label: "TP",       render: p => <span className="muted mono">{fmtPrice(p.takeProfit)}</span> },
+  { key: "pnl",      label: "P&L",      render: p => <PnlText value={p.profit} /> },
+  { key: "pnlPct",   label: "P&L %",    render: p => <PnlText value={posPnlPct(p)} suffix="%" /> },
+  { key: "strategy", label: "Strategy", render: p => <span className="muted">{p.strategy ?? "-"}</span> },
+];
+
 function PositionsTab({ positions }: { positions: NPos[] }) {
   if (positions.length === 0) {
     return (
-      <div className="panel state-block">
+      <div className="surface state-block">
         <div className="font-medium">No open positions</div>
         <p className="muted text-xs">Positions appear here when the engine opens trades.</p>
       </div>
@@ -445,64 +450,65 @@ function PositionsTab({ positions }: { positions: NPos[] }) {
   }
 
   return (
-    <div className="panel overflow-hidden">
-      <div className="panel-head">
-        <div>
-          <div className="text-sm font-semibold">Open Trades</div>
-          <p className="muted text-xs mt-0.5">{positions.length} position{positions.length !== 1 ? "s" : ""}</p>
-        </div>
-        <span className="badge badge-green">{positions.length}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max text-xs">
-          <thead>
-            <tr>
-              {["Ticket", "Symbol", "Side", "Size", "Entry", "SL", "TP", "P&L", "P&L %", "Strategy"].map(c => (
-                <TH key={c}>{c}</TH>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map((pos, i) => {
-              const pnlPct = pos.openPrice > 0
-                ? (pos.profit / (pos.openPrice * pos.volume)) * 100 : 0;
-              return (
-                <tr key={i} style={TR_BORDER}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                  <TD mono><span className="muted">{String(pos.ticket)}</span></TD>
-                  <TD mono><span className="font-bold text-white">{pos.symbol}</span></TD>
-                  <TD><DirBadge dir={pos.direction} /></TD>
-                  <TD mono>{pos.volume}</TD>
-                  <TD mono>{fmtPrice(pos.openPrice)}</TD>
-                  <TD mono><span className="muted">{fmtPrice(pos.stopLoss)}</span></TD>
-                  <TD mono><span className="muted">{fmtPrice(pos.takeProfit)}</span></TD>
-                  <TD mono>
-                    <span style={{ color: pos.profit >= 0 ? "#3ddc97" : "#f43f5e", fontWeight: 600 }}>
-                      {pos.profit >= 0 ? "+" : ""}{pos.profit.toFixed(2)}
-                    </span>
-                  </TD>
-                  <TD mono>
-                    <span style={{ color: pnlPct >= 0 ? "#3ddc97" : "#f43f5e" }}>
-                      {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
-                    </span>
-                  </TD>
-                  <TD><span className="muted">{pos.strategy ?? "—"}</span></TD>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <SurfaceSection
+      title="Open Trades"
+      subtitle={`${positions.length} position${positions.length !== 1 ? "s" : ""}`}
+      badge={<span className="badge badge-green">{positions.length}</span>}
+      flush
+    >
+      <DataTable
+        columns={POSITION_COLUMNS}
+        rows={positions}
+        rowKey={(p, i) => `${p.ticket}_${i}`}
+        emptyMessage="No open positions."
+        renderCard={p => (
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-bold text-white mono">{p.symbol}</span>
+              <span className="flex items-center gap-2">
+                <DirBadge dir={p.direction} />
+                <PnlText value={p.profit} />
+              </span>
+            </div>
+            <div className="card-row-grid">
+              <div><div className="card-field-label">Volume</div><div className="card-field-value mono">{p.volume}</div></div>
+              <div><div className="card-field-label">Entry</div><div className="card-field-value mono">{fmtPrice(p.openPrice)}</div></div>
+              <div><div className="card-field-label">SL / TP</div><div className="card-field-value mono">{fmtPrice(p.stopLoss)} / {fmtPrice(p.takeProfit)}</div></div>
+              <div><div className="card-field-label">P&L %</div><div className="card-field-value"><PnlText value={posPnlPct(p)} suffix="%" /></div></div>
+              <div><div className="card-field-label">Ticket</div><div className="card-field-value mono muted">{String(p.ticket)}</div></div>
+              <div><div className="card-field-label">Strategy</div><div className="card-field-value muted">{p.strategy ?? "-"}</div></div>
+            </div>
+          </div>
+        )}
+      />
+    </SurfaceSection>
   );
 }
 
 /* ── Signals tab ────────────────────────────────────────────────────────── */
+const SIGNAL_COLUMNS: ColumnDef<NSig>[] = [
+  { key: "time",     label: "Time",     render: s => <span className="muted mono">{fmtTs(s.timestamp)}</span> },
+  { key: "symbol",   label: "Symbol",   render: s => <span className="font-bold text-white mono">{s.symbol}</span> },
+  { key: "tf",       label: "TF",       render: s => (
+    <span className="font-mono text-[11px] px-1.5 py-0.5 rounded"
+          style={{ background: "rgba(255,255,255,.06)", color: "var(--text-soft)" }}>
+      {s.timeframe}
+    </span>
+  ) },
+  { key: "strategy", label: "Strategy", render: s => <span className="muted">{s.strategy}</span> },
+  { key: "side",     label: "Side",     render: s => <DirBadge dir={s.direction} /> },
+  { key: "conf",     label: "Conf",     render: s => <span className="mono">{s.confidence !== undefined ? `${(s.confidence * 100).toFixed(0)}%` : "-"}</span> },
+  { key: "entry",    label: "Entry",    render: s => <span className="mono">{fmtPrice(s.entry)}</span> },
+  { key: "sl",       label: "SL",       render: s => <span className="muted mono">{fmtPrice(s.stopLoss)}</span> },
+  { key: "tp",       label: "TP",       render: s => <span className="muted mono">{fmtPrice(s.takeProfit)}</span> },
+  { key: "setup",    label: "Setup",    render: s => <span className="muted block max-w-[200px] truncate">{s.setup ?? "-"}</span> },
+  { key: "status",   label: "Status",   render: s => <SigBadge status={s.status} /> },
+];
+
 function SignalsTab({ signals }: { signals: NSig[] }) {
   if (signals.length === 0) {
     return (
-      <div className="panel state-block">
+      <div className="surface state-block">
         <div className="font-medium">No signals yet</div>
         <p className="muted text-xs">Signal events appear here when received by the engine.</p>
       </div>
@@ -510,52 +516,38 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
   }
 
   return (
-    <div className="panel overflow-hidden">
-      <div className="panel-head">
-        <div>
-          <div className="text-sm font-semibold">Recent Signals</div>
-          <p className="muted text-xs mt-0.5">Signals received by this engine</p>
-        </div>
-        <span className="badge badge-green">{signals.length}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max text-xs">
-          <thead>
-            <tr>
-              {["Time", "Symbol", "TF", "Strategy", "Side", "Conf", "Entry", "SL", "TP", "Setup", "Status"].map(c => (
-                <TH key={c}>{c}</TH>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {signals.map((sig, i) => (
-              <tr key={`${sig.id}_${i}`} style={TR_BORDER}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                <TD mono><span className="muted">{fmtTs(sig.timestamp)}</span></TD>
-                <TD mono><span className="font-bold text-white">{sig.symbol}</span></TD>
-                <TD>
-                  <span className="font-mono text-[11px] px-1.5 py-0.5 rounded"
-                        style={{ background: "rgba(255,255,255,.06)", color: "var(--text-soft)" }}>
-                    {sig.timeframe}
-                  </span>
-                </TD>
-                <TD><span className="muted">{sig.strategy}</span></TD>
-                <TD><DirBadge dir={sig.direction} /></TD>
-                <TD mono>{sig.confidence !== undefined ? `${(sig.confidence * 100).toFixed(0)}%` : "—"}</TD>
-                <TD mono>{fmtPrice(sig.entry)}</TD>
-                <TD mono><span className="muted">{fmtPrice(sig.stopLoss)}</span></TD>
-                <TD mono><span className="muted">{fmtPrice(sig.takeProfit)}</span></TD>
-                <TD>
-                  <span className="muted block max-w-[200px] truncate">{sig.setup ?? "—"}</span>
-                </TD>
-                <TD><SigBadge status={sig.status} /></TD>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <SurfaceSection
+      title="Recent Signals"
+      subtitle="Signals received by this engine"
+      badge={<span className="badge badge-green">{signals.length}</span>}
+      flush
+    >
+      <DataTable
+        columns={SIGNAL_COLUMNS}
+        rows={signals}
+        rowKey={(s, i) => `${s.id}_${i}`}
+        emptyMessage="No signals yet."
+        renderCard={s => (
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-bold text-white mono">{s.symbol}</span>
+              <span className="flex items-center gap-2">
+                <DirBadge dir={s.direction} />
+                <SigBadge status={s.status} />
+              </span>
+            </div>
+            <div className="card-row-grid">
+              <div><div className="card-field-label">Time</div><div className="card-field-value mono muted">{fmtTs(s.timestamp)}</div></div>
+              <div><div className="card-field-label">Strategy</div><div className="card-field-value muted">{s.strategy} · {s.timeframe}</div></div>
+              <div><div className="card-field-label">Entry</div><div className="card-field-value mono">{fmtPrice(s.entry)}</div></div>
+              <div><div className="card-field-label">SL / TP</div><div className="card-field-value mono">{fmtPrice(s.stopLoss)} / {fmtPrice(s.takeProfit)}</div></div>
+              <div><div className="card-field-label">Confidence</div><div className="card-field-value mono">{s.confidence !== undefined ? `${(s.confidence * 100).toFixed(0)}%` : "-"}</div></div>
+              <div><div className="card-field-label">Setup</div><div className="card-field-value muted">{s.setup ?? "-"}</div></div>
+            </div>
+          </div>
+        )}
+      />
+    </SurfaceSection>
   );
 }
 
@@ -748,7 +740,7 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
         </section>
       </div>
 
-      {/* Raw counters / gauges — only when populated */}
+      {/* Raw counters / gauges - only when populated */}
       {((rawCounters && Object.keys(rawCounters).length > 0) ||
         (rawGauges   && Object.keys(rawGauges).length   > 0)) && (
         <div className="grid xl:grid-cols-2 gap-4">
@@ -945,189 +937,90 @@ function GuardsTab({ guards }: { guards: RGuard[] }) {
   );
 }
 
-/* ── Rejections tab ─────────────────────────────────────────────────────── */
+/* ── Event tabs (shared EventFeed) ──────────────────────────────────────── */
+function eventTone(type: string): FeedTone {
+  if (type === "parity.warning" || type === "signal.filtered" || type === "position.partial_tp") return "warning";
+  if (REJECTION_EVENT_TYPES.has(type)) return "danger";
+  if (type === "trade.closed" || type === "trade.sl_hit") return "danger";
+  if (ACTIVITY_EVENT_TYPES.has(type)) return "success";
+  return "neutral";
+}
+
+function toFeedEvents(items: EventEntry[]): FeedEvent[] {
+  return items.map(ev => ({
+    id: ev.id,
+    type: ev.event_type,
+    time: fmtTs(ev.ts),
+    summary: ev.summary || String(ev.data.reason ?? ev.data.message ?? "-"),
+    tone: eventTone(ev.event_type),
+    details: ev.data,
+  }));
+}
+
+function EventTab({
+  items, title, subtitle, emptyTitle, emptyBody, dangerBadge,
+}: {
+  items: EventEntry[];
+  title: string;
+  subtitle: string;
+  emptyTitle: string;
+  emptyBody: string;
+  dangerBadge?: boolean;
+}) {
+  if (!items.length) {
+    return (
+      <div className="surface state-block">
+        <div className="font-medium">{emptyTitle}</div>
+        <p className="muted text-xs">{emptyBody}</p>
+      </div>
+    );
+  }
+  return (
+    <SurfaceSection
+      title={title}
+      subtitle={subtitle}
+      badge={<span className={`badge ${dangerBadge ? "badge-red" : "badge-muted"}`}>{items.length}</span>}
+      flush
+    >
+      <EventFeed events={toFeedEvents(items)} maxHeight={560} />
+    </SurfaceSection>
+  );
+}
+
 function RejectionsTab({ items }: { items: EventEntry[] }) {
-  if (!items.length) {
-    return (
-      <div className="panel state-block">
-        <div className="font-medium">No rejections</div>
-        <p className="muted text-xs">Strategy and risk rejections will appear here as events arrive via the gateway.</p>
-      </div>
-    );
-  }
   return (
-    <div className="panel overflow-hidden">
-      <div className="panel-head">
-        <div>
-          <div className="text-sm font-semibold">Rejections</div>
-          <p className="muted text-xs mt-0.5">{items.length} rejection{items.length !== 1 ? "s" : ""} accumulated</p>
-        </div>
-        <span className="badge" style={{ background: "rgba(244,63,94,.15)", color: "#f43f5e", border: "1px solid rgba(244,63,94,.3)" }}>
-          {items.length}
-        </span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max text-xs">
-          <thead>
-            <tr>{["Time", "Source", "Symbol", "Strategy", "Reason"].map(c => <TH key={c}>{c}</TH>)}</tr>
-          </thead>
-          <tbody>
-            {items.map(ev => {
-              const d = ev.data;
-              const srcLabel = ev.event_type.split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
-              return (
-                <tr key={ev.id} style={TR_BORDER}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                  <TD mono><span className="muted">{fmtTs(ev.ts)}</span></TD>
-                  <TD>
-                    <span className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(244,63,94,.12)", color: "#f43f5e" }}>
-                      {srcLabel}
-                    </span>
-                  </TD>
-                  <TD mono><span className="font-bold text-white">{String(d.symbol ?? "—")}</span></TD>
-                  <TD><span className="muted">{String(d.strategy ?? d.strat ?? "—")}</span></TD>
-                  <TD>
-                    <span className="muted block max-w-[320px] truncate">
-                      {String(d.reason ?? d.message ?? ev.summary ?? "—")}
-                    </span>
-                  </TD>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <EventTab
+      items={items}
+      title="Rejections"
+      subtitle={`${items.length} rejection${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
+      emptyTitle="No rejections"
+      emptyBody="Strategy and risk rejections will appear here as events arrive via the gateway."
+      dangerBadge
+    />
   );
 }
 
-/* ── Activity tab ───────────────────────────────────────────────────────── */
 function ActivityTab({ items }: { items: EventEntry[] }) {
-  if (!items.length) {
-    return (
-      <div className="panel state-block">
-        <div className="font-medium">No activity yet</div>
-        <p className="muted text-xs">Order fills, trade opens / closes, and TP / SL hits will appear here.</p>
-      </div>
-    );
-  }
   return (
-    <div className="panel overflow-hidden">
-      <div className="panel-head">
-        <div>
-          <div className="text-sm font-semibold">Activity</div>
-          <p className="muted text-xs mt-0.5">{items.length} event{items.length !== 1 ? "s" : ""} accumulated</p>
-        </div>
-        <span className="badge badge-muted">{items.length}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max text-xs">
-          <thead>
-            <tr>{["Time", "Action", "Symbol", "Ticket", "Side", "Vol", "Price", "P&L"].map(c => <TH key={c}>{c}</TH>)}</tr>
-          </thead>
-          <tbody>
-            {items.map(ev => {
-              const d = ev.data;
-              const action = ev.event_type.split(".").pop()
-                ?.replace(/_/g, " ").toUpperCase() ?? ev.event_type;
-              const dir = d.direction ?? d.side ?? d.dir;
-              const profit = typeof d.profit === "number" ? d.profit
-                : typeof d.pnl === "number" ? d.pnl
-                : typeof d.net_profit === "number" ? d.net_profit
-                : undefined;
-              const rawPrice = d.price ?? d.entry_price ?? d.close_price ?? d.fill_price;
-              const rawVol   = d.volume ?? d.lots ?? d.size;
-              return (
-                <tr key={ev.id} style={TR_BORDER}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                  <TD mono><span className="muted">{fmtTs(ev.ts)}</span></TD>
-                  <TD>
-                    <span className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(61,220,151,.12)", color: "#3ddc97" }}>
-                      {action}
-                    </span>
-                  </TD>
-                  <TD mono><span className="font-bold text-white">{String(d.symbol ?? "—")}</span></TD>
-                  <TD mono><span className="muted">{String(d.ticket ?? d.id ?? "—")}</span></TD>
-                  <TD>
-                    {dir ? <DirBadge dir={normalizeDir(dir)} /> : <span className="muted">—</span>}
-                  </TD>
-                  <TD mono>
-                    <span className="muted">
-                      {rawVol !== undefined && !isNaN(Number(rawVol)) ? String(rawVol) : "—"}
-                    </span>
-                  </TD>
-                  <TD mono>
-                    <span className="muted">
-                      {rawPrice !== undefined && !isNaN(Number(rawPrice))
-                        ? fmtPrice(Number(rawPrice)) : "—"}
-                    </span>
-                  </TD>
-                  <TD mono>
-                    {profit !== undefined
-                      ? <span style={{ color: profit > 0 ? "#3ddc97" : profit < 0 ? "#f43f5e" : undefined, fontWeight: 600 }}>
-                          {profit >= 0 ? "+" : ""}{profit.toFixed(2)}
-                        </span>
-                      : <span className="muted">—</span>}
-                  </TD>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <EventTab
+      items={items}
+      title="Activity"
+      subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
+      emptyTitle="No activity yet"
+      emptyBody="Order fills, trade opens / closes, and TP / SL hits will appear here."
+    />
   );
 }
 
-/* ── Logs tab ───────────────────────────────────────────────────────────── */
 function LogsTab({ items }: { items: EventEntry[] }) {
-  if (!items.length) {
-    return (
-      <div className="panel state-block">
-        <div className="font-medium">No events yet</div>
-        <p className="muted text-xs">All execution events forwarded by the gateway will be logged here in real time.</p>
-      </div>
-    );
-  }
   return (
-    <div className="panel overflow-hidden">
-      <div className="panel-head">
-        <div>
-          <div className="text-sm font-semibold">Event Log</div>
-          <p className="muted text-xs mt-0.5">{items.length} event{items.length !== 1 ? "s" : ""} (max 500)</p>
-        </div>
-        <span className="badge badge-muted">{items.length}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-max text-xs">
-          <thead>
-            <tr>{["Time", "Event Type", "Summary"].map(c => <TH key={c}>{c}</TH>)}</tr>
-          </thead>
-          <tbody>
-            {items.map(ev => (
-              <tr key={ev.id} style={TR_BORDER}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                <TD mono><span className="muted">{fmtTs(ev.ts)}</span></TD>
-                <TD>
-                  <span className="font-mono text-[11px] font-semibold"
-                        style={{ color: eventColor(ev.event_type) }}>
-                    {ev.event_type}
-                  </span>
-                </TD>
-                <TD>
-                  <span className="muted block max-w-[440px] truncate">{ev.summary}</span>
-                </TD>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <EventTab
+      items={items}
+      title="Event Log"
+      subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} (max 500)`}
+      emptyTitle="No events yet"
+      emptyBody="All execution events forwarded by the gateway will be logged here in real time."
+    />
   );
 }
 
@@ -1168,7 +1061,7 @@ function ExecutionLoadingShell({
       : offline
       ? "Start the execution gateway and reload to stream execution metrics."
       : connecting
-      ? "Authenticating with the gateway — this only takes a moment."
+      ? "Authenticating with the gateway - this only takes a moment."
       : "Gateway is subscribed and waiting for the first metrics snapshot from AQ Agent.";
 
   return (
@@ -1221,7 +1114,7 @@ interface EngineControlState {
   snapshotAvailable: boolean;
   /**
    * True when the engine is command-paused (signal queue held by an explicit
-   * pause command).  Does NOT reflect risk-guard pauses — those can't be
+   * pause command).  Does NOT reflect risk-guard pauses - those can't be
    * cleared remotely via Resume.
    */
   isPaused: boolean;
@@ -1345,42 +1238,15 @@ function CommandConfirmDialog({
   );
 }
 
-/* ── Single command button ──────────────────────────────────────────────── */
-function CmdButton({
-  label, icon, enabled, disabledReason, onClick, baseStyle,
-}: {
-  label:          string;
-  icon:           ReactNode;
-  enabled:        boolean;
-  disabledReason: string | null;
-  onClick:        () => void;
-  baseStyle:      React.CSSProperties;
-}) {
-  return (
-    <button
-      onClick={enabled ? onClick : undefined}
-      aria-disabled={!enabled}
-      title={!enabled && disabledReason ? disabledReason : undefined}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-      style={{
-        ...baseStyle,
-        opacity: enabled ? 1 : 0.32,
-        cursor:  enabled ? "pointer" : "not-allowed",
-      }}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
-}
-
 /* ── Remote control panel ───────────────────────────────────────────────── */
 function RemoteControlPanel({
   engineId,
   controlState,
+  engineSelector,
 }: {
-  engineId:     string | null;
-  controlState: EngineControlState;
+  engineId:       string | null;
+  controlState:   EngineControlState;
+  engineSelector?: React.ReactNode;
 }) {
   const { session } = useAuth();
 
@@ -1403,20 +1269,20 @@ function RemoteControlPanel({
 
   /* Human-readable disabled reasons (shown as title tooltip) */
   const pauseReason: string | null =
-    inFlight          ? "Command pending — waiting for engine response."
+    inFlight          ? "Command pending - waiting for engine response."
     : !snapshotAvailable ? "Waiting for engine stream…"
-    : isPaused           ? "Pause unavailable — engine is already paused."
+    : isPaused           ? "Pause unavailable - engine is already paused."
     : null;
 
   const resumeReason: string | null =
-    inFlight          ? "Command pending — waiting for engine response."
-    : !snapshotAvailable ? "Resume unavailable — engine state unknown."
-    : !isPaused          ? "Resume unavailable — engine is not paused."
+    inFlight          ? "Command pending - waiting for engine response."
+    : !snapshotAvailable ? "Resume unavailable - engine state unknown."
+    : !isPaused          ? "Resume unavailable - engine is not paused."
     : null;
 
   const emergencyReason: string | null =
-    inFlight          ? "Command pending — waiting for engine response."
-    : openPositionsCount === 0 ? "Emergency unavailable — no open positions."
+    inFlight          ? "Command pending - waiting for engine response."
+    : openPositionsCount === 0 ? "Emergency unavailable - no open positions."
     : null;
 
   /* Reset on engine change */
@@ -1478,11 +1344,11 @@ function RemoteControlPanel({
         } else if (s === "delivered") {
           setCmd(prev => ({ ...prev, phase: "delivered" }));
         }
-      } catch { /* transient — keep polling */ }
+      } catch { /* transient - keep polling */ }
     }, 2500);
   }, [session]);
 
-  /* Step 1 — open confirmation */
+  /* Step 1 - open confirmation */
   const requestCommand = (type: CmdType) => {
     if (inFlight) return;
     if (type === "command.pause"         && !canPause)     return;
@@ -1517,7 +1383,7 @@ function RemoteControlPanel({
     setConfirmOpen(true);
   };
 
-  /* Step 2 — execute after user confirms */
+  /* Step 2 - execute after user confirms */
   const executeConfirmed = async () => {
     if (!confirmCfg || !engineId || !session?.access_token) return;
     if (inFlight) return;                               // prevent double-submit
@@ -1546,7 +1412,7 @@ function RemoteControlPanel({
     }
   };
 
-  /* Close dialog — only possible when not actively in-flight (or after failure) */
+  /* Close dialog - only possible when not actively in-flight (or after failure) */
   const closeConfirm = () => {
     const canClose = !inFlight || cmd.phase === "failed";
     if (!canClose) return;
@@ -1558,13 +1424,18 @@ function RemoteControlPanel({
 
   if (!engineId) return null;
 
-  /* Phase label shown in the strip while a command is in flight */
+  /* Command phase shown in the strip */
   const phaseLabel =
     cmd.phase === "sending"   ? "Sending…"
     : cmd.phase === "pending"  ? "Awaiting engine…"
     : cmd.phase === "delivered"? "Engine acknowledged…"
-    : cmd.phase === "completed"? "Done ✓"
-    : null;
+    : cmd.phase === "completed"? "Completed ✓"
+    : cmd.phase === "failed"   ? "Failed"
+    : "Idle";
+
+  const engineStateLabel = !snapshotAvailable
+    ? "Waiting for snapshot"
+    : isPaused ? "Paused" : "Running";
 
   return (
     <>
@@ -1577,70 +1448,41 @@ function RemoteControlPanel({
         onConfirm={() => void executeConfirmed()}
       />
 
-      <div className="panel flex items-center gap-3 flex-wrap" style={{ padding: "10px 14px" }}>
-        {/* Section label */}
-        <span
-          className="text-xs font-semibold tracking-wide"
-          style={{ color: "rgba(255,255,255,.32)", letterSpacing: "0.06em", minWidth: 110 }}
-        >
-          REMOTE CONTROLS
-        </span>
-
-        {/* Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <CmdButton
-            label="Pause"
-            icon={<Pause size={12} />}
-            enabled={canPause}
-            disabledReason={pauseReason}
-            onClick={() => requestCommand("command.pause")}
-            baseStyle={{
-              background: "rgba(255,255,255,.06)",
-              border: "1px solid rgba(255,255,255,.1)",
-              color: "rgba(255,255,255,.75)",
-            }}
-          />
-          <CmdButton
-            label="Resume"
-            icon={<Play size={12} />}
-            enabled={canResume}
-            disabledReason={resumeReason}
-            onClick={() => requestCommand("command.resume")}
-            baseStyle={{
-              background: "rgba(61,220,151,.08)",
-              border: "1px solid rgba(61,220,151,.2)",
-              color: "#3ddc97",
-            }}
-          />
-          <CmdButton
-            label="Emergency Stop"
-            icon={<WarningIcon size={12} />}
-            enabled={canEmergency}
-            disabledReason={emergencyReason}
-            onClick={() => requestCommand("command.emergency_stop")}
-            baseStyle={{
-              background: "rgba(244,63,94,.1)",
-              border: "1px solid rgba(244,63,94,.3)",
-              color: "#f43f5e",
-              fontWeight: 600,
-            }}
-          />
-        </div>
-
-        {/* In-flight phase label */}
-        {phaseLabel && (
-          <div className="flex items-center gap-1.5 ml-auto">
-            {cmd.phase !== "completed" && (
-              <Loader2 size={11} className="animate-spin" style={{ color: "rgba(255,255,255,.35)" }} />
-            )}
-            <span className="text-xs" style={{
-              color: cmd.phase === "completed" ? "#3ddc97" : "rgba(255,255,255,.42)",
-            }}>
-              {phaseLabel}
-            </span>
-          </div>
-        )}
-      </div>
+      <CommandBar
+        context={
+          <span className="text-[10px] font-bold uppercase tracking-[.1em]"
+                style={{ color: "var(--muted)" }}>
+            Engine Control
+          </span>
+        }
+        commands={[
+          {
+            id: "pause",
+            label: "Pause",
+            variant: "warn",
+            disabled: !canPause,
+            disabledReason: pauseReason ?? undefined,
+            onClick: () => requestCommand("command.pause"),
+          },
+          {
+            id: "resume",
+            label: "Resume",
+            variant: "success",
+            disabled: !canResume,
+            disabledReason: resumeReason ?? undefined,
+            onClick: () => requestCommand("command.resume"),
+          },
+          {
+            id: "emergency",
+            label: "Emergency Stop",
+            dangerous: true,
+            disabled: !canEmergency,
+            disabledReason: emergencyReason ?? undefined,
+            onClick: () => requestCommand("command.emergency_stop"),
+          },
+        ]}
+        right={engineSelector}
+      />
     </>
   );
 }
@@ -1672,14 +1514,24 @@ function EngineDropdown({
 
   if (engines.length === 0) return null;
 
-  /* single engine — static pill, no dropdown */
+  /* single engine - rich two-line static display */
   if (engines.length === 1) {
+    const e = engines[0];
     return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-           style={{ background: "var(--surface-raised)", border: "1px solid var(--line-strong)" }}>
-        <span className="dot dot-live pulse" style={{ width: 7, height: 7 }} />
-        <span className="font-medium text-white/80">
-          {engines[0].device_name || engines[0].engine_id}
+      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl"
+           style={{ background: "var(--surface-3)", border: "1px solid var(--line-strong)", minWidth: 200 }}>
+        <span className="dot dot-live pulse shrink-0" style={{ width: 7, height: 7 }} />
+        <div className="min-w-0">
+          <div className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>
+            {e.device_name || "Unnamed Engine"}
+          </div>
+          <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: "var(--muted)" }}>
+            {e.engine_id.slice(0, 20)}…
+          </div>
+        </div>
+        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ml-auto"
+              style={{ background: "var(--success-bg)", color: "var(--success)", border: "1px solid var(--success-border)" }}>
+          Connected
         </span>
       </div>
     );
@@ -1687,26 +1539,31 @@ function EngineDropdown({
 
   return (
     <div ref={ref} className="relative">
-      {/* Trigger */}
+      {/* Trigger - two-line rich display */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+        className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all"
         style={{
-          background:   open ? "var(--surface-active, rgba(255,255,255,.09))" : "var(--surface-raised)",
-          border:       `1px solid ${open ? "rgba(255,255,255,.18)" : "var(--line-strong)"}`,
-          color:        "rgba(255,255,255,.8)",
-          outline:      "none",
-          minWidth:     180,
+          background: open ? "var(--surface-3)" : "var(--surface-3)",
+          border:     `1px solid ${open ? "var(--line-strong)" : "var(--line)"}`,
+          outline:    "none",
+          minWidth:   220,
+          boxShadow:  open ? "0 0 0 1px rgba(255,255,255,.06)" : "none",
         }}
       >
-        <span className="dot dot-live pulse" style={{ width: 7, height: 7, flexShrink: 0 }} />
-        <span className="flex-1 text-left truncate">
-          {selected ? (selected.device_name || selected.engine_id) : "Select engine"}
-        </span>
+        <span className="dot dot-live pulse shrink-0" style={{ width: 7, height: 7 }} />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>
+            {selected ? (selected.device_name || "Unnamed Engine") : "Select engine"}
+          </div>
+          <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: "var(--muted)" }}>
+            {selected ? `${selected.engine_id.slice(0, 18)}… · ${engines.length} engines` : `${engines.length} engines`}
+          </div>
+        </div>
         <ChevronDown
-          size={12}
-          className="shrink-0 muted transition-transform"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+          size={13}
+          className="shrink-0 transition-transform"
+          style={{ color: "var(--muted)", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
         />
       </button>
 
@@ -1829,7 +1686,7 @@ function SubscribeIllustration() {
       <circle cx="80" cy="22" r="6" fill="rgba(61,220,151,.15)" stroke="rgba(61,220,151,.4)" strokeWidth="1"/>
       <path d="M77 22 L79.5 24.5 L83 20" stroke="#3ddc97" strokeWidth="1.3"
             strokeLinecap="round" strokeLinejoin="round"/>
-      {/* right side — license key block */}
+      {/* right side - license key block */}
       <rect x="110" y="22" width="72" height="44" rx="6"
             fill="rgba(61,220,151,.05)" stroke="rgba(61,220,151,.18)" strokeWidth="1"/>
       <rect x="118" y="30" width="56" height="3" rx="1.5" fill="rgba(255,255,255,.1)"/>
@@ -1930,7 +1787,7 @@ function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
       badge: "Step 1",
       name: "Get a subscription",
       desc: hasLicense
-        ? "License active. Your subscription is set up — head to Licenses & Keys to manage keys and install AQ Agent."
+        ? "License active. Your subscription is set up - head to Licenses & Keys to manage keys and install AQ Agent."
         : "Choose a plan on the Billing page. After checkout, an activation key is provisioned for each device slot on your license.",
       features: ["Choose Starter or Pro plan", "License provisioned instantly", "One key per device slot", "Managed from Licenses & Keys"],
       cta: { label: hasLicense ? "View Licenses & Keys →" : "Go to Billing →", href: hasLicense ? "/app/licenses" : "/app/billing", active: true },
@@ -1940,7 +1797,7 @@ function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
       done: false,
       badge: "Step 2",
       name: "Install AQ Agent",
-      desc: "Download the AQ Agent installer from Licenses & Keys. Run it on your Windows PC or VPS — the setup wizard handles everything.",
+      desc: "Download the AQ Agent installer from Licenses & Keys. Run it on your Windows PC or VPS - the setup wizard handles everything.",
       features: ["Windows 10 / 11 or Server", "Runs on any VPS provider", "MT5 must be installed", "One AQ Agent per device slot"],
       cta: { label: "Download from Licenses & Keys →", href: "/app/licenses", active: true },
     },
@@ -2073,7 +1930,7 @@ export default function Execution() {
   }, [selectedId]);
 
   /* Override the shell's baseline subscription when the user selects a
-     specific engine on this page. No cleanup — the shell keeps a live
+     specific engine on this page. No cleanup - the shell keeps a live
      subscription alive across navigation; we don't null it on unmount. */
   useEffect(() => {
     if (gwStatus === "authenticated" && selectedId) {
@@ -2120,7 +1977,6 @@ export default function Execution() {
   const signals   = rawSigs.map((s, i) => normalizeSig(s, i));
   const guards    = rawGuards as unknown as RGuard[];
 
-  const streamReady  = Boolean(snapshot) && !gateway.executionMetricsError;
   const streamStatus = gateway.executionMetricsError ?? undefined;
 
   /* Derive engine control state for the remote-control panel.
@@ -2135,36 +1991,36 @@ export default function Execution() {
     openPositionsCount: positions.length,
   };
 
-  /* Engine selector */
-  const engineSelector = !enginesLoading && engines.length > 0 ? (
-    <EngineDropdown
-      engines={engines}
-      selectedId={selectedId}
-      onChange={id => setSelectedId(id)}
-    />
-  ) : undefined;
-
   return (
     <div className="page-wrap space-y-5">
       <PageHeader
         eyebrow="Private execution domain"
         title="My Execution"
         description="Owner-scoped account, risk, trade, and broker execution telemetry from your installed engine."
-        right={engineSelector}
       />
 
-      {/* 1 — DB query in progress */}
+      {/* 1 - DB query in progress */}
       {enginesLoading && <ExecutionLoadingShell phase="engines" />}
 
-      {/* 2 — No engines registered */}
+      {/* 2 - No engines registered */}
       {!enginesLoading && engines.length === 0 && <NoEnginesState hasLicense={hasLicense} />}
 
       {!enginesLoading && engines.length > 0 && (
         <>
-          {/* Remote controls — always visible once an engine is selected */}
-          <RemoteControlPanel engineId={selectedId} controlState={engineControlState} />
+          {/* Remote controls - always visible once an engine is selected */}
+          <RemoteControlPanel
+            engineId={selectedId}
+            controlState={engineControlState}
+            engineSelector={
+              <EngineDropdown
+                engines={engines}
+                selectedId={selectedId}
+                onChange={id => setSelectedId(id)}
+              />
+            }
+          />
 
-          {/* 3 — Engines found but stream not yet live */}
+          {/* 3 - Engines found but stream not yet live */}
           {!snapshot && (
             <ExecutionLoadingShell
               phase={streamStatus ? "forbidden" : "stream"}
@@ -2173,45 +2029,20 @@ export default function Execution() {
             />
           )}
 
-          {/* 4 — Live: tab strip + content (only when snapshot is present) */}
+          {/* 4 - Live: tab strip + content (only when snapshot is present) */}
           {snapshot && <>
-          {/* Tab strip — scrollable so all 8 tabs fit on small screens */}
-          <div className="overflow-x-auto no-scrollbar">
-            <div className="flex gap-0.5 p-1 rounded-lg w-fit"
-                 style={{ background: "var(--surface-raised)", border: "1px solid var(--line)" }}>
-              {TABS.map(tab => {
-                const count =
-                  tab.id === "rejections" ? rejections.length :
-                  tab.id === "activity"   ? activity.length :
-                  tab.id === "logs"       ? eventLog.length : 0;
-                const isRej = tab.id === "rejections" && count > 0;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap"
-                    style={{
-                      background: activeTab === tab.id ? "rgba(255,255,255,.08)" : "transparent",
-                      color:      activeTab === tab.id ? "#fff" : "rgba(255,255,255,.4)",
-                    }}
-                  >
-                    {tab.label}
-                    {count > 0 && (
-                      <span
-                        className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold tabular-nums"
-                        style={{
-                          background: isRej ? "rgba(244,63,94,.25)" : "rgba(255,255,255,.12)",
-                          color:      isRej ? "#f43f5e" : "rgba(255,255,255,.5)",
-                        }}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <Tabs
+            tabs={TABS.map(tab => ({
+              id: tab.id,
+              label: tab.label,
+              count:
+                tab.id === "rejections" && rejections.length ? rejections.length :
+                tab.id === "activity"   && activity.length   ? activity.length :
+                tab.id === "logs"       && eventLog.length   ? eventLog.length : undefined,
+            }))}
+            active={activeTab}
+            onChange={id => setActiveTab(id as TabId)}
+          />
 
           {activeTab === "overview"    && <OverviewTab    metrics={metrics} engineMode={engineMode} />}
           {activeTab === "positions"   && <PositionsTab   positions={positions} />}

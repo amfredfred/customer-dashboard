@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Auto-start / boot preference — process block with launch rail at top. */
+/** Auto-start / boot preference - process block with launch rail at top. */
 export function StartupIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -11,7 +11,7 @@ export function StartupIcon({ size = 16, className, style, title }: IconProps) {
       {title && <title>{title}</title>}
       {/* Process block */}
       <rect x="5" y="8" width="14" height="11" rx="2.5" />
-      {/* Launch indicator — vertical rail from top */}
+      {/* Launch indicator - vertical rail from top */}
       <path d="M12 3v5" />
       <path d="M9.5 5.5L12 3l2.5 2.5" />
       {/* Running state line inside block */}

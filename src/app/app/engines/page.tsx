@@ -236,7 +236,7 @@ function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
       name: "Get an activation key",
       desc: hasLicense
         ? "License detected. Head to Licenses & Keys to issue your AQ Agent activation key if you haven't already."
-        : "Subscribe on Billing to receive a license, then visit Licenses & Keys to issue your activation key. The raw key is shown once — copy it immediately.",
+        : "Subscribe on Billing to receive a license, then visit Licenses & Keys to issue your activation key. The raw key is shown once - copy it immediately.",
       features: ["Subscribe on the Billing page", "License provisioned automatically", "Issue key from Licenses & Keys", "Raw key shown once only"],
       cta: { label: hasLicense ? "View Licenses & Keys →" : "Go to Licenses & Keys →", href: "/app/licenses", active: true },
     },
@@ -245,7 +245,7 @@ function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
       done: false,
       badge: "Step 2",
       name: "Install AQ Agent",
-      desc: "Download the AQ Agent installer. Run it on any Windows PC or VPS — the setup wizard handles everything.",
+      desc: "Download the AQ Agent installer. Run it on any Windows PC or VPS - the setup wizard handles everything.",
       features: ["Windows 10 / 11 or Server", "Runs on any VPS provider", "MT5 must be installed", "One AQ Agent per device slot"],
       cta: { label: "Download from Licenses & Keys →", href: "/app/licenses", active: true },
     },
@@ -372,7 +372,7 @@ export default function Engines() {
             .in("engine_device_id", deviceIds)
             .order("connected_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
-      // Direct license check — needed when no devices are registered yet
+      // Direct license check - needed when no devices are registered yet
       supabase.from("licenses").select("id").limit(1),
     ]);
 
@@ -417,6 +417,12 @@ export default function Engines() {
         eyebrow="AQ Agents"
         title="AQ Agents"
         description="Activated AQ Agents and their latest Gateway session heartbeat. Online = heartbeat within 90 s · Degraded = 90 s–5 min · Offline = >5 min or disconnected."
+        right={
+          <>
+            <a href="/app/licenses" className="btn btn-sm">View License Keys</a>
+            <a href="/app/downloads" className="btn btn-sm btn-primary">Download Agent</a>
+          </>
+        }
       />
 
       {/* Loading */}
@@ -461,10 +467,12 @@ export default function Engines() {
             <section key={engine.id} className="panel overflow-hidden">
               {/* Card header */}
               <div className="panel-head flex-col sm:flex-row sm:items-start">
-                <div>
-                  <div className="font-semibold mono text-sm">{engine.engine_id}</div>
-                  <div className="text-xs muted mt-0.5">
-                    {engine.device_name} · {platformLabel(engine.platform)}
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">
+                    {engine.device_name || engine.engine_id}
+                  </div>
+                  <div className="text-xs muted mt-0.5 mono truncate">
+                    {engine.engine_id.slice(0, 18)}{engine.engine_id.length > 18 ? "…" : ""} · {platformLabel(engine.platform)}
                   </div>
                 </div>
                 <StateLabel state={state} />
@@ -474,7 +482,7 @@ export default function Engines() {
               <div className="panel-body grid grid-cols-2 sm:grid-cols-4 gap-5">
                 <div>
                   <div className="muted text-xs">Version</div>
-                  <div className="mt-2 mono text-xs font-medium">{engine.engine_version || "—"}</div>
+                  <div className="mt-2 mono text-xs font-medium">{engine.engine_version || "-"}</div>
                 </div>
                 <div>
                   <div className="muted text-xs">Symbols</div>
@@ -485,7 +493,7 @@ export default function Engines() {
                 <div>
                   <div className="muted text-xs">Device slots</div>
                   <div className="mt-2 mono text-xs font-medium">
-                    {engine.usedSlots} of {maxDev || "—"}
+                    {engine.usedSlots} of {maxDev || "-"}
                   </div>
                 </div>
                 <div>

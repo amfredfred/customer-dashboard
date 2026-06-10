@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PageHeader, SectionHead } from "@/components/metric-detail";
+import { PageHeader } from "@/components/metric-detail";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { X, Zap } from "lucide-react";
-import { EngineIcon, ErrorIcon, WarningIcon } from "@/components/icons";
-import { RefreshIcon } from "@/components/icons";
+import { ErrorIcon, RefreshIcon } from "@/components/icons";
 
 type EngineRow = {
   id: string;
@@ -56,7 +55,7 @@ function CommandPanel({ engineId, onClose, token }: {
       });
       const body = await res.json() as { status?: string; error?: string };
       if (res.ok) {
-        setResult({ ok: true, msg: `${commandType.replace("command.", "")} — ${body.status ?? "sent"}` });
+        setResult({ ok: true, msg: `${commandType.replace("command.", "")} - ${body.status ?? "sent"}` });
       } else {
         setResult({ ok: false, msg: body.error ?? "Failed" });
       }
@@ -67,25 +66,15 @@ function CommandPanel({ engineId, onClose, token }: {
     }
   }
 
-  const CMDS: { type: CommandType; label: string; tone: string }[] = [
-    { type: "command.pause",          label: "Pause",          tone: "warn" },
-    { type: "command.resume",         label: "Resume",         tone: "good" },
-    { type: "command.emergency_stop", label: "Emergency Stop", tone: "danger" },
-  ];
-
-  const toneStyle = (t: string) =>
-    t === "warn"   ? { bg: "var(--warning-bg)", border: "var(--warning-border)", color: "var(--warning)" }
-    : t === "good" ? { bg: "var(--success-bg)", border: "var(--success-border)", color: "var(--success)" }
-    :                { bg: "var(--danger-bg)",  border: "var(--danger-border)",  color: "var(--danger)"  };
+  const [confirmEmergency, setConfirmEmergency] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-         style={{ background: "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden"
-           style={{ background: "#0e1015", border: "1px solid rgba(255,255,255,.1)" }}>
-        <div className="p-5 border-b border-white/[.07] flex items-center gap-3">
+         style={{ background: "rgba(0,0,0,.7)" }}>
+      <div className="w-full max-w-sm surface lv3 overflow-hidden">
+        <div className="p-5 border-b border-[var(--line-soft)] flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-               style={{ background: "rgba(138,180,255,.08)", border: "1px solid rgba(138,180,255,.2)" }}>
+               style={{ background: "var(--info-bg)", border: "1px solid var(--info-border)" }}>
             <Zap size={14} style={{ color: "var(--info)" }} />
           </div>
           <div>
@@ -105,20 +94,58 @@ function CommandPanel({ engineId, onClose, token }: {
               {result.msg}
             </div>
           )}
-          {CMDS.map(({ type, label, tone }) => {
-            const s = toneStyle(tone);
-            return (
+
+          <button
+            disabled={busy}
+            onClick={() => { setConfirmEmergency(false); void send("command.pause"); }}
+            className="btn w-full"
+          >
+            Pause
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => { setConfirmEmergency(false); void send("command.resume"); }}
+            className="btn w-full"
+          >
+            Resume
+          </button>
+
+          {/* Danger zone - emergency requires explicit confirmation */}
+          <div className="cmd-danger-zone !flex-col !items-stretch !gap-2 !mt-3">
+            <span className="cmd-danger-label">Danger zone</span>
+            {!confirmEmergency ? (
               <button
-                key={type}
                 disabled={busy}
-                onClick={() => void send(type)}
-                className="w-full text-sm py-2.5 px-4 rounded-lg font-medium transition-opacity disabled:opacity-50"
-                style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.color }}
+                onClick={() => setConfirmEmergency(true)}
+                className="btn btn-danger w-full"
               >
-                {label}
+                Emergency Stop…
               </button>
-            );
-          })}
+            ) : (
+              <>
+                <p className="text-[11px] leading-5 m-0" style={{ color: "var(--danger)" }}>
+                  This pauses the engine and closes all open positions on the
+                  customer&apos;s account. Confirm to dispatch.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    disabled={busy}
+                    onClick={() => setConfirmEmergency(false)}
+                    className="btn btn-sm flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() => { setConfirmEmergency(false); void send("command.emergency_stop"); }}
+                    className="btn btn-sm btn-danger-solid flex-1"
+                  >
+                    {busy ? "Sending…" : "Confirm Emergency Stop"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -173,9 +200,9 @@ export default function AdminEnginesPage() {
       <PageHeader
         eyebrow="Admin"
         title="All Engines"
-        description={`${rows.length} registered — ${online} online, ${offline} offline`}
+        description={`${rows.length} registered - ${online} online, ${offline} offline`}
         right={
-          <button className="btn-ghost flex items-center gap-1.5" onClick={() => void load()}>
+          <button className="btn btn-ghost btn-sm" onClick={() => void load()}>
             <RefreshIcon size={14} className={loading ? "animate-spin" : ""} />
             Refresh
           </button>
@@ -183,7 +210,7 @@ export default function AdminEnginesPage() {
       />
 
       {error && (
-        <div className="card mb-4 p-3 text-sm flex items-center gap-2"
+        <div className="surface mb-4 p-3 text-sm flex items-center gap-2"
              style={{ borderColor: "var(--danger-border)", color: "var(--danger)" }}>
           <ErrorIcon size={14} />
           {error}
@@ -194,9 +221,9 @@ export default function AdminEnginesPage() {
       {loading && rows.length === 0 ? (
         <div className="text-sm muted">Loading…</div>
       ) : rows.length === 0 ? (
-        <div className="card p-8 text-center text-sm muted">No engines found</div>
+        <div className="surface p-8 text-center text-sm muted">No engines found</div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="surface overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[.07]" style={{ color: "var(--muted)" }}>
@@ -223,7 +250,7 @@ export default function AdminEnginesPage() {
                         {st.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs muted hidden md:table-cell">{row.owner_email ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs muted hidden md:table-cell">{row.owner_email ?? "-"}</td>
                     <td className="px-4 py-3 text-xs font-mono muted hidden lg:table-cell">{row.engine_version}</td>
                     <td className="px-4 py-3 text-xs muted hidden lg:table-cell">{fmtAgo(row.last_seen_at)}</td>
                     <td className="px-4 py-3">

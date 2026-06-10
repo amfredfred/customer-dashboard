@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Background service / daemon process — module block with inner rails and a centre running indicator. */
+/** Background service / daemon process - module block with inner rails and a centre running indicator. */
 export function ServiceIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -15,7 +15,7 @@ export function ServiceIcon({ size = 16, className, style, title }: IconProps) {
       <path d="M8 9h8" />
       {/* Bottom rail */}
       <path d="M8 15h8" />
-      {/* Running indicator — small dot at centre */}
+      {/* Running indicator - small dot at centre */}
       <circle cx="12" cy="12" r="2" />
     </svg>
   );

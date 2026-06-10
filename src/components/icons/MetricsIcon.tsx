@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Runtime metrics — two compact KPI blocks on top, one wide panel below. */
+/** Runtime metrics - two compact KPI blocks on top, one wide panel below. */
 export function MetricsIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

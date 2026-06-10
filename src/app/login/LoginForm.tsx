@@ -101,7 +101,7 @@ export default function LoginForm() {
   return <main className="login-shell">
     <aside className="login-panel-left">
       <Link href="/" className="flex items-center gap-3"><img src="/icon.png" alt="Apex" className="w-9 h-9 rounded-md" /><div><div className="text-xs font-bold tracking-[.16em]">APEX</div><div className="text-[9px] uppercase tracking-[.12em] muted mt-0.5">Execution network</div></div></Link>
-      <div className="mt-14"><h1 className="text-3xl font-extrabold tracking-[-.035em] leading-[1.15]">Private signals.<br/><span className="text-[#3ddc97]">Your execution authority.</span></h1><p className="text-[13px] muted leading-6 mt-4">Monitor AQ Agents, account risk, and private signal performance from one secure control plane.</p></div>
+      <div className="mt-14"><h1 className="text-3xl font-extrabold tracking-[-.035em] leading-[1.15]">Execution<br/><span className="text-[#3ddc97]">control plane.</span></h1><p className="text-[13px] muted leading-6 mt-4">Monitor licensed AQ Agents, activation keys, and execution telemetry from one secure control plane.</p></div>
       <div className="mt-11 space-y-5"><Feature color="#3ddc97" title="Local execution" detail="Your installed engine and MT5 account keep the final say."/><Feature color="#60a5fa" title="Risk guardrails" detail="Track daily budget, drawdown, and execution health."/><Feature color="#f5b942" title="Private signal access" detail="Demand-driven metrics and licensed signal routing."/><Feature color="#8b5cf6" title="One control plane" detail="Manage AQ Agents, billing, and activation keys securely."/></div>
 
       {/* Download the agent */}
@@ -110,7 +110,7 @@ export default function LoginForm() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-xs font-semibold">Download the Agent</div>
-            <div className="text-[11px] muted mt-0.5">Windows installer · v0.1.0 · 28 MB</div>
+            <div className="text-[11px] muted mt-0.5">Windows installer · AQAgentSetup.exe</div>
           </div>
           <a
             href={DOWNLOAD_URL}
@@ -127,7 +127,7 @@ export default function LoginForm() {
       <p className="text-[10px] muted leading-5 mt-4">By continuing you agree to Apex Quantel&apos;s Terms and Privacy Policy.</p>
     </aside>
     <section className="login-panel-right"><div className="login-form">
-      <div className="mb-8"><h2 className="text-2xl font-bold">Sign in</h2><p className="text-[13px] muted mt-2">No password. Use Google, an OTP code, or a magic link.</p></div>
+      <div className="mb-8"><h2 className="text-2xl font-bold">Sign in to Apex Quantel</h2><p className="text-[13px] muted mt-2">Passwordless authentication - use Google, a one-time code, or a magic link.</p></div>
       {!supabase && <div className="panel p-4 mb-5 border-[#f5b942]/30"><div className="text-xs font-bold uppercase tracking-wider text-[#f5b942]">Supabase setup required</div><div className="text-xs muted mt-2 leading-5">Add the public Supabase URL and publishable key to the dashboard environment.</div></div>}
       <button onClick={() => void signInGoogle()} disabled={!supabase || !googleEnabled || loading} className="auth-google"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>{loading ? "Redirecting..." : googleEnabled === false ? "Google sign-in not enabled" : "Continue with Google"}</button>
       <div className="auth-divider"><span/>OR<span/></div>

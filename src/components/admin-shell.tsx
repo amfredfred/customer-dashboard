@@ -106,16 +106,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
            style={{ background: "linear-gradient(90deg, transparent, #f43f5e 40%, #f43f5e 60%, transparent)" }} />
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 shrink-0 bg-[#0b0d10] border-r border-white/[.07] flex-col">
+      <aside className="hidden md:flex w-64 shrink-0 bg-[var(--surface-1)] border-r border-[var(--line-soft)] flex-col">
         <SidebarContent path={path} email={email} signOut={() => void signOut()} />
       </aside>
 
       {/* Mobile drawer */}
       {drawerOpen && (
         <div className="fixed inset-0 z-40 flex md:hidden" onClick={() => setDrawerOpen(false)}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/55" />
           <aside
-            className="relative w-72 bg-[#0b0d10] border-r border-white/[.07] flex flex-col h-full z-50"
+            className="relative w-72 bg-[var(--surface-1)] border-r border-[var(--line-soft)] flex flex-col h-full z-50"
             onClick={e => e.stopPropagation()}
           >
             <button className="absolute top-4 right-4 muted hover:text-white" onClick={() => setDrawerOpen(false)}>

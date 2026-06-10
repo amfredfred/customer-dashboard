@@ -3,13 +3,36 @@
 import { PageHeader } from "@/components/metric-detail";
 import { Monitor, HardDrive } from "lucide-react";
 import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/components/icons";
+import { useEffect, useState } from "react";
 
 const DOWNLOAD_URL =
   process.env.NEXT_PUBLIC_ENGINE_DOWNLOAD_URL ?? "https://hwicjxlctpwlgorwpinq.supabase.co/storage/v1/object/public/downloads/AQAgentSetup.exe";
 
-const VERSION      = "0.1.0" ;
-const FILE_SIZE    = "28.2 MB";
-const FILE_NAME    = "AQAgentSetup.exe";
+const FALLBACK_VERSION = "0.1.2";
+const FILE_SIZE        = "28.1 MB";
+const FILE_NAME        = "AQAgentSetup.exe";
+
+function gatewayHttpBase(): string {
+  const wsUrl = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://apex-gateway.somicast.com/dashboard";
+  const http = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
+  try { return new URL(http).origin; } catch { return "https://apex-gateway.somicast.com"; }
+}
+
+/** Live version from the gateway's /engine-version endpoint; static fallback. */
+function useEngineVersion(): string {
+  const [version, setVersion] = useState(FALLBACK_VERSION);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch(`${gatewayHttpBase()}/engine-version`, { signal: ctrl.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: { version?: string } | null) => {
+        if (data?.version) setVersion(data.version);
+      })
+      .catch(() => undefined);
+    return () => ctrl.abort();
+  }, []);
+  return version;
+}
 
 function Req({ icon: Icon, label, detail }: { icon: React.ElementType; label: string; detail: string }) {
   return (
@@ -40,6 +63,7 @@ function Step({ n, title, detail }: { n: number; title: string; detail: string }
 }
 
 export default function Downloads() {
+  const VERSION = useEngineVersion();
   return (
     <div className="page-wrap space-y-6">
       <PageHeader
@@ -126,9 +150,9 @@ export default function Downloads() {
               ["Execution agent",       "Core service that connects to MT5 and executes signals."],
               ["Gateway connector",     "Secure WebSocket link to the Apex cloud gateway."],
               ["Config file",           "config.yaml pre-filled with gateway URL and safe defaults."],
-              ["Task Scheduler setup",  "Registers as a Windows Task Scheduler task — starts at boot."],
+              ["Task Scheduler setup",  "Registers as a Windows Task Scheduler task - starts at boot."],
               ["Uninstaller",           "Clean removal included via standard Windows Programs panel."],
-              ["Auto-updater ready",    "Version check endpoint wired in — future updates via installer."],
+              ["Auto-updater ready",    "Version check endpoint wired in - future updates via installer."],
             ].map(([title, detail]) => (
               <div key={title} className="flex gap-3">
                 <SuccessIcon size={14} className="text-[#3ddc97] shrink-0 mt-0.5" />

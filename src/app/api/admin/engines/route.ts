@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin, gatewayHttpUrl, gatewayAdminKey } from "@/lib/admin-auth";
 import { getAdminSupabase } from "@/lib/admin-supabase";
 
-/** GET /api/admin/engines — all engine devices with latest session + live status. */
+/** GET /api/admin/engines - all engine devices with latest session + live status. */
 export async function GET(req: NextRequest) {
   const auth = await verifyAdmin(req);
   if (auth instanceof NextResponse) return auth;
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       liveIds = body.engines ?? [];
     }
   } catch {
-    // gateway unreachable — fall back to heartbeat-based status
+    // gateway unreachable - fall back to heartbeat-based status
   }
   const liveSet = new Set(liveIds);
 

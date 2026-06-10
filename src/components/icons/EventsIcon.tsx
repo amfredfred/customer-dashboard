@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Execution event timeline — vertical spine with three event nodes and content rails. */
+/** Execution event timeline - vertical spine with three event nodes and content rails. */
 export function EventsIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

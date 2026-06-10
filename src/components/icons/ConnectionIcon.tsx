@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** Gateway / engine connected — two nodes joined by a solid rail with a centre dot. */
+/** Gateway / engine connected - two nodes joined by a solid rail with a centre dot. */
 export function ConnectionIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"

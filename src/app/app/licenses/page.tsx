@@ -24,7 +24,7 @@ type LicenseView = LicenseRow & {
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
 function fmtDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "-";
   return new Date(value).toLocaleDateString("en-US", {
     year: "numeric", month: "short", day: "numeric",
   });
@@ -76,7 +76,7 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
         {/* Warning */}
         <div className="mx-6 mb-4 px-4 py-3 rounded-lg"
              style={{ background: "rgba(245,185,66,.08)", border: "1px solid rgba(245,185,66,.2)" }}>
-          <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-1">Copy now — shown once</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-[#f5b942] mb-1">Copy now - shown once</div>
           <p className="text-xs muted leading-5">
             This key will not be displayed again. Apex Quantel stores only the hash.
             Copy it before closing this window.
@@ -333,14 +333,14 @@ function NoLicensesState() {
       badge: "Step 1",
       name: "Subscribe to a plan",
       desc: "Choose Starter or Pro on the Billing page. After checkout, a license is provisioned automatically with the correct device slot count.",
-      features: ["Starter — 1 Trading Agent", "Pro — 3 Trading Agents", "License created instantly", "Keys issued server-side"],
+      features: ["Starter - 1 Trading Agent", "Pro - 3 Trading Agents", "License created instantly", "Keys issued server-side"],
       cta: { label: "Go to Billing →", href: "/app/billing", active: true },
     },
     {
       Illustration: KeyIllustration,
       badge: "Step 2",
       name: "Issue your activation key",
-      desc: "Your license card appears here after subscribing. Click Issue key — the raw key is shown exactly once and never stored in plain text.",
+      desc: "Your license card appears here after subscribing. Click Issue key - the raw key is shown exactly once and never stored in plain text.",
       features: ["Raw key shown once only", "Hash stored server-side", "Browser never holds the key", "Rotate anytime from this page"],
       cta: { label: "Keys appear here after subscribing", href: null, active: false },
     },
@@ -554,7 +554,7 @@ export default function Licenses() {
 
   useEffect(() => { void load(); }, [load]);
 
-  // 3.14 — Live push: refresh when any of the user's licenses change in the DB.
+  // 3.14 - Live push: refresh when any of the user's licenses change in the DB.
   // Fires for key rotation, revocation, subscription status changes, etc.
   useEffect(() => {
     if (!supabase) return;
@@ -620,7 +620,7 @@ export default function Licenses() {
       <PageHeader
         eyebrow="Access control"
         title="Licenses & Keys"
-        description="Activation keys are issued server-side and displayed once. Apex Quantel stores only the keyed hash — the browser never generates, derives, or holds raw keys."
+        description="Activation keys are issued server-side and displayed once. Apex Quantel stores only the keyed hash - the browser never generates, derives, or holds raw keys."
       />
 
       {/* Loading */}
@@ -672,10 +672,10 @@ export default function Licenses() {
         </div>
       )}
 
-      {/* Empty — no license yet */}
+      {/* Empty - no license yet */}
       {!loading && !error && supabase && licenses.length === 0 && <NoLicensesState />}
 
-      {/* Has license but no engine connected — show install prompt */}
+      {/* Has license but no engine connected - show install prompt */}
       {!loading && licenses.length > 0 && totalEngines === 0 && <EngineDownloadCard />}
 
       {/* License cards */}
@@ -714,8 +714,12 @@ export default function Licenses() {
               </div>
               <div>
                 <div className="muted text-xs">Symbols</div>
-                <div className="mt-2 mono font-medium break-words text-xs">
-                  {lic.symbols.length > 0 ? lic.symbols.join(", ") : "—"}
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {lic.symbols.length > 0
+                    ? lic.symbols.map(s => (
+                        <span key={s} className="badge badge-muted mono">{s}</span>
+                      ))
+                    : <span className="mono font-medium text-xs">-</span>}
                 </div>
               </div>
               <div>
@@ -732,11 +736,11 @@ export default function Licenses() {
                 <div className="panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-medium">
-                      {isActive ? "Key hash on file" : isSuspended ? "Key revoked — license suspended" : "No key on file"}
+                      {isActive ? "Key hash on file" : isSuspended ? "Key revoked - license suspended" : "No key on file"}
                     </div>
                     <div className="text-xs muted mt-0.5 leading-5">
                       {isActive
-                        ? "The raw key was shown once at issuance. Rotate to generate a replacement — the old key is immediately invalidated."
+                        ? "The raw key was shown once at issuance. Rotate to generate a replacement - the old key is immediately invalidated."
                         : isSuspended
                         ? "Issue a new key to reactivate this license and allow engine activations."
                         : "Issue a key to enable engine activations against this license."}
@@ -776,7 +780,7 @@ export default function Licenses() {
                   <p className="muted text-xs leading-5">
                     Raw keys are shown once at issuance and never stored in plain text.
                     Apex Quantel stores only a keyed HMAC hash. The browser never generates or hashes activation keys.
-                    Rotating immediately invalidates the previous key — re-activate any affected engines with the new key.
+                    Rotating immediately invalidates the previous key - re-activate any affected engines with the new key.
                   </p>
                 </div>
               </div>

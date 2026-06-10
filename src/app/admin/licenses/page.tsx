@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PageHeader, SectionHead } from "@/components/metric-detail";
+import { PageHeader } from "@/components/metric-detail";
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { Copy, X } from "lucide-react";
-import { WarningIcon, SuccessIcon, ErrorIcon, LicenseKeyIcon, ShieldIcon } from "@/components/icons";
-import { RefreshIcon } from "@/components/icons";
+import { SuccessIcon, ErrorIcon, LicenseKeyIcon, RefreshIcon } from "@/components/icons";
 
 type LicenseRow = {
   id: string;
@@ -37,8 +36,8 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function KeyRevealModal({ licenseId, rawKey, onClose }: {
-  licenseId: string; rawKey: string; onClose: () => void;
+function KeyRevealModal({ rawKey, onClose }: {
+  rawKey: string; onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   function copy() {
@@ -59,7 +58,7 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
           </div>
           <div>
             <div className="font-semibold">Activation Key Issued</div>
-            <div className="text-xs muted">Copy this key now — it won't be shown again</div>
+            <div className="text-xs muted">Copy this key now &mdash; it will not be shown again</div>
           </div>
           <button onClick={onClose} className="ml-auto muted hover:text-white"><X size={16} /></button>
         </div>
@@ -100,7 +99,7 @@ function ConfirmModal({ title, message, confirmLabel, danger, onConfirm, onClose
           <div className="text-sm muted">{message}</div>
         </div>
         <div className="p-4 border-t border-white/[.07] flex gap-2 justify-end">
-          <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">Cancel</button>
           <button
             onClick={onConfirm}
             className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
@@ -207,7 +206,7 @@ export default function AdminLicensesPage() {
         title="All Licenses"
         description={`${rows.length} license${rows.length !== 1 ? "s" : ""} across all customers`}
         right={
-          <button className="btn-ghost flex items-center gap-1.5" onClick={() => void load()}>
+          <button className="btn btn-ghost btn-sm" onClick={() => void load()}>
             <RefreshIcon size={14} className={loading ? "animate-spin" : ""} />
             Refresh
           </button>
@@ -215,7 +214,7 @@ export default function AdminLicensesPage() {
       />
 
       {(error || actionError) && (
-        <div className="card mb-4 p-3 text-sm flex items-center gap-2"
+        <div className="surface mb-4 p-3 text-sm flex items-center gap-2"
              style={{ borderColor: "var(--danger-border)", color: "var(--danger)" }}>
           <ErrorIcon size={14} />
           {error ?? actionError}
@@ -227,7 +226,6 @@ export default function AdminLicensesPage() {
 
       {keyModal && (
         <KeyRevealModal
-          licenseId={keyModal.licenseId}
           rawKey={keyModal.rawKey}
           onClose={() => setKeyModal(null)}
         />
@@ -242,9 +240,9 @@ export default function AdminLicensesPage() {
       {loading && rows.length === 0 ? (
         <div className="text-sm muted">Loading…</div>
       ) : rows.length === 0 ? (
-        <div className="card p-8 text-center text-sm muted">No licenses found</div>
+        <div className="surface p-8 text-center text-sm muted">No licenses found</div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="surface overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[.07]" style={{ color: "var(--muted)" }}>

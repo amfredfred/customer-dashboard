@@ -1,7 +1,7 @@
 import React from "react";
 import type { IconProps } from "./types";
 
-/** No data — quiet panel outline with empty content rails. */
+/** No data - quiet panel outline with empty content rails. */
 export function EmptyStateIcon({ size = 16, className, style, title }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
