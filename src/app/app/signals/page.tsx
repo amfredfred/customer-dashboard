@@ -632,10 +632,10 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
         rowKey={(s, i) => s.id ?? String(i)}
         emptyMessage="No signal events yet."
         renderCard={s => (
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-bold text-white mono">{s.symbol}</span>
-              <span className="flex items-center gap-2">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold mono text-sm" style={{ color: "var(--text)" }}>{s.symbol}</span>
+              <span className="flex items-center gap-1.5 shrink-0">
                 <DirBadge dir={s.direction} />
                 <span className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded"
                       style={{ background: "rgba(61,220,151,.12)", color: "var(--success)" }}>
@@ -643,13 +643,15 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
                 </span>
               </span>
             </div>
-            <div className="card-row-grid">
-              <div><div className="card-field-label">Time</div><div className="card-field-value mono muted">{fmtTs(s.timestamp)}</div></div>
-              <div><div className="card-field-label">Strategy</div><div className="card-field-value muted">{s.strategy} · {s.timeframe}</div></div>
-              <div><div className="card-field-label">Entry</div><div className="card-field-value mono">{s.entry > 0 ? fmtPrice(s.entry) : "-"}</div></div>
-              <div><div className="card-field-label">SL / TP</div><div className="card-field-value mono">{s.stopLoss > 0 ? fmtPrice(s.stopLoss) : "-"} / {s.takeProfit > 0 ? fmtPrice(s.takeProfit) : "-"}</div></div>
-              <div><div className="card-field-label">Confidence</div><div className="card-field-value mono">{s.confidence !== undefined ? `${(s.confidence * 100).toFixed(0)}%` : "-"}</div></div>
-              <div><div className="card-field-label">Setup</div><div className="card-field-value muted">{s.setup ?? "-"}</div></div>
+            <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+              {s.strategy} · {s.timeframe}
+              {s.confidence !== undefined && <> · {(s.confidence * 100).toFixed(0)}%</>}
+              <span className="ml-2 font-mono">{fmtTs(s.timestamp)}</span>
+            </div>
+            <div className="text-[11.5px] font-mono flex items-center gap-2 flex-wrap">
+              <span style={{ color: "var(--text-soft)" }}>{s.entry > 0 ? fmtPrice(s.entry) : "-"}</span>
+              <span style={{ color: "var(--muted)" }}>SL {s.stopLoss > 0 ? fmtPrice(s.stopLoss) : "-"}</span>
+              <span style={{ color: "var(--muted)" }}>TP {s.takeProfit > 0 ? fmtPrice(s.takeProfit) : "-"}</span>
             </div>
           </div>
         )}

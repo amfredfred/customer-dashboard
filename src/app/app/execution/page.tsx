@@ -462,21 +462,22 @@ function PositionsTab({ positions }: { positions: NPos[] }) {
         rowKey={(p, i) => `${p.ticket}_${i}`}
         emptyMessage="No open positions."
         renderCard={p => (
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-bold text-white mono">{p.symbol}</span>
-              <span className="flex items-center gap-2">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold mono text-sm" style={{ color: "var(--text)" }}>{p.symbol}</span>
+              <span className="flex items-center gap-2 shrink-0">
                 <DirBadge dir={p.direction} />
                 <PnlText value={p.profit} />
               </span>
             </div>
-            <div className="card-row-grid">
-              <div><div className="card-field-label">Volume</div><div className="card-field-value mono">{p.volume}</div></div>
-              <div><div className="card-field-label">Entry</div><div className="card-field-value mono">{fmtPrice(p.openPrice)}</div></div>
-              <div><div className="card-field-label">SL / TP</div><div className="card-field-value mono">{fmtPrice(p.stopLoss)} / {fmtPrice(p.takeProfit)}</div></div>
-              <div><div className="card-field-label">P&L %</div><div className="card-field-value"><PnlText value={posPnlPct(p)} suffix="%" /></div></div>
-              <div><div className="card-field-label">Ticket</div><div className="card-field-value mono muted">{String(p.ticket)}</div></div>
-              <div><div className="card-field-label">Strategy</div><div className="card-field-value muted">{p.strategy ?? "-"}</div></div>
+            <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+              {p.strategy ?? "-"} · vol {p.volume}
+              <span className="ml-2"><PnlText value={posPnlPct(p)} suffix="%" /></span>
+            </div>
+            <div className="text-[11.5px] font-mono flex items-center gap-2 flex-wrap">
+              <span style={{ color: "var(--text-soft)" }}>{fmtPrice(p.openPrice)}</span>
+              <span style={{ color: "var(--muted)" }}>SL {fmtPrice(p.stopLoss)}</span>
+              <span style={{ color: "var(--muted)" }}>TP {fmtPrice(p.takeProfit)}</span>
             </div>
           </div>
         )}
@@ -528,21 +529,23 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
         rowKey={(s, i) => `${s.id}_${i}`}
         emptyMessage="No signals yet."
         renderCard={s => (
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-bold text-white mono">{s.symbol}</span>
-              <span className="flex items-center gap-2">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold mono text-sm" style={{ color: "var(--text)" }}>{s.symbol}</span>
+              <span className="flex items-center gap-1.5 shrink-0">
                 <DirBadge dir={s.direction} />
                 <SigBadge status={s.status} />
               </span>
             </div>
-            <div className="card-row-grid">
-              <div><div className="card-field-label">Time</div><div className="card-field-value mono muted">{fmtTs(s.timestamp)}</div></div>
-              <div><div className="card-field-label">Strategy</div><div className="card-field-value muted">{s.strategy} · {s.timeframe}</div></div>
-              <div><div className="card-field-label">Entry</div><div className="card-field-value mono">{fmtPrice(s.entry)}</div></div>
-              <div><div className="card-field-label">SL / TP</div><div className="card-field-value mono">{fmtPrice(s.stopLoss)} / {fmtPrice(s.takeProfit)}</div></div>
-              <div><div className="card-field-label">Confidence</div><div className="card-field-value mono">{s.confidence !== undefined ? `${(s.confidence * 100).toFixed(0)}%` : "-"}</div></div>
-              <div><div className="card-field-label">Setup</div><div className="card-field-value muted">{s.setup ?? "-"}</div></div>
+            <div className="text-[11px]" style={{ color: "var(--muted)" }}>
+              {s.strategy} · {s.timeframe}
+              {s.confidence !== undefined && <> · {(s.confidence * 100).toFixed(0)}%</>}
+              <span className="ml-2 font-mono">{fmtTs(s.timestamp)}</span>
+            </div>
+            <div className="text-[11.5px] font-mono flex items-center gap-2 flex-wrap">
+              <span style={{ color: "var(--text-soft)" }}>{fmtPrice(s.entry)}</span>
+              <span style={{ color: "var(--muted)" }}>SL {fmtPrice(s.stopLoss)}</span>
+              <span style={{ color: "var(--muted)" }}>TP {fmtPrice(s.takeProfit)}</span>
             </div>
           </div>
         )}
@@ -1424,18 +1427,6 @@ function RemoteControlPanel({
 
   if (!engineId) return null;
 
-  /* Command phase shown in the strip */
-  const phaseLabel =
-    cmd.phase === "sending"   ? "Sending…"
-    : cmd.phase === "pending"  ? "Awaiting engine…"
-    : cmd.phase === "delivered"? "Engine acknowledged…"
-    : cmd.phase === "completed"? "Completed ✓"
-    : cmd.phase === "failed"   ? "Failed"
-    : "Idle";
-
-  const engineStateLabel = !snapshotAvailable
-    ? "Waiting for snapshot"
-    : isPaused ? "Paused" : "Running";
 
   return (
     <>
@@ -1518,8 +1509,8 @@ function EngineDropdown({
   if (engines.length === 1) {
     const e = engines[0];
     return (
-      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl"
-           style={{ background: "var(--surface-3)", border: "1px solid var(--line-strong)", minWidth: 200 }}>
+      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl w-full"
+           style={{ background: "var(--surface-3)", border: "1px solid var(--line-strong)" }}>
         <span className="dot dot-live pulse shrink-0" style={{ width: 7, height: 7 }} />
         <div className="min-w-0">
           <div className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>
@@ -1542,12 +1533,11 @@ function EngineDropdown({
       {/* Trigger - two-line rich display */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all"
+        className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all w-full"
         style={{
-          background: open ? "var(--surface-3)" : "var(--surface-3)",
+          background: "var(--surface-3)",
           border:     `1px solid ${open ? "var(--line-strong)" : "var(--line)"}`,
           outline:    "none",
-          minWidth:   220,
           boxShadow:  open ? "0 0 0 1px rgba(255,255,255,.06)" : "none",
         }}
       >

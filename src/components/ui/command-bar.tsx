@@ -62,26 +62,35 @@ export function CommandBar({
     );
   };
 
+  const hasRight = dangerous.length > 0 || right || stateLine || commandLine;
+
   return (
     <div className="cmd-bar">
-      <div className="flex items-center gap-2.5 min-w-0">{context}</div>
-      <div className="cmd-divider" />
-      <div className="flex items-center gap-2 flex-wrap">{normal.map(renderBtn)}</div>
-      {dangerous.length > 0 && (
-        <div className="cmd-danger-zone">
-          <span className="cmd-danger-label">Danger zone</span>
-          {dangerous.map(renderBtn)}
+      {/* Left: context + divider + normal buttons — always inline */}
+      <div className="flex items-center gap-3 flex-wrap min-w-0">
+        <div className="flex items-center gap-2.5 shrink-0 min-w-0">{context}</div>
+        <div className="cmd-divider self-stretch" />
+        <div className="flex items-center gap-2">{normal.map(renderBtn)}</div>
+      </div>
+
+      {/* Right group: danger zone + right/state — ml-auto on desktop, full-width on mobile */}
+      {hasRight && (
+        <div className="cmd-bar-right">
+          {dangerous.length > 0 && (
+            <div className="cmd-danger-zone cmd-danger-zone-responsive">
+              <span className="cmd-danger-label">Danger zone</span>
+              {dangerous.map(renderBtn)}
+            </div>
+          )}
+          {right && <div className="cmd-bar-right-slot">{right}</div>}
+          {!right && (stateLine || commandLine) && (
+            <div className="flex flex-col items-end gap-0.5 min-w-0">
+              {stateLine  && <div className="cmd-state">{stateLine}</div>}
+              {commandLine && <div className="cmd-state">{commandLine}</div>}
+            </div>
+          )}
         </div>
       )}
-      <div className="flex-1" />
-      {right ? (
-        <div className="shrink-0">{right}</div>
-      ) : (stateLine || commandLine) ? (
-        <div className="flex flex-col items-end gap-0.5 min-w-0">
-          {stateLine && <div className="cmd-state">{stateLine}</div>}
-          {commandLine && <div className="cmd-state">{commandLine}</div>}
-        </div>
-      ) : null}
     </div>
   );
 }

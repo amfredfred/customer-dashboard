@@ -439,13 +439,17 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Command bar ─────────────────────────────────────────────────────── */
 .cmd-bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   padding: 13px 16px;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
 }
 .cmd-divider { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+.cmd-bar-right {
+  display: flex; align-items: center; gap: 10px; margin-left: auto;
+}
+.cmd-bar-right-slot { flex-shrink: 0; }
 .cmd-danger-zone {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 10px;
@@ -458,18 +462,24 @@ a { color: inherit; text-decoration: none; }
 }
 .cmd-state { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 @media (max-width: 640px) {
-  .cmd-bar { gap: 10px; }
+  .cmd-bar { gap: 8px; }
   .cmd-divider { display: none; }
+  .cmd-bar-right {
+    width: 100%; margin-left: 0;
+    flex-direction: column; align-items: stretch; gap: 8px;
+  }
+  .cmd-bar-right-slot { width: 100%; }
+  .cmd-danger-zone-responsive { justify-content: space-between; }
 }
 
 /* ── Mobile card lists (table fallback) ──────────────────────────────── */
-.card-list { display: flex; flex-direction: column; gap: 8px; }
+.card-list { display: flex; flex-direction: column; }
 .card-row {
   background: var(--surface-2);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-control);
+  border-bottom: 1px solid var(--line-soft);
   padding: 12px 14px;
 }
+.card-row:last-child { border-bottom: none; }
 .card-row-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 14px; margin-top: 10px;
 }
