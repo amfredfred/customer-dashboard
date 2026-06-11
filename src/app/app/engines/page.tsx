@@ -1,9 +1,11 @@
 "use client";
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
+import { gatewayHttpBase } from "@/lib/gateway";
+import { useAuth } from "@/components/auth-provider";
 import { PageHeader } from "@/components/metric-detail";
-import { EngineIcon, ErrorIcon } from "@/components/icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ErrorIcon } from "@/components/icons";
+import { useCallback, useEffect, useState } from "react";
 
 /* ── types ────────────────────────────────────────────────────────────── */
 type EngineDevice = {
@@ -29,12 +31,15 @@ type EngineSession = {
   disconnected_at: string | null;
   disconnect_reason: string | null;
   last_heartbeat_at: string | null;
+  metadata: Record<string, unknown>;
 };
+type Mt5Account = { login: string; server: string; mode?: string };
 type EngineView = EngineDevice & {
   license?: License;
   symbols: string[];
   session?: EngineSession;
   usedSlots: number;
+  account?: Mt5Account;
 };
 
 /* ── constants ────────────────────────────────────────────────────────── */
@@ -59,6 +64,19 @@ function engineState(
 
 function platformLabel(p: Record<string, unknown>) {
   return [p.os, p.architecture].filter(Boolean).map(String).join(" ") || "Platform unavailable";
+}
+
+function mt5Account(
+  platform: Record<string, unknown>,
+  session?: EngineSession,
+): Mt5Account | undefined {
+  const value = session?.metadata?.mt5_account ?? platform.mt5_account;
+  if (!value || typeof value !== "object") return undefined;
+  const account = value as Record<string, unknown>;
+  const login = String(account.login ?? "").trim();
+  const server = String(account.server ?? "").trim();
+  if (!login || !server) return undefined;
+  return { login, server, mode: String(account.mode ?? "").trim() || undefined };
 }
 
 function timeAgo(value: string | null | undefined, nowMs: number) {
@@ -333,11 +351,15 @@ function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
 /* ── page ─────────────────────────────────────────────────────────────── */
 export default function Engines() {
   const supabase = getBrowserSupabase();
+  const { session: authSession } = useAuth();
   const [engines, setEngines]     = useState<EngineView[]>([]);
   const [hasLicense, setHasLicense] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [nowMs, setNowMs]         = useState(0);
+  const [confirmRelease, setConfirmRelease] = useState<string | null>(null);
+  const [releasing, setReleasing] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -348,6 +370,7 @@ export default function Engines() {
     const devicesResult = await supabase
       .from("engine_devices")
       .select("id,license_id,engine_id,device_name,platform,engine_version,status,activated_at,last_seen_at")
+      .eq("status", "active")
       .order("activated_at", { ascending: false });
     if (devicesResult.error) {
       setError(devicesResult.error.message);
@@ -368,7 +391,7 @@ export default function Engines() {
       deviceIds.length
         ? supabase
             .from("engine_sessions")
-            .select("engine_device_id,connected_at,disconnected_at,disconnect_reason,last_heartbeat_at")
+            .select("engine_device_id,connected_at,disconnected_at,disconnect_reason,last_heartbeat_at,metadata")
             .in("engine_device_id", deviceIds)
             .order("connected_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
@@ -392,13 +415,17 @@ export default function Engines() {
     for (const d of devices) slotsByLicense.set(d.license_id, (slotsByLicense.get(d.license_id) ?? 0) + 1);
 
     setHasLicense((anyLicResult.data?.length ?? 0) > 0);
-    setEngines(devices.map(d => ({
-      ...d,
-      license:    licenses.get(d.license_id),
-      symbols:    symbolsByLicense.get(d.license_id) ?? [],
-      session:    sessions.get(d.id),
-      usedSlots:  slotsByLicense.get(d.license_id) ?? 0,
-    })));
+    setEngines(devices.map(d => {
+      const latestSession = sessions.get(d.id);
+      return {
+        ...d,
+        license:    licenses.get(d.license_id),
+        symbols:    symbolsByLicense.get(d.license_id) ?? [],
+        session:    latestSession,
+        usedSlots:  slotsByLicense.get(d.license_id) ?? 0,
+        account:    mt5Account(d.platform, latestSession),
+      };
+    }));
     setError(null);
     setLoading(false);
   }, [supabase]);
@@ -406,17 +433,52 @@ export default function Engines() {
   useEffect(() => {
     const init  = setTimeout(() => void load(), 0);
     const poll  = setInterval(() => void load(), 30_000);
+    const clockInit = setTimeout(() => setNowMs(Date.now()), 0);
     const clock = setInterval(() => setNowMs(Date.now()), 10_000);
-    setNowMs(Date.now());
-    return () => { clearTimeout(init); clearInterval(poll); clearInterval(clock); };
+    return () => {
+      clearTimeout(init);
+      clearTimeout(clockInit);
+      clearInterval(poll);
+      clearInterval(clock);
+    };
   }, [load]);
+
+  async function releaseDevice(engine: EngineView) {
+    if (!authSession?.access_token) {
+      setActionError("Your session expired. Sign in again before releasing an agent.");
+      return;
+    }
+    setActionError(null);
+    setReleasing(engine.id);
+    try {
+      const response = await fetch(
+        `${gatewayHttpBase()}/licenses/${engine.license_id}/devices/${engine.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${authSession.access_token}` },
+        },
+      );
+      if (!response.ok && response.status !== 204) {
+        const body = await response.json().catch(() => ({})) as { message?: string };
+        throw new Error(body.message ?? `Release failed with HTTP ${response.status}`);
+      }
+      setConfirmRelease(null);
+      await load();
+    } catch (releaseError) {
+      setActionError(
+        releaseError instanceof Error ? releaseError.message : "Trading Agent release failed.",
+      );
+    } finally {
+      setReleasing(null);
+    }
+  }
 
   return (
     <div className="page-wrap space-y-4">
       <PageHeader
         eyebrow="AQ Agents"
         title="AQ Agents"
-        description="Activated AQ Agents and their latest Gateway session heartbeat. Online = heartbeat within 90 s · Degraded = 90 s–5 min · Offline = >5 min or disconnected."
+        description="Registered Trading Agents consuming license slots. Online = heartbeat within 90 s. Releasing an agent revokes its cloud identity and frees one registered slot."
         right={
           <>
             <a href="/app/licenses" className="btn btn-sm">View License Keys</a>
@@ -452,6 +514,12 @@ export default function Engines() {
           </div>
         </div>
       )}
+      {actionError && (
+        <div className="alert tone-danger text-sm">
+          <div className="font-semibold">Agent action failed</div>
+          <div className="mt-1">{actionError}</div>
+        </div>
+      )}
 
       {/* Empty */}
       {!loading && !error && engines.length === 0 && <NoEnginesState hasLicense={hasLicense} />}
@@ -479,7 +547,7 @@ export default function Engines() {
               </div>
 
               {/* Metrics row */}
-              <div className="panel-body grid grid-cols-2 sm:grid-cols-4 gap-5">
+              <div className="panel-body grid grid-cols-2 sm:grid-cols-5 gap-5">
                 <div>
                   <div className="muted text-xs">Version</div>
                   <div className="mt-2 mono text-xs font-medium">{engine.engine_version || "-"}</div>
@@ -491,10 +559,21 @@ export default function Engines() {
                   </div>
                 </div>
                 <div>
-                  <div className="muted text-xs">Device slots</div>
+                  <div className="muted text-xs">Registered slots</div>
                   <div className="mt-2 mono text-xs font-medium">
                     {engine.usedSlots} of {maxDev || "-"}
                   </div>
+                </div>
+                <div>
+                  <div className="muted text-xs">MT5 account</div>
+                  <div className="mt-2 mono text-xs font-medium">
+                    {engine.account
+                      ? `${engine.account.server} / ${engine.account.login}`
+                      : "Not reported"}
+                  </div>
+                  {engine.account?.mode && (
+                    <div className="mt-1 text-[10px] muted uppercase">{engine.account.mode}</div>
+                  )}
                 </div>
                 <div>
                   <div className="muted text-xs">Last heartbeat</div>
@@ -515,7 +594,47 @@ export default function Engines() {
                   </span>
                 )}
                 {state === "degraded" && <span className="badge badge-warn">Heartbeat delayed</span>}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger ml-auto"
+                  onClick={() => setConfirmRelease(engine.id)}
+                  disabled={releasing === engine.id}
+                >
+                  Release Trading Agent
+                </button>
               </div>
+
+              {confirmRelease === engine.id && (
+                <div className="mx-5 mb-4 p-4 rounded border border-[#f43f5e]/30 bg-[#f43f5e]/05">
+                  <div className="text-sm font-semibold text-[#f43f5e]">
+                    Release this registered Trading Agent?
+                  </div>
+                  <div className="text-xs muted mt-1">
+                    This revokes its cloud device credential, disconnects it from the Gateway,
+                    and frees one license slot. It does not close broker positions or delete
+                    local agent data. Stop the local agent first; a running agent may activate
+                    again and reclaim the slot.
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger-solid"
+                      disabled={releasing === engine.id}
+                      onClick={() => void releaseDevice(engine)}
+                    >
+                      {releasing === engine.id ? "Releasing..." : "Confirm Release"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={releasing === engine.id}
+                      onClick={() => setConfirmRelease(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Disconnect reason */}
               {state === "offline" && engine.session?.disconnect_reason && (

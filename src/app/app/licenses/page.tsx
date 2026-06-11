@@ -518,7 +518,11 @@ export default function Licenses() {
         ? supabase.from("license_symbol_entitlements").select("license_id,symbol").in("license_id", ids)
         : Promise.resolve({ data: [], error: null }),
       ids.length
-        ? supabase.from("engine_devices").select("license_id,id").in("license_id", ids)
+        ? supabase
+            .from("engine_devices")
+            .select("license_id,id")
+            .in("license_id", ids)
+            .eq("status", "active")
         : Promise.resolve({ data: [], error: null }),
     ]);
 
@@ -701,11 +705,11 @@ export default function Licenses() {
             {/* Details */}
             <div className="panel-body grid grid-cols-2 sm:grid-cols-4 gap-5 text-sm">
               <div>
-                <div className="muted text-xs">Max devices</div>
+                <div className="muted text-xs">Registered slot limit</div>
                 <div className="mt-2 mono font-medium">{lic.max_devices}</div>
               </div>
               <div>
-                <div className="muted text-xs">Used devices</div>
+                <div className="muted text-xs">Registered slots used</div>
                 <div className="mt-2 mono font-medium">{lic.usedDevices}</div>
               </div>
               <div>

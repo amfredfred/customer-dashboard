@@ -71,7 +71,11 @@ export default function Overview() {
 
     const [licResult, devResult] = await Promise.all([
       supabase.from("licenses").select("id,status,max_devices,expires_at"),
-      supabase.from("engine_devices").select("id,engine_id,device_name,status,last_seen_at").order("activated_at", { ascending: false }),
+      supabase
+        .from("engine_devices")
+        .select("id,engine_id,device_name,status,last_seen_at")
+        .eq("status", "active")
+        .order("activated_at", { ascending: false }),
     ]);
 
     if (licResult.error || devResult.error) {
