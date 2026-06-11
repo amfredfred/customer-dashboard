@@ -18,6 +18,7 @@ type EngineDevice = {
   status: string;
   activated_at: string;
   last_seen_at: string | null;
+  revoked_at: string | null;
 };
 type License = {
   id: string;
@@ -369,8 +370,8 @@ export default function Engines() {
     }
     const devicesResult = await supabase
       .from("engine_devices")
-      .select("id,license_id,engine_id,device_name,platform,engine_version,status,activated_at,last_seen_at")
-      .eq("status", "active")
+      .select("id,license_id,engine_id,device_name,platform,engine_version,status,activated_at,last_seen_at,revoked_at")
+      .in("status", ["active", "revoked"])
       .order("activated_at", { ascending: false });
     if (devicesResult.error) {
       setError(devicesResult.error.message);
@@ -412,7 +413,11 @@ export default function Engines() {
       if (!sessions.has(s.engine_device_id)) sessions.set(s.engine_device_id, s);
     }
     const slotsByLicense = new Map<string, number>();
-    for (const d of devices) slotsByLicense.set(d.license_id, (slotsByLicense.get(d.license_id) ?? 0) + 1);
+    for (const d of devices) {
+      if (d.status === "active") {
+        slotsByLicense.set(d.license_id, (slotsByLicense.get(d.license_id) ?? 0) + 1);
+      }
+    }
 
     setHasLicense((anyLicResult.data?.length ?? 0) > 0);
     setEngines(devices.map(d => {
@@ -522,11 +527,11 @@ export default function Engines() {
       )}
 
       {/* Empty */}
-      {!loading && !error && engines.length === 0 && <NoEnginesState hasLicense={hasLicense} />}
+      {!loading && !error && engines.filter(e => e.status === "active").length === 0 && <NoEnginesState hasLicense={hasLicense} />}
 
-      {/* Engine cards */}
+      {/* Active engine cards */}
       <div className="space-y-3">
-        {engines.map(engine => {
+        {engines.filter(e => e.status === "active").map(engine => {
           const state  = engineState(engine, nowMs);
           const maxDev = engine.license?.max_devices ?? 0;
           const licExp = engine.license?.expires_at;
@@ -646,6 +651,54 @@ export default function Engines() {
           );
         })}
       </div>
+
+      {/* Released devices — history, no actions */}
+      {!loading && engines.some(e => e.status === "revoked") && (
+        <div className="space-y-2">
+          <div className="text-xs muted uppercase tracking-wider px-1">Released devices</div>
+          {engines.filter(e => e.status === "revoked").map(engine => (
+            <section key={engine.id} className="panel overflow-hidden opacity-60">
+              <div className="panel-head flex-col sm:flex-row sm:items-start">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">
+                    {engine.device_name || engine.engine_id}
+                  </div>
+                  <div className="text-xs muted mt-0.5 mono truncate">
+                    {engine.engine_id.slice(0, 18)}{engine.engine_id.length > 18 ? "…" : ""} · {platformLabel(engine.platform)}
+                  </div>
+                </div>
+                <span className="badge badge-muted">released</span>
+              </div>
+              <div className="panel-body grid grid-cols-2 sm:grid-cols-4 gap-5 text-xs">
+                <div>
+                  <div className="muted text-xs">Version</div>
+                  <div className="mt-2 mono font-medium">{engine.engine_version || "-"}</div>
+                </div>
+                <div>
+                  <div className="muted text-xs">Activated</div>
+                  <div className="mt-2 mono font-medium">
+                    {new Date(engine.activated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                </div>
+                <div>
+                  <div className="muted text-xs">Released</div>
+                  <div className="mt-2 mono font-medium">
+                    {engine.revoked_at
+                      ? new Date(engine.revoked_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : "-"}
+                  </div>
+                </div>
+                <div>
+                  <div className="muted text-xs">Symbols</div>
+                  <div className="mt-2 mono font-medium break-words">
+                    {engine.symbols.length > 0 ? engine.symbols.join(", ") : "None"}
+                  </div>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

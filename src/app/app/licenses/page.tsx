@@ -20,7 +20,8 @@ type LicenseRow = {
 
 type LicenseView = LicenseRow & {
   symbols: string[];
-  usedDevices: number;
+  activeDevices: number;
+  releasedDevices: number;
 };
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
@@ -520,9 +521,9 @@ export default function Licenses() {
       ids.length
         ? supabase
             .from("engine_devices")
-            .select("license_id,id")
+            .select("license_id,id,status")
             .in("license_id", ids)
-            .eq("status", "active")
+            .in("status", ["active", "revoked"])
         : Promise.resolve({ data: [], error: null }),
     ]);
 
@@ -537,16 +538,23 @@ export default function Licenses() {
       symbolsByLicense.set(e.license_id, [...(symbolsByLicense.get(e.license_id) ?? []), e.symbol]);
     }
 
-    const deviceCountByLicense = new Map<string, number>();
-    for (const d of (devResult.data ?? []) as { license_id: string }[]) {
-      deviceCountByLicense.set(d.license_id, (deviceCountByLicense.get(d.license_id) ?? 0) + 1);
+    const activeByLicense = new Map<string, number>();
+    const releasedByLicense = new Map<string, number>();
+    for (const d of (devResult.data ?? []) as { license_id: string; status: string }[]) {
+      if (d.status === "active") {
+        activeByLicense.set(d.license_id, (activeByLicense.get(d.license_id) ?? 0) + 1);
+      } else {
+        releasedByLicense.set(d.license_id, (releasedByLicense.get(d.license_id) ?? 0) + 1);
+      }
     }
 
-    setTotalEngines((devResult.data ?? []).length);
+    const totalActive = [...activeByLicense.values()].reduce((a, b) => a + b, 0);
+    setTotalEngines(totalActive);
     setLicenses(rows.map(r => ({
       ...r,
-      symbols:     symbolsByLicense.get(r.id) ?? [],
-      usedDevices: deviceCountByLicense.get(r.id) ?? 0,
+      symbols:         symbolsByLicense.get(r.id) ?? [],
+      activeDevices:   activeByLicense.get(r.id) ?? 0,
+      releasedDevices: releasedByLicense.get(r.id) ?? 0,
     })));
     setError(null);
     setLoading(false);
@@ -705,12 +713,11 @@ export default function Licenses() {
             {/* Details */}
             <div className="panel-body grid grid-cols-2 sm:grid-cols-4 gap-5 text-sm">
               <div>
-                <div className="muted text-xs">Registered slot limit</div>
-                <div className="mt-2 mono font-medium">{lic.max_devices}</div>
-              </div>
-              <div>
-                <div className="muted text-xs">Registered slots used</div>
-                <div className="mt-2 mono font-medium">{lic.usedDevices}</div>
+                <div className="muted text-xs">Device slots</div>
+                <div className="mt-2 mono font-medium">{lic.activeDevices} / {lic.max_devices} active</div>
+                {lic.releasedDevices > 0 && (
+                  <div className="mt-1 text-xs muted">{lic.releasedDevices} released</div>
+                )}
               </div>
               <div>
                 <div className="muted text-xs">Symbols</div>
