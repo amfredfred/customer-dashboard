@@ -1,9 +1,9 @@
 User-agent: *
-Allow: /login
+Allow: /
 Disallow: /app/
+Disallow: /admin/
 Disallow: /api/
 
-# Block AI training crawlers
 User-agent: GPTBot
 Disallow: /
 

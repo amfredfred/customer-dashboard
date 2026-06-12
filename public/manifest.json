@@ -1,7 +1,7 @@
 {
   "name": "Apex Quantel",
   "short_name": "Apex Quantel",
-  "description": "Automated trading infrastructure. Private signal access and local MT5 execution from one secure dashboard.",
+  "description": "Automated MT5 execution infrastructure. Private signal routing, local Windows agent, risk controls, and live dashboard monitoring.",
   "id": "/app",
   "start_url": "/app",
   "scope": "/",
@@ -10,8 +10,8 @@
   "orientation": "any",
   "lang": "en-US",
   "dir": "ltr",
-  "background_color": "#0a0e14",
-  "theme_color": "#0a0e14",
+  "background_color": "#08090b",
+  "theme_color": "#08090b",
   "categories": ["finance", "productivity", "utilities"],
   "icons": [
     {

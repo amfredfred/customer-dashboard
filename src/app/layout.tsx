@@ -3,7 +3,7 @@ import { SwRegister } from "@/components/sw-register";
 import "./globals.css";
 
 // ── Site constants ─────────────────────────────────────────────────────────────
-const SITE_URL  = "https://app.somicast.com";
+const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.somicast.com";
 const SITE_NAME = "Apex Quantel";
 const SITE_DESC =
   "Automated trading infrastructure for MetaTrader 5. Private signal access, local MT5 execution, live risk controls, and AQ Agent management - all in one secure dashboard.";
