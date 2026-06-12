@@ -9,6 +9,7 @@ import {
   DOWNLOAD_URL,
   SITE_URL,
 } from "@/components/public/shell";
+import { ManualVsControlledDiagram } from "@/components/public/diagrams";
 
 export const metadata: Metadata = {
   title: "Apex Quantel | Automated MT5 Execution Infrastructure",
@@ -43,6 +44,72 @@ export const metadata: Metadata = {
 };
 
 // ── Local components ─────────────────────────────────────────────────────────
+
+const HERO_STEPS = [
+  { label: "Signal arrives", desc: "Dispatched to licensed accounts only" },
+  { label: "Access verified", desc: "Gateway confirms active licence" },
+  { label: "Risk reviewed", desc: "Account limits checked before entry" },
+  { label: "Order placed", desc: "Executed through your local MT5", accent: true },
+  { label: "Position managed", desc: "Tracked from entry to close" },
+];
+
+function HeroSteps() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {HERO_STEPS.map(({ label, desc, accent }, i) => (
+        <div key={label} style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 32 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: accent ? "var(--success-bg)" : "var(--surface-2)",
+                border: `1px solid ${accent ? "var(--success-border)" : "var(--line)"}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: ".04em",
+                color: accent ? "var(--success)" : "var(--muted)",
+                flexShrink: 0,
+              }}
+            >
+              {String(i + 1).padStart(2, "0")}
+            </div>
+            {i < HERO_STEPS.length - 1 && (
+              <div style={{ width: 1, height: 28, background: "var(--line-soft)" }} />
+            )}
+          </div>
+          <div style={{ paddingBottom: i < HERO_STEPS.length - 1 ? 0 : 0, paddingTop: 6 }}>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: accent ? "var(--text)" : "var(--text-soft)",
+                marginBottom: 3,
+                letterSpacing: "-.01em",
+              }}
+            >
+              {label}
+            </div>
+            <div
+              style={{
+                fontSize: 12.5,
+                color: "var(--muted)",
+                lineHeight: 1.5,
+                paddingBottom: i < HERO_STEPS.length - 1 ? 20 : 0,
+              }}
+            >
+              {desc}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function InfoRow({
   n,
@@ -91,126 +158,116 @@ export default function LandingPage() {
     <PublicShell>
       <main>
         {/* Hero */}
-        <section style={{ padding: "84px 0 72px" }}>
+        <section className="public-hero" style={{ padding: "88px 0 80px" }}>
           <Container>
-            <h1 style={T.h1}>
-              Automated MT5 execution<br />
-              for private trading signals.
-            </h1>
-            <p style={{ ...T.body, fontSize: 15, maxWidth: 600, marginBottom: 34 }}>
-              Apex Quantel routes approved trading signals to a local Windows agent that executes
-              on MetaTrader 5 with risk checks, position sizing, breakeven handling, and live
-              monitoring.
-            </p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 48 }}>
-              <Link
-                href="/login"
-                style={{
-                  background: "var(--success)",
-                  color: "#03120c",
-                  fontWeight: 700,
-                  fontSize: 13.5,
-                  padding: "11px 26px",
-                  borderRadius: 8,
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                Sign in
-              </Link>
-              <a
-                href={DOWNLOAD_URL}
-                download="AQAgentSetup.exe"
-                style={{
-                  background: "var(--surface-2)",
-                  color: "var(--text-soft)",
-                  fontWeight: 600,
-                  fontSize: 13.5,
-                  padding: "11px 22px",
-                  borderRadius: 8,
-                  border: "1px solid var(--line)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-              >
-                Download AQ Agent
-              </a>
-            </div>
-            <div
-              style={{
-                paddingTop: 24,
-                borderTop: "1px solid var(--line-soft)",
-                display: "flex",
-                flexWrap: "wrap",
-                columnGap: 0,
-                rowGap: 10,
-              }}
-            >
-              {[
-                "Local Windows agent",
-                "MetaTrader 5 execution",
-                "Risk checks before entry",
-                "Live dashboard monitoring",
-              ].map((item, i, arr) => (
-                <span
-                  key={item}
-                  style={{
-                    fontSize: 12,
-                    color: "var(--muted)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    paddingRight: i < arr.length - 1 ? 20 : 0,
-                    marginRight: i < arr.length - 1 ? 20 : 0,
-                    borderRight:
-                      i < arr.length - 1 ? "1px solid var(--line)" : "none",
-                  }}
-                >
-                  <span
+            <div className="public-hero-grid">
+              <div className="public-hero-copy">
+                <SectionLabel text="Private signal execution" />
+                <h1 style={T.h1}>
+                  Controlled execution.<br />
+                  <strong>From signal to MT5.</strong>
+                </h1>
+                <p style={{ ...T.body, fontSize: 15, maxWidth: 520, marginBottom: 36 }}>
+                  Apex Quantel receives approved trading signals and executes them through a local
+                  Windows agent connected to your MetaTrader 5 account — automatically and consistently.
+                </p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
+                  <Link
+                    href="/login"
+                    className="public-primary-button"
                     style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: "50%",
-                      background: "var(--line-strong)",
-                      display: "inline-block",
-                      flexShrink: 0,
+                      fontWeight: 700,
+                      fontSize: 13.5,
+                      padding: "8px 38px",
+                      borderRadius: 8,
+                      display: "inline-flex",
+                      alignItems: "center",
                     }}
-                  />
-                  {item}
-                </span>
-              ))}
+                  >
+                    Access dashboard
+                  </Link>
+                  <a
+                    href={DOWNLOAD_URL}
+                    download="AQAgentSetup.exe"
+                    style={{
+                      background: "rgba(255,255,255,.04)",
+                      color: "var(--text-soft)",
+                      fontWeight: 600,
+                      fontSize: 13.5,
+                      padding: "8px 32px",
+                      borderRadius: 8,
+                      border: "1px solid var(--line-strong)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    Download AQ Agent
+                  </a>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+                  {["Private routing", "Local credentials", "Pre-trade risk", "Full event log"].map((item) => (
+                    <span key={item} style={{ fontSize: 12, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                      <span style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--line-strong)", display: "inline-block" }} />
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="public-hero-visual">
+                <HeroSteps />
+              </div>
             </div>
           </Container>
         </section>
 
+        {/* Feature strip */}
+        <Section noBorderTop py={32}>
+          <Container>
+            <div className="public-stat-grid">
+              {[
+                ["Local authority", "Orders execute through your connected MT5 terminal — not a cloud server."],
+                ["Pre-trade control", "Account, exposure, and drawdown limits enforced before every order."],
+                ["Managed lifecycle", "Position sizing, partial close, and stop management handled automatically."],
+                ["Auditable events", "Every signal, rejection, and trade action recorded in the dashboard."],
+              ].map(([value, label]) => (
+                <div className="public-stat" key={value}>
+                  <span className="public-stat-value">{value}</span>
+                  <span className="public-stat-label">{label}</span>
+                </div>
+              ))}
+            </div>
+          </Container>
+        </Section>
+
         {/* What it does */}
-        <Section surface>
+        <Section>
           <Container>
             <SectionLabel text="What Apex Quantel does" />
             <h2 style={T.h2}>Signal to execution, fully managed.</h2>
             <p style={{ ...T.body, marginBottom: 36 }}>
-              Four components handle the complete lifecycle — from signal receipt to closed trade.
+              Four stages cover the complete trade lifecycle — from the moment a signal arrives to the
+              final close.
             </p>
-            <div>
+            <div className="public-content-card">
               <InfoRow
                 n="01"
                 title="Signal routing"
-                body="Private signals are validated and routed through the gateway to licensed accounts only. Each signal carries entry price, stop loss, take-profit levels, symbol, and direction."
+                body="Private signals are verified and forwarded to licensed accounts only. Each signal carries the entry level, stop loss, take-profit targets, symbol, and direction."
               />
               <InfoRow
                 n="02"
                 title="Local execution"
-                body="The AQ Agent runs on the user's Windows machine and communicates with MetaTrader 5 directly. Orders are placed from the same machine as the MT5 terminal — no cloud intermediary."
+                body="The AQ Agent runs on your Windows machine and places orders through MetaTrader 5 directly. Nothing routes through a cloud execution server."
               />
               <InfoRow
                 n="03"
                 title="Risk enforcement"
-                body="Before placing any order, the engine checks account equity, symbol exposure, daily loss budget, lot size limits, drawdown thresholds, and broker stop-level requirements."
+                body="Before placing any order, the engine verifies your account balance, open exposure, daily loss limits, and position size constraints."
               />
               <InfoRow
                 n="04"
                 title="Trade management"
-                body="The engine monitors open positions and handles breakeven stop moves, partial take-profit closes at configurable trigger levels, and tracks full position state through to close."
+                body="Once a position is open, the engine moves the stop to breakeven, closes a partial at the first target, and tracks the trade through to final close."
                 last
               />
             </div>
@@ -220,45 +277,38 @@ export default function LandingPage() {
         {/* Why it exists */}
         <Section>
           <Container>
-            <div className="grid md:grid-cols-2 gap-12 items-start">
+            <div className="grid md:grid-cols-2 gap-12 items-start public-content-card">
               <div>
                 <SectionLabel text="Why it exists" />
                 <h2 style={T.h2}>Built to remove manual execution errors.</h2>
                 <p style={T.body}>
-                  Signal alerts identify the trade. They do not place the order, size the position
-                  correctly, move the stop to breakeven, or close the partial. That gap is where
-                  execution breaks down.
+                  A signal identifies the trade. It does not place the order, size the position,
+                  move the stop to breakeven, or close the partial. That gap is where execution
+                  breaks down.
                 </p>
               </div>
               <div>
                 <p style={{ ...T.body, marginBottom: 20 }}>
-                  Manual execution introduces consistent failures that compound over time. These are
-                  not exceptional scenarios — they happen on every active trading session.
+                  Manual execution introduces the same failures on every active session. They are
+                  not exceptional — they are predictable and compounding.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {[
                     "Entries missed while away from the desk",
-                    "Lot sizes calculated incorrectly under pressure",
+                    "Position sizes calculated incorrectly under pressure",
                     "Breakeven moves delayed or skipped entirely",
                     "Take-profit targets adjusted after entry",
                   ].map((point) => (
                     <div key={point} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <span
-                        style={{
-                          fontSize: 13,
-                          color: "var(--line-strong)",
-                          marginTop: 4,
-                          flexShrink: 0,
-                          lineHeight: 1,
-                        }}
-                      >
-                        —
-                      </span>
+                      <span style={{ fontSize: 13, color: "var(--line-strong)", marginTop: 4, flexShrink: 0, lineHeight: 1 }}>—</span>
                       <span style={{ ...T.body, fontSize: 13.5 }}>{point}</span>
                     </div>
                   ))}
                 </div>
               </div>
+            </div>
+            <div style={{ marginTop: 40 }}>
+              <ManualVsControlledDiagram />
             </div>
           </Container>
         </Section>
@@ -272,7 +322,7 @@ export default function LandingPage() {
               <Step
                 n="01"
                 title="Activate licence"
-                body="Sign in to the dashboard, choose a plan, and generate your licence key. The key binds your account to the AQ Agent installation."
+                body="Sign in to the dashboard, choose a plan, and generate your licence key. The key links your account to your agent installation."
               />
               <Step
                 n="02"
@@ -281,22 +331,21 @@ export default function LandingPage() {
               />
               <Step
                 n="03"
-                title="Connect MT5 and monitor"
-                body="Enter your MT5 broker credentials in the agent. Once connected, the dashboard shows live execution state, open positions, and account risk metrics."
+                title="Connect and monitor"
+                body="Enter your MT5 credentials in the agent. Once connected, the dashboard shows live execution state, open positions, and account metrics."
               />
             </div>
           </Container>
         </Section>
 
-        {/* Execution stays local */}
+        {/* What stays local */}
         <Section>
           <Container>
             <SectionLabel text="Execution and control" />
             <h2 style={T.h2}>Execution stays on your machine.</h2>
             <p style={{ ...T.body, maxWidth: 580, marginBottom: 36 }}>
-              The AQ Agent operates locally. The dashboard manages access, licences, and monitoring.
-              MT5 credentials are entered into the agent on your machine and are not transmitted to
-              external servers.
+              Your MT5 credentials are entered into the agent on your own machine and are never
+              transmitted to external servers. The dashboard manages access and monitoring only.
             </p>
             <div
               className="grid sm:grid-cols-2"
@@ -304,18 +353,16 @@ export default function LandingPage() {
             >
               {(
                 [
-                  ["Local agent", "Trade execution runs on the user's Windows machine, not on a cloud server."],
-                  ["Credential handling", "MT5 login credentials are stored locally in the agent configuration file."],
-                  ["Dashboard scope", "The dashboard manages licence keys, billing, and execution monitoring only."],
+                  ["Local execution", "Trade orders are placed from your Windows machine through the locally connected MT5 terminal."],
+                  ["Credential handling", "MT5 login details are stored in the agent configuration file on your machine — not on our servers."],
+                  ["Dashboard scope", "The dashboard handles licence activation, billing, and execution monitoring only."],
                   ["Risk enforcement", "Drawdown limits, lot size caps, and daily loss budgets are applied before any order is placed."],
-                  ["Licence binding", "Each installation requires an active licence key linked to the dashboard account."],
-                  ["Trading risk", "Automation does not eliminate market risk. Users remain responsible for their account and the signals being executed."],
+                  ["Licence binding", "Each installation is linked to your dashboard account via a unique licence key."],
+                  ["Trading risk", "Automation does not remove market risk. You remain responsible for your account and the signals you execute."],
                 ] as [string, string][]
               ).map(([title, body]) => (
                 <div key={title} style={{ padding: "18px 22px", background: "var(--surface-1)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-soft)", marginBottom: 5 }}>
-                    {title}
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-soft)", marginBottom: 5 }}>{title}</div>
                   <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.65 }}>{body}</div>
                 </div>
               ))}
@@ -347,9 +394,10 @@ export default function LandingPage() {
                   style={{
                     background: "var(--success)",
                     color: "#03120c",
+                    border: "0",
                     fontWeight: 700,
                     fontSize: 13.5,
-                    padding: "12px 28px",
+                    padding: "8px 38px",
                     borderRadius: 8,
                     display: "inline-flex",
                     alignItems: "center",
@@ -365,7 +413,7 @@ export default function LandingPage() {
                     color: "var(--text-soft)",
                     fontWeight: 600,
                     fontSize: 13.5,
-                    padding: "12px 22px",
+                    padding: "8px 32px",
                     borderRadius: 8,
                     border: "1px solid var(--line)",
                     display: "inline-flex",

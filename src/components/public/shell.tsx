@@ -15,18 +15,18 @@ export const SITE_URL =
 export const T = {
   h1: {
     margin: "0 0 22px",
-    fontSize: "clamp(27px, 4.5vw, 46px)",
+    fontSize: "clamp(38px, 5.5vw, 68px)",
     fontWeight: 800,
-    letterSpacing: "-.03em",
-    lineHeight: 1.1,
+    letterSpacing: "-.045em",
+    lineHeight: 1.02,
     color: "var(--text)",
   } as CSSProperties,
 
   h2: {
     margin: "0 0 14px",
-    fontSize: "clamp(18px, 2.6vw, 24px)",
-    fontWeight: 700,
-    letterSpacing: "-.02em",
+    fontSize: "clamp(25px, 3vw, 38px)",
+    fontWeight: 750,
+    letterSpacing: "-.035em",
     color: "var(--text)",
   } as CSSProperties,
 
@@ -76,7 +76,7 @@ export function Container({
   return (
     <div
       className={`mx-auto px-5 sm:px-10 ${className}`}
-      style={{ maxWidth: narrow ? 700 : 920 }}
+      style={{ maxWidth: narrow ? 760 : 1180 }}
     >
       {children}
     </div>
@@ -96,8 +96,8 @@ export function Section({
 }) {
   return (
     <section
+      className={surface ? "public-section public-section-surface" : "public-section"}
       style={{
-        background: surface ? "var(--surface-1)" : "transparent",
         borderTop: noBorderTop ? "none" : "1px solid var(--line-soft)",
         padding: `${py}px 0`,
       }}
@@ -112,7 +112,7 @@ export function Section({
 export function SectionLabel({ text }: { text: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-      <div style={{ width: 18, height: 1.5, background: "var(--success)", flexShrink: 0 }} />
+      <div style={{ width: 16, height: 2, background: "var(--success)", flexShrink: 0 }} />
       <span style={T.label}>{text}</span>
     </div>
   );
@@ -128,7 +128,7 @@ export function PageHero({
   sub: string;
 }) {
   return (
-    <section style={{ padding: "80px 0 60px" }}>
+    <section className="public-page-hero" style={{ padding: "104px 0 82px" }}>
       <Container>
         {label && <SectionLabel text={label} />}
         <h1 style={{ ...T.h1, maxWidth: 680 }}>{heading}</h1>
@@ -308,7 +308,7 @@ export function PublicNav() {
       <div
         className="mx-auto px-5 sm:px-10"
         style={{
-          maxWidth: 920,
+          maxWidth: 1180,
           display: "flex",
           alignItems: "center",
           height: 54,
@@ -370,12 +370,14 @@ export function PublicNav() {
           </a>
           <Link
             href="/login"
+            className="public-primary-button"
             style={{
               fontSize: 12.5,
               fontWeight: 700,
               color: "#03120c",
               background: "var(--success)",
-              padding: "7px 15px",
+              border: "0",
+              padding: "6px 20px",
               borderRadius: 7,
               display: "inline-flex",
               alignItems: "center",
@@ -394,7 +396,7 @@ export function PublicNav() {
 export function PublicFooter() {
   return (
     <footer style={{ borderTop: "1px solid var(--line-soft)", padding: "48px 0 32px" }}>
-      <div className="mx-auto px-5 sm:px-10" style={{ maxWidth: 920 }}>
+      <div className="mx-auto px-5 sm:px-10" style={{ maxWidth: 1180 }}>
         <div className="grid sm:grid-cols-4 gap-8 mb-10">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -488,6 +490,7 @@ export function PublicFooter() {
 export function PublicShell({ children }: { children: ReactNode }) {
   return (
     <div
+      className="public-shell"
       style={{
         background: "var(--base)",
         color: "var(--text)",

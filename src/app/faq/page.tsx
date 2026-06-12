@@ -199,12 +199,11 @@ export default function FAQPage() {
               <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                 <Link
                   href="/login"
+                  className="public-primary-button"
                   style={{
-                    background: "var(--success)",
-                    color: "#03120c",
                     fontWeight: 700,
                     fontSize: 13.5,
-                    padding: "11px 24px",
+                    padding: "8px 38px",
                     borderRadius: 8,
                     display: "inline-flex",
                     alignItems: "center",
@@ -220,7 +219,7 @@ export default function FAQPage() {
                     color: "var(--text-soft)",
                     fontWeight: 600,
                     fontSize: 13.5,
-                    padding: "11px 20px",
+                    padding: "8px 32px",
                     borderRadius: 8,
                     border: "1px solid var(--line)",
                     display: "inline-flex",

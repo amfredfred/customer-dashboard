@@ -12,6 +12,7 @@ import {
   DOWNLOAD_URL,
   SITE_URL,
 } from "@/components/public/shell";
+import { ExecutionFlowDiagram } from "@/components/public/diagrams";
 
 export const metadata: Metadata = {
   title: "How Apex Quantel Works | MT5 Signal Execution Flow",
@@ -36,55 +37,6 @@ export const metadata: Metadata = {
 };
 
 // ── Flow diagram ─────────────────────────────────────────────────────────────
-
-const FLOW_NODES = [
-  "Private Signal",
-  "Apex Quantel Gateway",
-  "Licence Verification",
-  "Local AQ Agent",
-  "MT5 State Check",
-  "Risk Engine",
-  "Position Sizing",
-  "Order Execution",
-  "Trade Management",
-  "Dashboard Events",
-];
-
-function ExecutionFlowDiagram() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      {FLOW_NODES.map((node, i) => (
-        <div key={node} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div
-            style={{
-              border: "1px solid var(--line)",
-              borderRadius: 6,
-              padding: "9px 32px",
-              background: "var(--surface-2)",
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: "var(--text-soft)",
-              textAlign: "center",
-              minWidth: 240,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {node}
-          </div>
-          {i < FLOW_NODES.length - 1 && (
-            <div
-              style={{
-                width: 1,
-                height: 22,
-                background: "var(--line)",
-              }}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -212,12 +164,11 @@ export default function HowItWorksPage() {
               <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                 <Link
                   href="/login"
+                  className="public-primary-button"
                   style={{
-                    background: "var(--success)",
-                    color: "#03120c",
                     fontWeight: 700,
                     fontSize: 13.5,
-                    padding: "12px 26px",
+                    padding: "8px 38px",
                     borderRadius: 8,
                     display: "inline-flex",
                     alignItems: "center",
@@ -233,7 +184,7 @@ export default function HowItWorksPage() {
                     color: "var(--text-soft)",
                     fontWeight: 600,
                     fontSize: 13.5,
-                    padding: "12px 20px",
+                    padding: "8px 32px",
                     borderRadius: 8,
                     border: "1px solid var(--line)",
                     display: "inline-flex",

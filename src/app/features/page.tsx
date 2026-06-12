@@ -12,6 +12,12 @@ import {
   DOWNLOAD_URL,
   SITE_URL,
 } from "@/components/public/shell";
+import {
+  LocalAgentArchitectureDiagram,
+  ManualVsControlledDiagram,
+  RiskEngineDiagram,
+  TradeManagementDiagram,
+} from "@/components/public/diagrams";
 
 export const metadata: Metadata = {
   title: "Features | Apex Quantel",
@@ -92,11 +98,8 @@ export default function FeaturesPage() {
                   locally. MT5 credentials remain on the user&apos;s machine.
                 </p>
               </div>
-              <div>
-                <DefinitionCard
-                  term="AQ Agent"
-                  definition="The local Windows application that connects Apex Quantel signal routing to a MetaTrader 5 terminal. It runs on the user's machine, applies risk checks, calculates position size, and places orders through the locally connected broker account."
-                />
+              <div className="min-w-0">
+                <LocalAgentArchitectureDiagram />
               </div>
             </div>
           </Container>
@@ -154,25 +157,8 @@ export default function FeaturesPage() {
                   risk tolerance.
                 </Callout>
               </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
-                  Checks performed before each order
-                </div>
-                <CheckList
-                  items={[
-                    "Account equity and balance state",
-                    "Maximum daily loss budget (configurable percent of balance)",
-                    "Maximum losing streak (configurable consecutive loss count)",
-                    "Maximum exposure per symbol (open position count)",
-                    "Lot size bounds (minimum and maximum per trade)",
-                    "Stop loss to spread ratio threshold (per symbol)",
-                    "Maximum equity drawdown from recent peak",
-                    "No-hedging rule (blocks opposing positions on same symbol)",
-                    "Equity throttle (reduces position size on drawdown)",
-                    "Cluster risk guard (cross-symbol group limits, if enabled)",
-                    "Broker stop-level requirements",
-                  ]}
-                />
+              <div className="min-w-0">
+                <RiskEngineDiagram />
               </div>
             </div>
           </Container>
@@ -234,11 +220,8 @@ export default function FeaturesPage() {
                   ]}
                 />
               </div>
-              <div>
-                <DefinitionCard
-                  term="Breakeven"
-                  definition="After the TP1 level is reached, the stop loss is moved to the signal's original entry price. This locks the trade at zero loss while allowing the remaining position to run toward the full target. The breakeven level is anchored to the signal entry price, not the actual fill price."
-                />
+              <div className="min-w-0">
+                <TradeManagementDiagram />
               </div>
             </div>
           </Container>
@@ -285,6 +268,9 @@ export default function FeaturesPage() {
             <p style={{ ...T.body, marginBottom: 28 }}>
               The agent addresses the execution layer that signal alerts leave unhandled.
             </p>
+            <div style={{ marginBottom: 28 }}>
+              <ManualVsControlledDiagram />
+            </div>
             <div
               style={{
                 border: "1px solid var(--line-soft)",
@@ -361,12 +347,11 @@ export default function FeaturesPage() {
               <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                 <Link
                   href="/login"
+                  className="public-primary-button"
                   style={{
-                    background: "var(--success)",
-                    color: "#03120c",
                     fontWeight: 700,
                     fontSize: 13.5,
-                    padding: "12px 26px",
+                    padding: "8px 38px",
                     borderRadius: 8,
                     display: "inline-flex",
                     alignItems: "center",
@@ -382,7 +367,7 @@ export default function FeaturesPage() {
                     color: "var(--text-soft)",
                     fontWeight: 600,
                     fontSize: 13.5,
-                    padding: "12px 20px",
+                    padding: "8px 32px",
                     borderRadius: 8,
                     border: "1px solid var(--line)",
                     display: "inline-flex",
