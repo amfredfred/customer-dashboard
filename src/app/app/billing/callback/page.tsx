@@ -170,7 +170,7 @@ function CallbackInner() {
   );
 }
 
-/* ── page shell — rendered as a modal overlay ────────────────────────────── */
+/* ── page shell - rendered as a modal overlay ────────────────────────────── */
 export default function BillingCallback() {
   return (
     <div style={{

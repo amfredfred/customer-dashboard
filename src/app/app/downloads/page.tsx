@@ -16,9 +16,9 @@ const INCLUDED_ITEMS: { icon: React.ElementType; title: string; detail: string }
   { icon: Bot,       title: "Execution agent",      detail: "Core service that connects to MT5 and executes signals." },
   { icon: Wifi,      title: "Gateway connector",    detail: "Secure WebSocket link to the Apex cloud gateway." },
   { icon: FileCode,  title: "Config file",          detail: "config.yaml pre-filled with gateway URL and safe defaults." },
-  { icon: Clock,     title: "Task Scheduler setup", detail: "Registers as a Windows Task Scheduler task — starts at boot." },
+  { icon: Clock,     title: "Task Scheduler setup", detail: "Registers as a Windows Task Scheduler task - starts at boot." },
   { icon: Trash2,    title: "Uninstaller",          detail: "Clean removal included via standard Windows Programs panel." },
-  { icon: RefreshCw, title: "Auto-updater ready",   detail: "Version check endpoint wired in — future updates via installer." },
+  { icon: RefreshCw, title: "Auto-updater ready",   detail: "Version check endpoint wired in - future updates via installer." },
 ];
 
 /** Live version from the gateway's /engine-version endpoint; static fallback. */

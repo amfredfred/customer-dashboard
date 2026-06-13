@@ -600,7 +600,7 @@ export default function Billing() {
     : null;
 
   const fmtExpiry = (iso: string | null) => {
-    if (!iso) return "—";
+    if (!iso) return "-";
     return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
   };
 
