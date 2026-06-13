@@ -370,9 +370,8 @@ function ActiveSubscriptionCard({
   return (
     <div style={{
       background: "rgba(255,255,255,.025)",
-      border: "1px solid rgba(61,220,151,.25)",
+      border: "1px solid rgba(255,255,255,.09)",
       borderRadius: 14, display: "flex", flexDirection: "column", overflow: "hidden",
-      boxShadow: "0 2px 16px rgba(0,0,0,.35)",
     }}>
       {/* Banner */}
       <div style={{ padding: "8px 22px", background: "rgba(61,220,151,.09)", borderBottom: "1px solid rgba(61,220,151,.16)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "#3ddc97" }}>
@@ -445,11 +444,11 @@ function featureIcon(feature: string): LucideIcon {
 function PlanCard({
   plan,
   onSubscribe,
-  hasActiveLicense,
+  activeLicenseDevices,
 }: {
   plan: BillingPlan;
   onSubscribe: (plan: BillingPlan) => void;
-  hasActiveLicense: boolean;
+  activeLicenseDevices: number | null;
 }) {
   const hl = plan.highlight;
   const divider = `1px solid ${hl ? "rgba(61,220,151,.1)" : "rgba(255,255,255,.06)"}`;
@@ -463,7 +462,6 @@ function PlanCard({
           : "rgba(255,255,255,.025)",
         border: `1px solid ${hl ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.09)"}`,
         borderRadius: 14, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden",
-        boxShadow: hl ? "0 4px 24px rgba(0,0,0,.4)" : "0 2px 16px rgba(0,0,0,.35)",
         ...(hl ? { transform: "translateY(-4px)" } : {}),
       }}
     >
@@ -512,19 +510,25 @@ function PlanCard({
 
       {/* CTA */}
       <div style={{ padding: "16px 22px", borderBottom: divider }}>
-        {plan.interval === "custom" ? (
-          <a href="mailto:support@apexquantel.io" className="block text-center rounded-md text-[13px] font-semibold transition-opacity hover:opacity-80" style={{ padding: "11px 0", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.09)" }}>
-            Contact us
-          </a>
-        ) : hasActiveLicense ? (
-          <a href="/app/licenses" className="flex items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold w-full transition-opacity hover:opacity-80" style={{ padding: "11px 0", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.32)", border: "1px solid rgba(255,255,255,.07)" }}>
-            View your license →
-          </a>
-        ) : (
-          <button onClick={() => onSubscribe(plan)} className="flex items-center justify-center gap-2 rounded-md text-[13px] font-semibold w-full transition-opacity hover:opacity-85" style={{ padding: "11px 0", ...(hl ? { background: "#3ddc97", color: "#03120c" } : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.8)", border: "1px solid rgba(255,255,255,.12)" }) }}>
-            Subscribe <ExternalLink size={12} />
-          </button>
-        )}
+        {(() => {
+          const isCurrent = activeLicenseDevices !== null && plan.interval !== "custom" && plan.devices === activeLicenseDevices;
+          const isUpgrade = activeLicenseDevices !== null && plan.interval !== "custom" && plan.devices > activeLicenseDevices;
+          if (plan.interval === "custom") return (
+            <a href="mailto:support@apexquantel.io" className="block text-center rounded-md text-[13px] font-semibold transition-opacity hover:opacity-80" style={{ padding: "11px 0", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.09)" }}>
+              Contact us
+            </a>
+          );
+          if (isCurrent) return (
+            <div className="flex items-center justify-center rounded-md text-[13px] font-semibold w-full" style={{ padding: "11px 0", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.25)", border: "1px solid rgba(255,255,255,.06)", cursor: "default" }}>
+              Current plan
+            </div>
+          );
+          return (
+            <button onClick={() => onSubscribe(plan)} className="flex items-center justify-center gap-2 rounded-md text-[13px] font-semibold w-full transition-opacity hover:opacity-85" style={{ padding: "11px 0", ...(hl ? { background: "#3ddc97", color: "#03120c" } : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.8)", border: "1px solid rgba(255,255,255,.12)" }) }}>
+              {isUpgrade ? "Upgrade" : "Subscribe"} <ExternalLink size={12} />
+            </button>
+          );
+        })()}
       </div>
 
       {/* Features */}
@@ -607,21 +611,17 @@ export default function Billing() {
   return (
     <div className="page-wrap space-y-10">
 
-      {/* ── Page title ────────────────────────────────────────────────── */}
-      <div>
-        <div className="text-[10px] font-bold uppercase tracking-[.12em] muted mb-1">Account</div>
-        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-      </div>
+
 
       {/* ── Plans + Active subscription ───────────────────────────────── */}
       <section>
         {/* header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "0.75rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "1rem", marginBottom: "1.75rem" }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: "0.2rem" }}>
-              Plans{storeCurrency ? <span style={{ fontWeight: 400, fontSize: 13, color: "rgba(255,255,255,.35)", marginLeft: "0.5rem" }}>{storeCurrency}</span> : ""}
+            <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.01em", marginBottom: "0.3rem" }}>
+              Plans{storeCurrency ? <span style={{ fontWeight: 400, fontSize: 16, color: "rgba(255,255,255,.35)", marginLeft: "0.5rem" }}>{storeCurrency}</span> : ""}
             </div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,.35)" }}>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,.4)" }}>
               Device count is the only difference between plans.
             </div>
           </div>
@@ -657,7 +657,7 @@ export default function Billing() {
               <ActiveSubscriptionCard license={activeLicense} tierName={tierName ?? "Starter"} fmtExpiry={fmtExpiry} />
             )}
             {visiblePlans.map((plan) => (
-              <PlanCard key={plan.variantId} plan={plan} onSubscribe={setSelectedPlan} hasActiveLicense={!!activeLicense} />
+              <PlanCard key={plan.variantId} plan={plan} onSubscribe={setSelectedPlan} activeLicenseDevices={activeLicense?.max_devices ?? null} />
             ))}
           </div>
         )}
