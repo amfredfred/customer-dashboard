@@ -190,8 +190,10 @@ function PlanCardSkeleton({ highlight }: { highlight?: boolean }) {
     <div
       className="flex flex-col overflow-hidden"
       style={{
-        background: highlight ? "linear-gradient(160deg, rgba(10,24,18,.98) 0%, rgba(8,14,12,1) 100%)" : "rgba(255,255,255,.025)",
-        border: `1px solid ${highlight ? "rgba(61,220,151,.32)" : "rgba(255,255,255,.09)"}`,
+        background: highlight
+          ? "radial-gradient(ellipse 90% 50% at 50% 0%, rgba(61,220,151,.18) 0%, transparent 100%), rgba(255,255,255,.028)"
+          : "rgba(255,255,255,.025)",
+        border: `1px solid ${highlight ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.09)"}`,
         borderRadius: 14,
       }}
     >
@@ -510,25 +512,19 @@ function PlanCard({
 
       {/* CTA */}
       <div style={{ padding: "16px 22px", borderBottom: divider }}>
-        {(() => {
-          const isCurrent = activeLicenseDevices !== null && plan.interval !== "custom" && plan.devices === activeLicenseDevices;
-          const isUpgrade = activeLicenseDevices !== null && plan.interval !== "custom" && plan.devices > activeLicenseDevices;
-          if (plan.interval === "custom") return (
-            <a href="mailto:support@apexquantel.io" className="block text-center rounded-md text-[13px] font-semibold transition-opacity hover:opacity-80" style={{ padding: "11px 0", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.09)" }}>
-              Contact us
-            </a>
-          );
-          if (isCurrent) return (
-            <div className="flex items-center justify-center rounded-md text-[13px] font-semibold w-full" style={{ padding: "11px 0", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.25)", border: "1px solid rgba(255,255,255,.06)", cursor: "default" }}>
-              Current plan
-            </div>
-          );
-          return (
-            <button onClick={() => onSubscribe(plan)} className="flex items-center justify-center gap-2 rounded-md text-[13px] font-semibold w-full transition-opacity hover:opacity-85" style={{ padding: "11px 0", ...(hl ? { background: "#3ddc97", color: "#03120c" } : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.8)", border: "1px solid rgba(255,255,255,.12)" }) }}>
-              {isUpgrade ? "Upgrade" : "Subscribe"} <ExternalLink size={12} />
-            </button>
-          );
-        })()}
+        {plan.interval === "custom" ? (
+          <a href="mailto:support@apexquantel.io" className="block text-center rounded-md text-[13px] font-semibold transition-opacity hover:opacity-80" style={{ padding: "11px 0", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.09)" }}>
+            Contact us
+          </a>
+        ) : activeLicenseDevices === plan.devices ? (
+          <div className="flex items-center justify-center rounded-md text-[13px] font-semibold w-full" style={{ padding: "11px 0", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.25)", border: "1px solid rgba(255,255,255,.06)", cursor: "default" }}>
+            Current plan
+          </div>
+        ) : (
+          <button onClick={() => onSubscribe(plan)} className="flex items-center justify-center gap-2 rounded-md text-[13px] font-semibold w-full transition-opacity hover:opacity-85" style={{ padding: "11px 0", ...(hl ? { background: "#3ddc97", color: "#03120c" } : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.8)", border: "1px solid rgba(255,255,255,.12)" }) }}>
+            {activeLicenseDevices !== null && plan.devices > activeLicenseDevices ? "Upgrade" : "Subscribe"} <ExternalLink size={12} />
+          </button>
+        )}
       </div>
 
       {/* Features */}
@@ -609,9 +605,7 @@ export default function Billing() {
   };
 
   return (
-    <div className="page-wrap space-y-10">
-
-
+    <div className="page-wrap">
 
       {/* ── Plans + Active subscription ───────────────────────────────── */}
       <section>
@@ -664,7 +658,7 @@ export default function Billing() {
       </section>
 
       {/* ── Subscribe modal ────────────────────────────────────────────── */}
-      {selectedPlan && userEmail && !activeLicense && (
+      {selectedPlan && userEmail && (
         <SubscribeModal
           plan={selectedPlan}
           userEmail={userEmail}
