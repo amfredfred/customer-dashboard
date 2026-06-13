@@ -2,12 +2,14 @@
 
 import { getBrowserSupabase } from "@/lib/supabase-singleton";
 import { useAuth } from "@/components/auth-provider";
-import { PageHeader } from "@/components/metric-detail";
 import { gatewayHttpBase } from "@/lib/gateway";
 import {
-  CreditCard, ExternalLink,
+  CreditCard, ExternalLink, CheckCircle2, ArrowRight,
+  Bot, Radio, Zap, Users, LayoutDashboard, Key, Server, Shield, Headphones,
+  type LucideIcon,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 /* ── types ────────────────────────────────────────────────────────────── */
 type BillingPlan = {
@@ -25,110 +27,6 @@ type BillingPlan = {
   checkoutUrl: string;
   trialDays:   number | null;
 };
-
-/* ── helpers ──────────────────────────────────────────────────────────── */
-
-
-/* ── What-you-get illustrations ───────────────────────────────────────── */
-function EngineIllustration() {
-  return (
-    <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
-      {/* chip body */}
-      <rect x="32" y="14" width="56" height="52" rx="7" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.1)" strokeWidth="1"/>
-      {/* inner die */}
-      <rect x="42" y="23" width="36" height="34" rx="4" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.07)" strokeWidth="1"/>
-      {/* left pins */}
-      <rect x="20" y="25" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.1)"/>
-      <rect x="20" y="34" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.1)"/>
-      <rect x="20" y="43" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.07)"/>
-      <rect x="20" y="52" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.07)"/>
-      {/* right pins */}
-      <rect x="88" y="25" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.1)"/>
-      <rect x="88" y="34" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.1)"/>
-      <rect x="88" y="43" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.07)"/>
-      <rect x="88" y="52" width="12" height="3.5" rx="1.75" fill="rgba(255,255,255,.07)"/>
-      {/* execution waveform inside die */}
-      <polyline points="44,40 48,40 51,30 54,50 57,30 60,50 63,40 68,40 70,36 74,36"
-        stroke="#3ddc97" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".85"/>
-      {/* center glow */}
-      <ellipse cx="60" cy="40" rx="18" ry="11" fill="#3ddc97" fillOpacity=".05"/>
-      {/* status dot */}
-      <circle cx="60" cy="63" r="2.5" fill="#3ddc97" opacity=".8"/>
-      <circle cx="60" cy="63" r="5.5" fill="#3ddc97" fillOpacity=".08"/>
-    </svg>
-  );
-}
-
-function SignalIllustration() {
-  return (
-    <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
-      {/* source node */}
-      <circle cx="20" cy="40" r="9" fill="rgba(61,220,151,.1)" stroke="rgba(61,220,151,.28)" strokeWidth="1.2"/>
-      <circle cx="20" cy="40" r="4" fill="#3ddc97" opacity=".85"/>
-      <circle cx="20" cy="40" r="14" fill="#3ddc97" fillOpacity=".04"/>
-      {/* broadcast arcs */}
-      <path d="M33 24 Q46 40 33 56" stroke="#3ddc97" strokeWidth="1.4" fill="none" opacity=".5" strokeLinecap="round"/>
-      <path d="M40 17 Q58 40 40 63" stroke="#3ddc97" strokeWidth="1.1" fill="none" opacity=".28" strokeLinecap="round"/>
-      <path d="M47 11 Q70 40 47 69" stroke="#3ddc97" strokeWidth=".8" fill="none" opacity=".13" strokeLinecap="round"/>
-      {/* transmission path */}
-      <line x1="60" y1="40" x2="86" y2="40" stroke="rgba(255,255,255,.1)" strokeWidth="1.2" strokeDasharray="3,3"/>
-      {/* in-flight packet */}
-      <circle cx="74" cy="40" r="3" fill="#3ddc97" opacity=".55"/>
-      <circle cx="74" cy="40" r="6" fill="#3ddc97" fillOpacity=".08"/>
-      {/* receiver device */}
-      <rect x="88" y="24" width="26" height="32" rx="5" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.12)" strokeWidth="1"/>
-      <rect x="94" y="31" width="14" height="2.5" rx="1.25" fill="rgba(255,255,255,.2)"/>
-      <rect x="94" y="37" width="9" height="2.5" rx="1.25" fill="rgba(255,255,255,.13)"/>
-      <circle cx="101" cy="49" r="2.5" fill="#3ddc97" opacity=".75"/>
-      <circle cx="101" cy="49" r="5" fill="#3ddc97" fillOpacity=".1"/>
-    </svg>
-  );
-}
-
-function KeyIllustration() {
-  return (
-    <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
-      {/* key ring */}
-      <circle cx="22" cy="40" r="13" fill="none" stroke="rgba(255,255,255,.18)" strokeWidth="2"/>
-      <circle cx="22" cy="40" r="5.5" fill="rgba(61,220,151,.2)" stroke="rgba(61,220,151,.45)" strokeWidth="1.2"/>
-      {/* key shaft */}
-      <rect x="33" y="37.5" width="38" height="5" rx="2.5" fill="rgba(255,255,255,.14)"/>
-      {/* teeth */}
-      <rect x="42" y="42.5" width="4.5" height="7" rx="1.5" fill="rgba(255,255,255,.14)"/>
-      <rect x="52" y="42.5" width="4.5" height="5" rx="1.5" fill="rgba(255,255,255,.14)"/>
-      <rect x="62" y="42.5" width="4.5" height="9" rx="1.5" fill="rgba(255,255,255,.14)"/>
-      {/* connect trace */}
-      <path d="M71 40 L80 40" stroke="#3ddc97" strokeWidth="1.3" opacity=".6" strokeDasharray="2,2"/>
-      {/* lock body */}
-      <rect x="80" y="26" width="34" height="28" rx="6" fill="rgba(61,220,151,.07)" stroke="rgba(61,220,151,.22)" strokeWidth="1.2"/>
-      {/* shackle */}
-      <path d="M89 26 L89 19 Q97 12 105 19 L105 26" stroke="rgba(255,255,255,.18)" strokeWidth="2" fill="none" strokeLinecap="round"/>
-      {/* keyhole */}
-      <circle cx="97" cy="36" r="5" fill="rgba(61,220,151,.14)" stroke="#3ddc97" strokeWidth="1" opacity=".6"/>
-      <rect x="95.5" y="36" width="3" height="6" rx="1.5" fill="#3ddc97" opacity=".45"/>
-      {/* glow */}
-      <ellipse cx="97" cy="38" rx="16" ry="10" fill="#3ddc97" fillOpacity=".05"/>
-    </svg>
-  );
-}
-
-const WHAT_YOU_GET = [
-  {
-    Illustration: EngineIllustration,
-    title: "AQ Agent",
-    desc:  "Install and run on any Windows PC or VPS. Connects to the gateway and executes trade signals automatically.",
-  },
-  {
-    Illustration: SignalIllustration,
-    title: "Signal Delivery",
-    desc:  "Private trade signals delivered directly to your Trading Agent the moment they are released.",
-  },
-  {
-    Illustration: KeyIllustration,
-    title: "Activation Keys",
-    desc:  "One key per device license. Use them to authenticate and register each Trading Agent.",
-  },
-];
 
 /* ── Plan illustrations ───────────────────────────────────────────────── */
 function StarterIllustration() {
@@ -271,213 +169,400 @@ function IntervalToggle({
 }
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
-function buildCheckoutUrl(
-  base: string,
-  email?: string | null,
-  userId?: string | null,
-): string {
-  try {
-    const url = new URL(base);
-    if (email)  url.searchParams.set("checkout[email]", email);
-    if (userId) url.searchParams.set("checkout[custom][supabase_user_id]", userId);
-    return url.toString();
-  } catch {
-    return base;
-  }
+async function initializeCheckout(
+  planCode: string,
+  email: string,
+): Promise<string> {
+  const res = await fetch(`${gatewayHttpBase()}/billing/initialize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ planCode, email }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as { url: string };
+  if (!json.url) throw new Error("No URL returned");
+  return json.url;
 }
 
 /* ── PlanCardSkeleton ─────────────────────────────────────────────────── */
 function PlanCardSkeleton({ highlight }: { highlight?: boolean }) {
   return (
     <div
-      className="panel flex flex-col overflow-hidden"
-      style={highlight ? { borderColor: "var(--success-border)" } : undefined}
+      className="flex flex-col overflow-hidden"
+      style={{
+        background: highlight ? "linear-gradient(160deg, rgba(10,24,18,.98) 0%, rgba(8,14,12,1) 100%)" : "rgba(255,255,255,.025)",
+        border: `1px solid ${highlight ? "rgba(61,220,151,.32)" : "rgba(255,255,255,.09)"}`,
+        borderRadius: 14,
+      }}
     >
-      {/* accent strip placeholder */}
       {highlight && (
-        <div className="h-[33px]" style={{ background: "var(--success-bg)", borderBottom: "1px solid var(--success-border)" }} />
+        <div style={{ height: 33, background: "rgba(61,220,151,.09)", borderBottom: "1px solid rgba(61,220,151,.16)" }} />
       )}
-
-      {/* illustration placeholder */}
-      <div className="px-4 pt-4 pb-1">
-        <div className="skeleton rounded-md" style={{ height: 88 }} />
-      </div>
-
-      {/* header */}
-      <div className="px-5 pt-2 pb-4" style={{ borderBottom: "none" }}>
+      <div style={{ padding: "20px 22px 0" }}>
         <div className="skeleton h-3.5 w-24 mb-2" />
-        <div className="skeleton h-2.5 w-40" />
+        <div className="skeleton h-2.5 w-16" />
       </div>
-
-      {/* price */}
-      <div className="px-5 py-5 flex flex-col gap-5">
-        <div style={{ borderBottom: "1px solid rgba(255,255,255,.06)", paddingBottom: "1.25rem" }}>
-          <div className="skeleton h-7 w-28 mb-2" />
-          <div className="skeleton h-2 w-36 mb-3" />
-          <div className="skeleton h-[26px] w-32 rounded-md" />
-        </div>
-
-        {/* CTA */}
-        <div className="skeleton rounded h-9 w-full" />
+      <div style={{ padding: "16px 22px 0" }}>
+        <div className="skeleton h-9 w-36 mb-2" />
+        <div className="skeleton h-2.5 w-28" />
+      </div>
+      <div style={{ padding: "16px 22px 20px" }}>
+        <div className="skeleton rounded-md h-10 w-full" />
+      </div>
+      <div style={{ height: 1, margin: "0 22px", background: "rgba(255,255,255,.06)" }} />
+      <div style={{ padding: "16px 22px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {[80, 64, 72, 56, 68].map((w, i) => (
+          <div key={i} className="flex items-center gap-2.5">
+            <div className="skeleton rounded-full" style={{ width: 14, height: 14, flexShrink: 0 }} />
+            <div className="skeleton h-2.5" style={{ width: w }} />
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
+/* ── SubscribeModal ───────────────────────────────────────────────────── */
+function SubscribeModal({
+  plan,
+  userEmail,
+  onClose,
+}: {
+  plan: BillingPlan;
+  userEmail: string;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const Illustration = PLAN_ILLUSTRATION[plan.planKey] ?? StarterIllustration;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const handleContinue = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = await initializeCheckout(plan.variantId, userEmail);
+      window.location.href = url;
+    } catch {
+      setError("Couldn't open checkout. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        background: "rgba(0,0,0,.72)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "1rem",
+        backdropFilter: "blur(4px)",
+      }}
+    >
+      <div
+        className="panel"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 380, width: "100%", overflow: "hidden" }}
+      >
+        {/* illustration */}
+        <div style={{ padding: "1.25rem 1.25rem 0.5rem" }}>
+          <div style={{ maxWidth: 180, margin: "0 auto" }}>
+            <Illustration />
+          </div>
+        </div>
+
+        {/* plan name + desc */}
+        <div style={{ padding: "0.5rem 1.25rem 1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{plan.name}</span>
+            {plan.highlight && <span className="badge badge-green">Popular</span>}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.55 }}>{plan.desc}</div>
+        </div>
+
+        <div style={{ margin: "0 1.25rem", height: 1, background: "var(--line)" }} />
+
+        {/* price row */}
+        <div style={{ padding: "0.875rem 1.25rem", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>
+            {plan.interval === "yearly" ? "Billed annually" : "Billed monthly"}
+          </span>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ fontSize: 20, fontWeight: 700 }}>{plan.price}</span>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>/mo</span>
+            {plan.priceNote && (
+              <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{plan.priceNote}</div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ margin: "0 1.25rem", height: 1, background: "var(--line)" }} />
+
+        {/* actions */}
+        <div style={{ padding: "1rem 1.25rem 1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {error && (
+            <div style={{
+              fontSize: 11, color: "#f87171", padding: "0.5rem 0.75rem",
+              background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)",
+              borderRadius: 6, marginBottom: "0.25rem",
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={handleContinue}
+            disabled={loading}
+            style={{
+              padding: "0.625rem", borderRadius: 6, fontSize: 12, fontWeight: 600,
+              background: loading ? "rgba(255,255,255,.04)" : "var(--success-bg)",
+              color: loading ? "rgba(255,255,255,.3)" : "var(--success)",
+              border: `1px solid ${loading ? "rgba(255,255,255,.06)" : "var(--success-border)"}`,
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Opening checkout…" : "Continue to Paystack →"}
+          </button>
+
+          <button
+            onClick={onClose}
+            style={{
+              padding: "0.375rem", fontSize: 11, color: "var(--muted)",
+              background: "transparent", border: "none", cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,.22)", textAlign: "center", marginTop: "0.25rem" }}>
+            Secure checkout · Powered by Paystack · Cancel anytime
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ── ActiveSubscriptionCard ───────────────────────────────────────────── */
+const TIER_FEATURES: Record<string, string[]> = {
+  Starter:        ["1 Trading Agent", "Live signal delivery", "Automatic MT5 execution", "Customer dashboard"],
+  Pro:            ["3 Trading Agents", "Live signal delivery", "Multi-account support", "Customer dashboard"],
+  Infrastructure: ["Unlimited Agents", "Live signal delivery", "Dedicated infrastructure", "Priority support"],
+};
+
+function ActiveSubscriptionCard({
+  license,
+  tierName,
+  fmtExpiry,
+}: {
+  license: { expires_at: string | null; max_devices: number };
+  tierName: string;
+  fmtExpiry: (iso: string | null) => string;
+}) {
+  const features = TIER_FEATURES[tierName] ?? TIER_FEATURES.Starter;
+  return (
+    <div style={{
+      background: "rgba(255,255,255,.025)",
+      border: "1px solid rgba(61,220,151,.25)",
+      borderRadius: 14, display: "flex", flexDirection: "column", overflow: "hidden",
+      boxShadow: "0 2px 16px rgba(0,0,0,.35)",
+    }}>
+      {/* Banner */}
+      <div style={{ padding: "8px 22px", background: "rgba(61,220,151,.09)", borderBottom: "1px solid rgba(61,220,151,.16)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "#3ddc97" }}>
+        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#3ddc97", boxShadow: "0 0 6px #3ddc97", flexShrink: 0 }} />
+        Active Plan
+      </div>
+
+      {/* Name + agents badge */}
+      <div style={{ padding: "22px 22px 0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>AQ {tierName}</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,.35)", lineHeight: 1.55 }}>Your current subscription</div>
+        </div>
+        <div style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 6, background: "rgba(61,220,151,.1)", border: "1px solid rgba(61,220,151,.22)", fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#3ddc97" }}>
+          {license.max_devices} {license.max_devices === 1 ? "Agent" : "Agents"}
+        </div>
+      </div>
+
+      {/* Renewal */}
+      <div style={{ padding: "18px 22px 20px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,.32)", marginBottom: 4 }}>Renewal date</div>
+        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.01em" }}>
+          {fmtExpiry(license.expires_at)}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{ padding: "16px 22px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+        <a href="/app/licenses" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 0", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "rgba(61,220,151,.09)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.2)", textDecoration: "none" }}>
+          Manage License <ArrowRight size={12} />
+        </a>
+      </div>
+
+      {/* Features */}
+      <div style={{ padding: "18px 22px 24px", flex: 1 }}>
+        <ul style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {features.map((f) => {
+            const Icon = featureIcon(f);
+            return (
+              <li key={f} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "rgba(61,220,151,.09)", border: "1px solid rgba(61,220,151,.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icon size={15} style={{ color: "#3ddc97" }} />
+                </div>
+                <span style={{ fontSize: 12.5, color: "rgba(255,255,255,.65)", lineHeight: 1.4 }}>{f}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ── Feature icon map ─────────────────────────────────────────────────── */
+function featureIcon(feature: string): LucideIcon {
+  const f = feature.toLowerCase();
+  if (f.includes("agent") || f.includes("bot"))              return Bot;
+  if (f.includes("signal"))                                   return Radio;
+  if (f.includes("execution") || f.includes("mt5"))          return Zap;
+  if (f.includes("multi") || f.includes("account"))          return Users;
+  if (f.includes("dashboard"))                                return LayoutDashboard;
+  if (f.includes("key") || f.includes("license") || f.includes("activation")) return Key;
+  if (f.includes("vps") || f.includes("server") || f.includes("infrastructure")) return Server;
+  if (f.includes("risk") || f.includes("shield"))            return Shield;
+  if (f.includes("support") || f.includes("priority"))       return Headphones;
+  return CheckCircle2;
+}
+
 /* ── PlanCard ─────────────────────────────────────────────────────────── */
 function PlanCard({
   plan,
-  userEmail,
-  userId,
+  onSubscribe,
+  hasActiveLicense,
 }: {
   plan: BillingPlan;
-  userEmail?: string | null;
-  userId?: string | null;
+  onSubscribe: (plan: BillingPlan) => void;
+  hasActiveLicense: boolean;
 }) {
-  const Illustration = PLAN_ILLUSTRATION[plan.planKey] ?? StarterIllustration;
+  const hl = plan.highlight;
+  const divider = `1px solid ${hl ? "rgba(61,220,151,.1)" : "rgba(255,255,255,.06)"}`;
 
-  const card = (
+  return (
     <div
-      className="panel flex flex-col overflow-hidden h-full"
+      className="h-full"
       style={{
-        position: "relative",
-        ...(plan.highlight
-          ? { borderColor: "var(--success-border)" }
-          : { border: "none" }),
+        background: hl
+          ? "radial-gradient(ellipse 90% 50% at 50% 0%, rgba(61,220,151,.18) 0%, transparent 100%), rgba(255,255,255,.028)"
+          : "rgba(255,255,255,.025)",
+        border: `1px solid ${hl ? "rgba(61,220,151,.3)" : "rgba(255,255,255,.09)"}`,
+        borderRadius: 14, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden",
+        boxShadow: hl ? "0 4px 24px rgba(0,0,0,.4)" : "0 2px 16px rgba(0,0,0,.35)",
+        ...(hl ? { transform: "translateY(-4px)" } : {}),
       }}
     >
-      {/* Illustration */}
-      <div className="px-4 pt-4 pb-1">
-        <Illustration />
-      </div>
+      {hl && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(61,220,151,.85) 35%, rgba(61,220,151,.85) 65%, transparent)", zIndex: 1 }} />}
 
-      {/* Header */}
-      <div className="px-5 pt-2 pb-4"
-           style={{ borderBottom: "none" }}>
-        <div className="flex items-center gap-2 mb-0.5">
-          <div className="text-sm font-semibold">{plan.name}</div>
-          {plan.highlight && <span className="badge badge-green">Popular</span>}
+      {/* Most Popular banner */}
+      {hl && (
+        <div style={{ padding: "8px 22px", background: "rgba(61,220,151,.09)", borderBottom: "1px solid rgba(61,220,151,.16)", fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "#3ddc97", textAlign: "center" }}>
+          Most Popular
         </div>
-        <div className="text-[11px] muted leading-snug">{plan.desc}</div>
+      )}
+
+      {/* Name + agents */}
+      <div style={{ padding: "22px 22px 0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{plan.name}</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,.35)", lineHeight: 1.55 }}>{plan.desc}</div>
+        </div>
         {plan.interval !== "custom" && (
-          <div className="inline-block mt-3" style={{
-            background: "rgba(255,255,255,.022)",
-            color: "rgba(255,255,255,.75)",
-            fontWeight: 900,
-            fontSize: 11,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            padding: "8px 18px",
-            WebkitMaskImage: [
-              "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
-              "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
-              "linear-gradient(white, white)",
-            ].join(", "),
-            WebkitMaskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
-            WebkitMaskPosition: "top, bottom, 0 5px",
-            WebkitMaskRepeat:   "repeat-x, repeat-x, no-repeat",
-            maskImage: [
-              "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
-              "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
-              "linear-gradient(white, white)",
-            ].join(", "),
-            maskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
-            maskPosition: "top, bottom, 0 5px",
-            maskRepeat:   "repeat-x, repeat-x, no-repeat",
-          }}>
-            {plan.devices} {plan.devices === 1 ? "Trading Agent" : "Trading Agents"}
+          <div style={{ flexShrink: 0, padding: "4px 10px", borderRadius: 6, background: hl ? "rgba(61,220,151,.1)" : "rgba(255,255,255,.05)", border: `1px solid ${hl ? "rgba(61,220,151,.22)" : "rgba(255,255,255,.08)"}`, fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: hl ? "#3ddc97" : "rgba(255,255,255,.45)" }}>
+            {plan.devices} {plan.devices === 1 ? "Agent" : "Agents"}
           </div>
         )}
       </div>
 
-      <div className="px-5 pt-3 pb-5 flex flex-col flex-1">
-
       {/* Price */}
-      <div className="mb-4">
+      <div style={{ padding: "18px 22px 20px", borderBottom: divider }}>
         {plan.interval === "custom" ? (
-          <div className="text-4xl font-bold tracking-tight">Custom</div>
+          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-0.025em" }}>Custom</div>
         ) : (
           <>
-            <div className="text-4xl font-bold tracking-tight">
+            <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-0.025em", lineHeight: 1 }}>
               {plan.price}
-              <span className="text-base font-normal muted ml-1">/mo</span>
+              <span style={{ fontSize: 13, fontWeight: 400, color: "rgba(255,255,255,.38)", marginLeft: "0.4rem" }}>/mo</span>
             </div>
-            {plan.priceNote && (
-              <div className="text-[11px] muted mt-1">{plan.priceNote}</div>
-            )}
+            {plan.priceNote && <div style={{ fontSize: 11, color: "rgba(255,255,255,.32)", marginTop: 6 }}>{plan.priceNote}</div>}
             {plan.trialDays && (
-              <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-md"
-                   style={{ background: "var(--success-bg)", border: "1px solid var(--success-border)" }}>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--success)" }} />
-                <span className="text-[11px] font-semibold" style={{ color: "var(--success)" }}>
-                  {plan.trialDays}-day free trial
-                </span>
+              <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-md" style={{ background: "var(--success-bg)", border: "1px solid var(--success-border)" }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--success)" }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--success)" }}>{plan.trialDays}-day free trial</span>
               </div>
             )}
           </>
         )}
       </div>
 
-      {/* Features - always 5 rows, fixed height for button alignment */}
-      <ul className="mb-5 w-full flex flex-col gap-1.5 text-left" style={{ minHeight: 112 }}>
-        {plan.features.slice(0, 5).map((f) => (
-          <li key={f} className="flex items-center gap-2 text-[11px] muted">
-            <span className="w-1 h-1 rounded-full shrink-0" style={{ background: "var(--success)", opacity: 0.7 }} />
-            {f}
-          </li>
-        ))}
-      </ul>
-
       {/* CTA */}
-      <div>
+      <div style={{ padding: "16px 22px", borderBottom: divider }}>
         {plan.interval === "custom" ? (
-          <a
-            href="mailto:support@apexquantel.io"
-            className="block py-2.5 text-center rounded text-xs font-semibold transition-opacity hover:opacity-80"
-            style={{
-              background: "rgba(255,255,255,.05)",
-              color: "rgba(255,255,255,.55)",
-              border: "1px solid rgba(255,255,255,.09)",
-            }}
-          >
+          <a href="mailto:support@apexquantel.io" className="block text-center rounded-md text-[13px] font-semibold transition-opacity hover:opacity-80" style={{ padding: "11px 0", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.09)" }}>
             Contact us
           </a>
+        ) : hasActiveLicense ? (
+          <a href="/app/licenses" className="flex items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold w-full transition-opacity hover:opacity-80" style={{ padding: "11px 0", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.32)", border: "1px solid rgba(255,255,255,.07)" }}>
+            View your license →
+          </a>
         ) : (
-          <button
-            onClick={() => {
-              const url = buildCheckoutUrl(plan.checkoutUrl, userEmail, userId);
-              if (url) window.open(url, "_blank", "noopener,noreferrer");
-            }}
-            disabled={!plan.checkoutUrl}
-            className="flex items-center justify-center gap-1.5 py-2.5 rounded text-xs font-semibold transition-opacity hover:opacity-80 w-full"
-            style={
-              plan.checkoutUrl
-                ? plan.highlight
-                  ? { background: "var(--success-bg)", color: "var(--success)", border: "1px solid var(--success-border)" }
-                  : { background: "rgba(255,255,255,.06)", color: "rgba(255,255,255,.75)", border: "1px solid rgba(255,255,255,.11)" }
-                : { background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.25)", border: "1px solid rgba(255,255,255,.06)", cursor: "not-allowed" }
-            }
-          >
-            {plan.checkoutUrl ? <><span>Subscribe</span> <ExternalLink size={11} /></> : "Coming soon"}
+          <button onClick={() => onSubscribe(plan)} className="flex items-center justify-center gap-2 rounded-md text-[13px] font-semibold w-full transition-opacity hover:opacity-85" style={{ padding: "11px 0", ...(hl ? { background: "#3ddc97", color: "#03120c" } : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.8)", border: "1px solid rgba(255,255,255,.12)" }) }}>
+            Subscribe <ExternalLink size={12} />
           </button>
         )}
       </div>
-      </div>{/* end px-5 body */}
+
+      {/* Features */}
+      <div style={{ padding: "18px 22px 24px", flex: 1 }}>
+        <ul style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {plan.features.slice(0, 5).map((f) => {
+            const Icon = featureIcon(f);
+            return (
+              <li key={f} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: hl ? "rgba(61,220,151,.09)" : "rgba(255,255,255,.04)",
+                  border: `1px solid ${hl ? "rgba(61,220,151,.18)" : "rgba(255,255,255,.08)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Icon size={15} style={{ color: hl ? "#3ddc97" : "rgba(255,255,255,.45)" }} />
+                </div>
+                <span style={{ fontSize: 12.5, color: "rgba(255,255,255,.65)", lineHeight: 1.4 }}>{f}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
-
-  return card;
 }
 
 /* ── page ─────────────────────────────────────────────────────────────── */
 export default function Billing() {
   const { session } = useAuth();
   const userEmail   = session?.user.email ?? null;
-  const userId      = session?.user.id    ?? null;
 
   const [plans, setPlans]               = useState<BillingPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [interval, setInterval]         = useState<"monthly" | "yearly">("yearly");
+  const [selectedPlan, setSelectedPlan] = useState<BillingPlan | null>(null);
+  // undefined = still checking, null = no active license, object = has one
+  const [activeLicense, setActiveLicense] = useState<{ id: string; expires_at: string | null; max_devices: number } | null | undefined>(undefined);
 
   const loadPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -495,63 +580,61 @@ export default function Billing() {
 
   useEffect(() => { void loadPlans(); }, [loadPlans]);
 
-  // suppress unused import warning - supabase still needed by the module
-  void getBrowserSupabase;
+  useEffect(() => {
+    if (!session) return;
+    const sb = getBrowserSupabase();
+    sb.from("licenses")
+      .select("id, expires_at, max_devices")
+      .eq("status", "active")
+      .limit(1)
+      .then(({ data }) => setActiveLicense((data?.[0] as typeof activeLicense) ?? null));
+  }, [session]);
 
   const visiblePlans  = plans.filter((p) => p.interval === interval || p.interval === "custom");
   const storeCurrency = plans[0]?.currency ?? null;
 
+  const tierName = activeLicense
+    ? activeLicense.max_devices >= 9999 ? "Infrastructure"
+      : activeLicense.max_devices >= 3  ? "Pro"
+      : "Starter"
+    : null;
+
+  const fmtExpiry = (iso: string | null) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  };
+
   return (
-    <div className="page-wrap space-y-8">
-      <PageHeader
-        eyebrow="Subscription"
-        title="Billing"
-        description="Everything included in every plan. Only the device count changes."
-      />
+    <div className="page-wrap space-y-10">
 
-      {/* ── What you get ───────────────────────────────────────────────── */}
+      {/* ── Page title ────────────────────────────────────────────────── */}
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-[.12em] muted mb-1">Account</div>
+        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
+      </div>
+
+      {/* ── Plans + Active subscription ───────────────────────────────── */}
       <section>
-        <div className="text-[10px] font-bold uppercase tracking-[.1em] muted mb-3">
-          What&rsquo;s included
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {WHAT_YOU_GET.map(({ Illustration, title, desc }) => (
-            <div key={title} className="panel flex flex-col overflow-hidden" style={{ border: "none" }}>
-              <div className="px-4 pt-4 pb-1">
-                <Illustration />
-              </div>
-              <div className="px-5 pb-5 pt-2">
-                <div className="text-sm font-semibold mb-1.5">{title}</div>
-                <div className="text-[11px] muted leading-relaxed">{desc}</div>
-              </div>
+        {/* header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "0.75rem" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: "0.2rem" }}>
+              Plans{storeCurrency ? <span style={{ fontWeight: 400, fontSize: 13, color: "rgba(255,255,255,.35)", marginLeft: "0.5rem" }}>{storeCurrency}</span> : ""}
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Plans ─────────────────────────────────────────────────────── */}
-      <section>
-        <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="text-[10px] font-bold uppercase tracking-[.1em] muted">
-            Plans{storeCurrency ? ` · ${storeCurrency}` : ""}
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,.35)" }}>
+              Device count is the only difference between plans.
+            </div>
           </div>
-          <p className="text-xs muted text-center max-w-md leading-5">
-            Your plan controls how many AQ Agents can be activated. Signals and
-            execution are delivered through the gateway after activation.
-          </p>
-          {plansLoading && (
-            <div className="skeleton h-8 w-40 rounded-md" />
-          )}
-          {!plansLoading && plans.length > 0 && (
-            <IntervalToggle value={interval} onChange={setInterval} />
-          )}
+          {plansLoading
+            ? <div className="skeleton h-8 w-40 rounded-full" />
+            : plans.length > 0 && <IntervalToggle value={interval} onChange={setInterval} />
+          }
         </div>
 
         {plansLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch" style={{ maxWidth: 840, margin: "0 auto" }}>
             <PlanCardSkeleton />
             <PlanCardSkeleton highlight />
-            <PlanCardSkeleton />
           </div>
         )}
 
@@ -560,21 +643,34 @@ export default function Billing() {
             <CreditCard size={16} className="muted shrink-0" />
             <div>
               <div className="text-sm font-medium">Plans coming soon</div>
-              <p className="muted text-xs mt-0.5">Pricing will be available here shortly. Contact support if you need access now.</p>
+              <p className="muted text-xs mt-0.5">Pricing will be available here shortly.</p>
             </div>
           </div>
         )}
 
         {!plansLoading && visiblePlans.length > 0 && (
-          <div className="flex justify-center">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch w-full max-w-3xl">
-              {visiblePlans.map((plan) => (
-                <PlanCard key={plan.variantId} plan={plan} userEmail={userEmail} userId={userId} />
-              ))}
-            </div>
+          <div
+            className={`grid grid-cols-1 gap-4 items-stretch ${activeLicense ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+            style={{ maxWidth: activeLicense ? 1240 : 840, margin: "0 auto", paddingBottom: 8 }}
+          >
+            {activeLicense && (
+              <ActiveSubscriptionCard license={activeLicense} tierName={tierName ?? "Starter"} fmtExpiry={fmtExpiry} />
+            )}
+            {visiblePlans.map((plan) => (
+              <PlanCard key={plan.variantId} plan={plan} onSubscribe={setSelectedPlan} hasActiveLicense={!!activeLicense} />
+            ))}
           </div>
         )}
       </section>
+
+      {/* ── Subscribe modal ────────────────────────────────────────────── */}
+      {selectedPlan && userEmail && !activeLicense && (
+        <SubscribeModal
+          plan={selectedPlan}
+          userEmail={userEmail}
+          onClose={() => setSelectedPlan(null)}
+        />
+      )}
     </div>
   );
 }

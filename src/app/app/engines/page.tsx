@@ -652,7 +652,7 @@ export default function Engines() {
         })}
       </div>
 
-      {/* Released devices — history, no actions */}
+      {/* Released devices - history, no actions */}
       {!loading && engines.some(e => e.status === "revoked") && (
         <div className="space-y-2">
           <div className="text-xs muted uppercase tracking-wider px-1">Released devices</div>

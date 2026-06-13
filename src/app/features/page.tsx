@@ -75,14 +75,14 @@ export default function FeaturesPage() {
         <PageHero
           label="Platform features"
           heading="What the platform does."
-          sub="A structured breakdown of each component in the Apex Quantel execution system — from signal receipt to trade management."
+          sub="A structured breakdown of each component in the Apex Quantel execution system - from signal receipt to trade management."
         />
 
-        {/* 01 — Local Execution Agent */}
+        {/* 01 - Local Execution Agent */}
         <Section surface>
           <Container>
             <FeatureHeader
-              label="01 — Execution agent"
+              label="01 - Execution agent"
               heading="Local MT5 execution."
               sub="The AQ Agent is a Windows desktop application that connects directly to a local MetaTrader 5 terminal and executes orders on behalf of the user."
             />
@@ -105,11 +105,11 @@ export default function FeaturesPage() {
           </Container>
         </Section>
 
-        {/* 02 — Private Signal Routing */}
+        {/* 02 - Private Signal Routing */}
         <Section>
           <Container>
             <FeatureHeader
-              label="02 — Signal routing"
+              label="02 - Signal routing"
               heading="Private signal distribution."
               sub="Trading signals are routed through the Apex Quantel gateway to licensed users only. Signals are not publicly broadcast."
             />
@@ -136,11 +136,11 @@ export default function FeaturesPage() {
           </Container>
         </Section>
 
-        {/* 03 — Risk Checks */}
+        {/* 03 - Risk Checks */}
         <Section surface>
           <Container>
             <FeatureHeader
-              label="03 — Risk enforcement"
+              label="03 - Risk enforcement"
               heading="Risk checks before entry."
               sub="Before placing any order, the execution engine runs a series of validation checks against the configured risk rules and current account state."
             />
@@ -164,11 +164,11 @@ export default function FeaturesPage() {
           </Container>
         </Section>
 
-        {/* 04 — Position Sizing */}
+        {/* 04 - Position Sizing */}
         <Section>
           <Container>
             <FeatureHeader
-              label="04 — Position sizing"
+              label="04 - Position sizing"
               heading="Risk-based lot calculation."
               sub="The engine calculates trade size from the configured risk percentage and the stop distance, rather than requiring manual lot entry."
             />
@@ -194,11 +194,11 @@ export default function FeaturesPage() {
           </Container>
         </Section>
 
-        {/* 05 — Trade Management */}
+        {/* 05 - Trade Management */}
         <Section surface>
           <Container>
             <FeatureHeader
-              label="05 — Trade management"
+              label="05 - Trade management"
               heading="Breakeven, partial TP, and position tracking."
               sub="After order placement, the engine monitors open positions and applies the configured management logic at each price level."
             />
@@ -227,13 +227,13 @@ export default function FeaturesPage() {
           </Container>
         </Section>
 
-        {/* 06 — Dashboard */}
+        {/* 06 - Dashboard */}
         <Section>
           <Container>
             <FeatureHeader
-              label="06 — Dashboard"
+              label="06 - Dashboard"
               heading="Visibility and control."
-              sub="The web dashboard provides access to account management, agent monitoring, signal history, execution events, and billing — without touching the local agent directly."
+              sub="The web dashboard provides access to account management, agent monitoring, signal history, execution events, and billing - without touching the local agent directly."
             />
             <div
               className="grid sm:grid-cols-2 md:grid-cols-3"

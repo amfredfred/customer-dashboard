@@ -27,7 +27,7 @@ export const metadata: Metadata = {
         url: `${SITE_URL}/apex-quantel-og.png`,
         width: 1200,
         height: 630,
-        alt: "Apex Quantel — Automated MT5 Execution Infrastructure",
+        alt: "Apex Quantel - Automated MT5 Execution Infrastructure",
         type: "image/png",
       },
     ],
@@ -169,7 +169,7 @@ export default function LandingPage() {
                 </h1>
                 <p style={{ ...T.body, fontSize: 15, maxWidth: 520, marginBottom: 36 }}>
                   Apex Quantel receives approved trading signals and executes them through a local
-                  Windows agent connected to your MetaTrader 5 account — automatically and consistently.
+                  Windows agent connected to your MetaTrader 5 account - automatically and consistently.
                 </p>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
                   <Link
@@ -225,7 +225,7 @@ export default function LandingPage() {
           <Container>
             <div className="public-stat-grid">
               {[
-                ["Local authority", "Orders execute through your connected MT5 terminal — not a cloud server."],
+                ["Local authority", "Orders execute through your connected MT5 terminal - not a cloud server."],
                 ["Pre-trade control", "Account, exposure, and drawdown limits enforced before every order."],
                 ["Managed lifecycle", "Position sizing, partial close, and stop management handled automatically."],
                 ["Auditable events", "Every signal, rejection, and trade action recorded in the dashboard."],
@@ -245,7 +245,7 @@ export default function LandingPage() {
             <SectionLabel text="What Apex Quantel does" />
             <h2 style={T.h2}>Signal to execution, fully managed.</h2>
             <p style={{ ...T.body, marginBottom: 36 }}>
-              Four stages cover the complete trade lifecycle — from the moment a signal arrives to the
+              Four stages cover the complete trade lifecycle - from the moment a signal arrives to the
               final close.
             </p>
             <div className="public-content-card">
@@ -290,7 +290,7 @@ export default function LandingPage() {
               <div>
                 <p style={{ ...T.body, marginBottom: 20 }}>
                   Manual execution introduces the same failures on every active session. They are
-                  not exceptional — they are predictable and compounding.
+                  not exceptional - they are predictable and compounding.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {[
@@ -300,7 +300,7 @@ export default function LandingPage() {
                     "Take-profit targets adjusted after entry",
                   ].map((point) => (
                     <div key={point} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <span style={{ fontSize: 13, color: "var(--line-strong)", marginTop: 4, flexShrink: 0, lineHeight: 1 }}>—</span>
+                      <span style={{ fontSize: 13, color: "var(--line-strong)", marginTop: 4, flexShrink: 0, lineHeight: 1 }}>-</span>
                       <span style={{ ...T.body, fontSize: 13.5 }}>{point}</span>
                     </div>
                   ))}
@@ -354,7 +354,7 @@ export default function LandingPage() {
               {(
                 [
                   ["Local execution", "Trade orders are placed from your Windows machine through the locally connected MT5 terminal."],
-                  ["Credential handling", "MT5 login details are stored in the agent configuration file on your machine — not on our servers."],
+                  ["Credential handling", "MT5 login details are stored in the agent configuration file on your machine - not on our servers."],
                   ["Dashboard scope", "The dashboard handles licence activation, billing, and execution monitoring only."],
                   ["Risk enforcement", "Drawdown limits, lot size caps, and daily loss budgets are applied before any order is placed."],
                   ["Licence binding", "Each installation is linked to your dashboard account via a unique licence key."],

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { PageHeader } from "@/components/metric-detail";
 import { adminFetch } from "@/lib/admin-api";
 import { Copy, X } from "lucide-react";
@@ -46,7 +47,7 @@ function KeyRevealModal({ rawKey, onClose }: {
       setTimeout(() => setCopied(false), 2500);
     });
   }
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
          style={{ background: "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
       <div className="relative w-full max-w-lg rounded-2xl overflow-hidden"
@@ -81,7 +82,8 @@ function KeyRevealModal({ rawKey, onClose }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -89,7 +91,7 @@ function ConfirmModal({ title, message, confirmLabel, danger, onConfirm, onClose
   title: string; message: string; confirmLabel: string; danger?: boolean;
   onConfirm: () => void; onClose: () => void;
 }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
          style={{ background: "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
       <div className="w-full max-w-sm rounded-2xl overflow-hidden"
@@ -113,7 +115,8 @@ function ConfirmModal({ title, message, confirmLabel, danger, onConfirm, onClose
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

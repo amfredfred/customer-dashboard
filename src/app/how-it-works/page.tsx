@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "How Apex Quantel Works | MT5 Signal Execution Flow",
-    description: "Signal routing, local execution, risk enforcement, and trade management — step by step.",
+    description: "Signal routing, local execution, risk enforcement, and trade management - step by step.",
     images: [`${SITE_URL}/apex-quantel-og.png`],
   },
 };
@@ -47,7 +47,7 @@ export default function HowItWorksPage() {
         <PageHero
           label="Execution flow"
           heading="How Apex Quantel works."
-          sub="A step-by-step description of the signal-to-execution lifecycle — from signal creation to trade close and event logging."
+          sub="A step-by-step description of the signal-to-execution lifecycle - from signal creation to trade close and event logging."
         />
 
         {/* Flow diagram */}
@@ -94,7 +94,7 @@ export default function HowItWorksPage() {
             <FlowStep n="04" title="Local AQ Agent receives signal">
               The AQ Agent, running on the user&apos;s Windows machine, receives the validated
               signal over a secure WebSocket connection from the gateway. The agent checks the
-              signal age — signals older than the configured maximum age are discarded rather than
+              signal age - signals older than the configured maximum age are discarded rather than
               executed late.
             </FlowStep>
 

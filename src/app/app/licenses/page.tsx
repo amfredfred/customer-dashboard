@@ -7,6 +7,7 @@ import { gatewayHttpBase } from "@/lib/gateway";
 import { Copy, X } from "lucide-react";
 import { ErrorIcon, LicenseKeyIcon, ShieldIcon, SuccessIcon, WarningIcon } from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 /* ── types ────────────────────────────────────────────────────────────── */
 // Real licenses columns: id, owner_user_id, activation_key_hash, status,
@@ -48,7 +49,7 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
     });
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
          style={{ background: "rgba(0,0,0,.7)", backdropFilter: "blur(4px)" }}>
       <div className="relative w-full max-w-lg rounded-2xl overflow-hidden"
@@ -112,7 +113,8 @@ function KeyRevealModal({ licenseId, rawKey, onClose }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -122,7 +124,7 @@ function ConfirmRevokeDialog({ onConfirm, onCancel, busy }: {
   onCancel: () => void;
   busy: boolean;
 }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
          style={{ background: "rgba(0,0,0,.7)", backdropFilter: "blur(4px)" }}>
       <div className="w-full max-w-sm rounded-2xl overflow-hidden"
@@ -159,7 +161,8 @@ function ConfirmRevokeDialog({ onConfirm, onCancel, busy }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

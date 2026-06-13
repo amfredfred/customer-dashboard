@@ -66,14 +66,14 @@ export function CommandBar({
 
   return (
     <div className="cmd-bar">
-      {/* Left: context + divider + normal buttons — always inline */}
+      {/* Left: context + divider + normal buttons - always inline */}
       <div className="flex items-center gap-3 flex-wrap min-w-0">
         <div className="flex items-center gap-2.5 shrink-0 min-w-0">{context}</div>
         <div className="cmd-divider self-stretch" />
         <div className="flex items-center gap-2">{normal.map(renderBtn)}</div>
       </div>
 
-      {/* Right group: danger zone + right/state — ml-auto on desktop, full-width on mobile */}
+      {/* Right group: danger zone + right/state - ml-auto on desktop, full-width on mobile */}
       {hasRight && (
         <div className="cmd-bar-right">
           {dangerous.length > 0 && (

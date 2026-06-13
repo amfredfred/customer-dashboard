@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/faq" },
   openGraph: {
     title: "FAQ | Apex Quantel",
-    description: "Common questions about Apex Quantel — execution, risk, licences, and requirements.",
+    description: "Common questions about Apex Quantel - execution, risk, licences, and requirements.",
     url: `${SITE_URL}/faq`,
     siteName: "Apex Quantel",
     images: [{ url: `${SITE_URL}/apex-quantel-og.png`, width: 1200, height: 630, alt: "Apex Quantel FAQ", type: "image/png" }],
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "FAQ | Apex Quantel",
-    description: "Common questions about Apex Quantel — execution, risk, licences, and requirements.",
+    description: "Common questions about Apex Quantel - execution, risk, licences, and requirements.",
     images: [`${SITE_URL}/apex-quantel-og.png`],
   },
 };
@@ -103,7 +103,7 @@ export default function FAQPage() {
 
               <FAQItem q="What happens if the AQ Agent is offline when a signal arrives?">
                 Signals received while the agent is offline or disconnected will not be executed.
-                The agent also enforces a maximum signal age — signals older than the configured
+                The agent also enforces a maximum signal age - signals older than the configured
                 threshold are discarded rather than executed late. This prevents stale signals from
                 being placed into changed market conditions.
               </FAQItem>
