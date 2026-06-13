@@ -583,6 +583,7 @@ export default function Billing() {
   useEffect(() => {
     if (!session) return;
     const sb = getBrowserSupabase();
+    if (!sb) return;
     sb.from("licenses")
       .select("id, expires_at, max_devices")
       .eq("status", "active")
