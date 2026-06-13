@@ -1,9 +1,8 @@
 ﻿"use client";
 
-import { PageHeader } from "@/components/metric-detail";
-import { Monitor, HardDrive } from "lucide-react";
+import { Monitor, HardDrive, Bot, Wifi, FileCode, Clock, Trash2, RefreshCw } from "lucide-react";
 import { gatewayHttpBase } from "@/lib/gateway";
-import { ConnectionIcon, EngineIcon, InstallIcon, SuccessIcon } from "@/components/icons";
+import { ConnectionIcon, EngineIcon, InstallIcon } from "@/components/icons";
 import { useEffect, useState } from "react";
 
 const DOWNLOAD_URL =
@@ -13,6 +12,14 @@ const FALLBACK_VERSION = "0.1.2";
 const FILE_SIZE        = "28.1 MB";
 const FILE_NAME        = "AQAgentSetup.exe";
 
+const INCLUDED_ITEMS: { icon: React.ElementType; title: string; detail: string }[] = [
+  { icon: Bot,       title: "Execution agent",      detail: "Core service that connects to MT5 and executes signals." },
+  { icon: Wifi,      title: "Gateway connector",    detail: "Secure WebSocket link to the Apex cloud gateway." },
+  { icon: FileCode,  title: "Config file",          detail: "config.yaml pre-filled with gateway URL and safe defaults." },
+  { icon: Clock,     title: "Task Scheduler setup", detail: "Registers as a Windows Task Scheduler task — starts at boot." },
+  { icon: Trash2,    title: "Uninstaller",          detail: "Clean removal included via standard Windows Programs panel." },
+  { icon: RefreshCw, title: "Auto-updater ready",   detail: "Version check endpoint wired in — future updates via installer." },
+];
 
 /** Live version from the gateway's /engine-version endpoint; static fallback. */
 function useEngineVersion(): string {
@@ -62,21 +69,21 @@ export default function Downloads() {
   const VERSION = useEngineVersion();
   return (
     <div className="page-wrap space-y-6">
-      <PageHeader
-        eyebrow="Downloads"
-        title="AQ Agent"
-        description="Install AQ Agent on your Windows PC or VPS alongside MetaTrader 5."
-      />
-
       {/* Main download card */}
-      <div className="panel p-6" style={{ borderColor: "rgba(61,220,151,.2)", background: "rgba(61,220,151,.03)" }}>
+      <div
+        className="panel p-6"
+        style={{
+          borderColor: "rgba(61,220,151,.28)",
+          background: "radial-gradient(ellipse 90% 60% at 50% 0%, rgba(61,220,151,.13) 0%, transparent 100%), rgba(255,255,255,.025)",
+        }}
+      >
         <div className="flex items-start justify-between gap-6 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-[#3ddc97]/10 border border-[#3ddc97]/25 grid place-items-center shrink-0">
               <InstallIcon size={24} className="text-[#3ddc97]" />
             </div>
             <div>
-              <div className="font-bold text-lg tracking-tight">AQ Agent</div>
+              <div className="font-bold text-2xl tracking-tight">AQ Agent</div>
               <div className="text-xs muted mt-1">
                 Windows installer · v{VERSION} · {FILE_SIZE}
               </div>
@@ -137,21 +144,21 @@ export default function Downloads() {
         </section>
       </div>
 
-      {/* Included in the installer */}
+      {/* What's Included */}
       <section>
         <div className="text-[10px] uppercase tracking-[.12em] muted mb-4">What's Included</div>
         <div className="panel p-5">
-          <div className="grid sm:grid-cols-2 gap-3">
-            {[
-              ["Execution agent",       "Core service that connects to MT5 and executes signals."],
-              ["Gateway connector",     "Secure WebSocket link to the Apex cloud gateway."],
-              ["Config file",           "config.yaml pre-filled with gateway URL and safe defaults."],
-              ["Task Scheduler setup",  "Registers as a Windows Task Scheduler task - starts at boot."],
-              ["Uninstaller",           "Clean removal included via standard Windows Programs panel."],
-              ["Auto-updater ready",    "Version check endpoint wired in - future updates via installer."],
-            ].map(([title, detail]) => (
-              <div key={title} className="flex gap-3">
-                <SuccessIcon size={14} className="text-[#3ddc97] shrink-0 mt-0.5" />
+          <div className="grid sm:grid-cols-2 gap-4">
+            {INCLUDED_ITEMS.map(({ icon: Icon, title, detail }) => (
+              <div key={title} className="flex gap-3 items-start">
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: "rgba(255,255,255,.04)",
+                  border: "1px solid rgba(255,255,255,.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Icon size={15} style={{ color: "rgba(255,255,255,.45)" }} />
+                </div>
                 <div>
                   <div className="text-xs font-semibold">{title}</div>
                   <div className="text-xs muted mt-0.5">{detail}</div>
