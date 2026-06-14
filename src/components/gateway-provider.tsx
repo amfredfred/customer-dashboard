@@ -1,9 +1,27 @@
-﻿"use client";
+"use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
 
 type GatewayStatus = "disconnected" | "connecting" | "authenticated" | "rejected";
+
+export type EngineHealthState = "online" | "stale" | "offline" | "error" | "unknown";
+
+export type EngineRegistryEntry = {
+  sourceKey: string;
+  connectedAt: string | null;
+  lastSeenAt: string | null;
+  lastMetricsAt: string | null;
+  lastAwarenessAt: string | null;
+  healthState: EngineHealthState;
+  latestMetrics: unknown | null;
+  latestAwareness: Record<string, unknown> | null;
+  lastError: string | null;
+  account: { login: string; server: string; mode: "demo" | "live" } | null;
+  deviceName: string | null;
+  engineVersion: string | null;
+};
+
 export type SignalMetricsSnapshot = {
   observed_at?: number;
   system?: { uptime_ms?: number; uptime_s?: number; memory_mb?: number };
@@ -13,6 +31,7 @@ export type SignalMetricsSnapshot = {
   active_signals?: Record<string, unknown>[];
   api?: { calls_last_min?: number; by_source?: Record<string, unknown> };
 };
+
 export type ExecutionMetricsSnapshot = {
   connected?: boolean;
   engine?: Record<string, unknown>;
@@ -21,6 +40,7 @@ export type ExecutionMetricsSnapshot = {
   metrics?: Record<string, unknown>;
   signals?: Record<string, unknown>[];
 };
+
 type GatewayValue = {
   status: GatewayStatus;
   error: string | null;
@@ -29,6 +49,9 @@ type GatewayValue = {
   executionMetrics: ExecutionMetricsSnapshot | null;
   executionMetricsError: string | null;
   setExecutionMetricsEngine: (engineId: string | null) => void;
+  engineRegistry: EngineRegistryEntry[];
+  selectedSourceKey: string | null;
+  setSelectedSourceKey: (key: string | null) => void;
 };
 
 const GatewayContext = createContext<GatewayValue>({
@@ -39,6 +62,9 @@ const GatewayContext = createContext<GatewayValue>({
   executionMetrics: null,
   executionMetricsError: null,
   setExecutionMetricsEngine: () => undefined,
+  engineRegistry: [],
+  selectedSourceKey: null,
+  setSelectedSourceKey: () => undefined,
 });
 
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
@@ -48,6 +74,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [signalMetrics, setSignalMetrics] = useState<SignalMetricsSnapshot | null>(null);
   const [executionMetrics, setExecutionMetrics] = useState<ExecutionMetricsSnapshot | null>(null);
   const [executionMetricsError, setExecutionMetricsError] = useState<string | null>(null);
+  const [engineRegistry, setEngineRegistry] = useState<EngineRegistryEntry[]>([]);
+  const [selectedSourceKey, setSelectedSourceKey] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const signalMetricsDesired = useRef(false);
   const executionEngineDesired = useRef<string | null>(null);
@@ -77,6 +105,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Merge a single updated entry into the local registry state.
+  const mergeEntry = useCallback((updated: EngineRegistryEntry) => {
+    setEngineRegistry(prev => {
+      const idx = prev.findIndex(e => e.sourceKey === updated.sourceKey);
+      if (idx === -1) return [...prev, updated];
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...updated };
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     const accessToken = session?.access_token;
     if (!accessToken) return;
@@ -103,10 +142,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         try {
           const message = JSON.parse(String(event.data)) as {
             event?: string;
-            data?: SignalMetricsSnapshot & { reason?: string };
+            data?: Record<string, unknown>;
           };
-          if (message.event === "dashboard.authenticated") {
+          const ev = message.event ?? "";
+          const data = message.data ?? {};
+
+          if (ev === "dashboard.authenticated") {
             setStatus("authenticated");
+            // Re-subscribe to pending interests.
             if (signalMetricsDesired.current) {
               socket?.send(JSON.stringify({ event: "signal.metrics.subscribe", data: {} }));
             }
@@ -116,23 +159,68 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                 data: { engine_id: executionEngineDesired.current },
               }));
             }
-          } else if (message.event === "signal.metrics.snapshot") {
-            setSignalMetrics(message.data as SignalMetricsSnapshot);
-          } else if (message.event === "execution.metrics.snapshot") {
-            const payload = message.data as unknown as { snapshot?: ExecutionMetricsSnapshot };
+            // Request the full engine registry snapshot.
+            socket?.send(JSON.stringify({ event: "gateway.engines.snapshot", data: {} }));
+
+          } else if (ev === "signal.metrics.snapshot") {
+            setSignalMetrics(data as SignalMetricsSnapshot);
+
+          } else if (ev === "execution.metrics.snapshot") {
+            const payload = data as { snapshot?: ExecutionMetricsSnapshot };
             setExecutionMetrics(payload.snapshot ?? null);
             setExecutionMetricsError(null);
-          } else if (message.event === "engine.offline") {
+
+          } else if (ev === "engine.offline") {
+            const engineId = String(data.engine_id ?? "");
             setExecutionMetrics(null);
             setExecutionMetricsError(null);
-          } else if (message.event === "execution.metrics.forbidden") {
-            setExecutionMetricsError(message.data?.reason ?? "Execution metrics access denied");
+            if (engineId) {
+              setEngineRegistry(prev =>
+                prev.map(e =>
+                  e.sourceKey === engineId ? { ...e, healthState: "offline" } : e,
+                ),
+              );
+            }
+
+          } else if (ev === "execution.metrics.forbidden") {
+            setExecutionMetricsError(String(data.reason ?? "Execution metrics access denied"));
+
+          } else if (ev === "gateway.engines.snapshot") {
+            const engines = data.engines;
+            if (Array.isArray(engines)) {
+              setEngineRegistry(engines as EngineRegistryEntry[]);
+            }
+
+          } else if (ev === "engine.awareness") {
+            const engineId = String(data.engine_id ?? "");
+            const awareness = (data.awareness ?? {}) as Record<string, unknown>;
+            if (engineId) {
+              setEngineRegistry(prev =>
+                prev.map(e =>
+                  e.sourceKey === engineId
+                    ? { ...e, latestAwareness: awareness, lastAwarenessAt: String(data.ts ?? new Date().toISOString()) }
+                    : e,
+                ),
+              );
+            }
+
+          } else if (ev === "engine.health_changed") {
+            const engineId = String(data.engine_id ?? "");
+            const healthState = String(data.health_state ?? "unknown") as EngineHealthState;
+            if (engineId) {
+              setEngineRegistry(prev =>
+                prev.map(e =>
+                  e.sourceKey === engineId ? { ...e, healthState } : e,
+                ),
+              );
+            }
+
           } else if (
-            message.event === "dashboard.authentication_failed" ||
-            message.event === "dashboard.authentication_required"
+            ev === "dashboard.authentication_failed" ||
+            ev === "dashboard.authentication_required"
           ) {
             setStatus("rejected");
-            setError(message.data?.reason ?? "Gateway authentication rejected");
+            setError(String(data.reason ?? "Gateway authentication rejected"));
           }
         } catch {
           setError("Gateway returned an invalid message");
@@ -160,7 +248,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       socket?.close();
       socketRef.current = null;
     };
-  }, [session?.access_token]);
+  }, [session?.access_token, mergeEntry]);
 
   return (
     <GatewayContext.Provider value={{
@@ -171,6 +259,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       executionMetrics,
       executionMetricsError,
       setExecutionMetricsEngine,
+      engineRegistry,
+      selectedSourceKey,
+      setSelectedSourceKey,
     }}>
       {children}
     </GatewayContext.Provider>

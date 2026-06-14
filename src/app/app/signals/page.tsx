@@ -2,7 +2,7 @@
 
 import { PageHeader, SectionHead } from "@/components/metric-detail";
 import { useGateway } from "@/components/gateway-provider";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Tabs } from "@/components/ui/tabs";
 import { EventFeed, type FeedEvent, type FeedTone } from "@/components/ui/event-feed";
@@ -34,6 +34,7 @@ interface NSig {
   direction: "BUY" | "SELL"; confidence?: number;
   entry: number; stopLoss: number; takeProfit: number;
   setup?: string; status: string; timestamp?: string;
+  broker?: string;
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -143,6 +144,7 @@ function normalizeSigEvent(ev: EventEntry): NSig {
     setup:      d.reason ? String(d.reason) : d.pattern ? String(d.pattern) : undefined,
     status:     String(ev.event_type.split(".").pop() ?? "EMITTED").toUpperCase(),
     timestamp:  ev.ts,
+    broker:     String(d.broker ?? "").trim() || undefined,
   };
 }
 
@@ -234,6 +236,52 @@ function FunnelView({ steps }: { steps: FunnelStep[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ── Source info panel ──────────────────────────────────────────────────── */
+interface SourceEntry {
+  connected: boolean;
+  connected_since?: number | null;
+  signals_received: number;
+  latest_metrics?: Record<string, unknown> | null;
+}
+
+function SourceInfoPanel({ source, entry }: { source: string; entry: SourceEntry }) {
+  const connectedSince = entry.connected_since
+    ? new Date(entry.connected_since * 1000).toLocaleTimeString("en-US", { hour12: false })
+    : null;
+  return (
+    <div className="panel p-4 flex flex-wrap items-center gap-x-8 gap-y-2"
+         style={{ borderLeft: "3px solid rgba(61,220,151,.4)" }}>
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Engine</div>
+        <div className="font-semibold text-sm" style={{ color: "var(--text)" }}>{source}</div>
+      </div>
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Status</div>
+        <div className="flex items-center gap-1.5">
+          <span className={`dot dot-${entry.connected ? "live" : "dead"}${entry.connected ? " pulse" : ""}`}
+                style={{ width: 8, height: 8, flexShrink: 0 }} />
+          <span className="text-xs font-medium">{entry.connected ? "Connected" : "Disconnected"}</span>
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Signals Sent</div>
+        <div className="text-sm font-semibold mono">{cnt(entry.signals_received)}</div>
+      </div>
+      {connectedSince && (
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Connected Since</div>
+          <div className="text-xs mono muted">{connectedSince}</div>
+        </div>
+      )}
+      {!entry.latest_metrics && (
+        <div className="text-[11px] muted ml-auto">
+          Full scanner metrics available once the engine forwards its telemetry.
+        </div>
+      )}
     </div>
   );
 }
@@ -820,6 +868,42 @@ function ConfigTab({ config }: { config: Record<string, unknown> | null | undefi
   );
 }
 
+/* ── Source selector ────────────────────────────────────────────────────── */
+function SourceSelector({ sources, selected, onChange }: {
+  sources: string[];
+  selected: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  if (sources.length === 0) return null;
+  const pill = (isActive: boolean): React.CSSProperties => ({
+    padding: "3px 11px",
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+    border: "1px solid",
+    borderColor: isActive ? "rgba(61,220,151,.4)" : "rgba(255,255,255,.1)",
+    background:  isActive ? "rgba(61,220,151,.1)" : "rgba(255,255,255,.04)",
+    color:       isActive ? "#3ddc97" : "var(--text-soft)",
+    transition:  "border-color .15s, background .15s, color .15s",
+  });
+  return (
+    <div className="flex items-center gap-2 flex-wrap"
+         style={{ padding: "8px 0 10px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+      <span className="text-[10px] font-bold uppercase tracking-[.1em] shrink-0"
+            style={{ color: "var(--muted)", minWidth: 48 }}>Engine</span>
+      <button style={pill(selected === null)} onClick={() => onChange(null)}>
+        All Sources
+      </button>
+      {sources.map(src => (
+        <button key={src} style={pill(selected === src)} onClick={() => onChange(src)}>
+          {src}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ── loading shell ──────────────────────────────────────────────────────── */
 function SignalLoadingShell({ gwStatus }: { gwStatus: string }) {
   const offline    = gwStatus !== "authenticated" && gwStatus !== "connecting";
@@ -862,8 +946,9 @@ function SignalLoadingShell({ gwStatus }: { gwStatus: string }) {
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function Signals() {
   const gateway = useGateway();
-  const { signalMetrics, status: gwStatus } = gateway;
+  const { signalMetrics, status: gwStatus, engineRegistry } = gateway;
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
   /* Event accumulation */
   const seenRef = useRef<Set<string>>(new Set());
@@ -898,11 +983,49 @@ export default function Signals() {
   }, [snapshot]);
 
   /* Data extraction */
-  const metrics       = (snapshot?.metrics       ?? {}) as Record<string, unknown>;
+  const snapshotRaw   = snapshot as Record<string, unknown> | null;
+  const bySource      = (snapshotRaw?.by_source ?? {}) as Record<string, SourceEntry>;
+  const sourceEntry   = selectedSource ? (bySource[selectedSource] ?? null) : null;
+  // When a source has its own metrics forwarded, use those; otherwise fall back to aggregate.
+  const metrics       = ((sourceEntry?.latest_metrics ?? snapshotRaw?.metrics) ?? {}) as Record<string, unknown>;
   const scheduler     = (snapshot?.scheduler     ?? []) as unknown as SchedulerItem[];
   const activeSignals = (snapshot?.active_signals ?? []) as Record<string, unknown>[];
   const api           = (snapshot?.api           ?? {}) as Record<string, unknown>;
-  const config        = (snapshot as Record<string, unknown> | null)?.config as Record<string, unknown> | null | undefined;
+  const config        = snapshotRaw?.config as Record<string, unknown> | null | undefined;
+
+  /* Available sources = by_source keys + engine registry source_keys + broker values in events */
+  const availableSources = useMemo(() => {
+    const set = new Set<string>();
+    // Manager-reported sources (appear as soon as engines connect)
+    for (const key of Object.keys(bySource)) {
+      if (key) set.add(key);
+    }
+    // Gateway engine registry (execution engines that sent awareness)
+    for (const entry of engineRegistry) {
+      const sk = String(entry.latestAwareness?.source_key ?? "").trim();
+      if (sk) set.add(sk);
+    }
+    // Broker values seen in accumulated events
+    for (const ev of logEvents) {
+      const b = String(ev.data.broker ?? "").trim();
+      if (b) set.add(b);
+    }
+    return [...set].sort();
+  }, [bySource, engineRegistry, logEvents]);
+
+  /* Filtered event lists */
+  const filteredSigEvents = useMemo(
+    () => selectedSource ? sigEvents.filter(s => s.broker === selectedSource) : sigEvents,
+    [sigEvents, selectedSource],
+  );
+  const filteredRejEvents = useMemo(
+    () => selectedSource ? rejEvents.filter(e => String(e.data.broker ?? "") === selectedSource) : rejEvents,
+    [rejEvents, selectedSource],
+  );
+  const filteredLogEvents = useMemo(
+    () => selectedSource ? logEvents.filter(e => String(e.data.broker ?? "") === selectedSource) : logEvents,
+    [logEvents, selectedSource],
+  );
 
   return (
     <div className="page-wrap space-y-5">
@@ -917,24 +1040,43 @@ export default function Signals() {
 
       {snapshot && <>
 
+      <SourceSelector
+        sources={availableSources}
+        selected={selectedSource}
+        onChange={setSelectedSource}
+      />
+
       <Tabs
         tabs={TABS.map(tab => ({
           id: tab.id,
           label: tab.label,
           count:
-            tab.id === "signals"    && sigEvents.length ? sigEvents.length :
-            tab.id === "rejections" && rejEvents.length ? rejEvents.length :
-            tab.id === "logs"       && logEvents.length ? logEvents.length : undefined,
+            tab.id === "signals"    && filteredSigEvents.length ? filteredSigEvents.length :
+            tab.id === "rejections" && filteredRejEvents.length ? filteredRejEvents.length :
+            tab.id === "logs"       && filteredLogEvents.length ? filteredLogEvents.length : undefined,
         }))}
         active={activeTab}
         onChange={id => setActiveTab(id as TabId)}
       />
 
+      {selectedSource && sourceEntry && (
+        <SourceInfoPanel source={selectedSource} entry={sourceEntry} />
+      )}
+
+      {selectedSource && !sourceEntry && (
+        <div className="flex items-center gap-2 text-[11px]"
+             style={{ color: "var(--muted)", marginTop: -8 }}>
+          <span style={{ color: "rgba(61,220,151,.7)" }}>●</span>
+          Filtering events for <strong style={{ color: "var(--text-soft)" }}>{selectedSource}</strong>.
+          No engine registry entry yet — metrics remain aggregate.
+        </div>
+      )}
+
       {activeTab === "overview"   && <OverviewTab    metrics={metrics} scheduler={scheduler} activeSignals={activeSignals} />}
       {activeTab === "metrics"    && <MetricsTab     metrics={metrics} api={api} />}
-      {activeTab === "signals"    && <SignalsTab      signals={sigEvents} />}
-      {activeTab === "rejections" && <RejectionsTab  items={rejEvents} />}
-      {activeTab === "logs"       && <LogsTab        items={logEvents} />}
+      {activeTab === "signals"    && <SignalsTab      signals={filteredSigEvents} />}
+      {activeTab === "rejections" && <RejectionsTab  items={filteredRejEvents} />}
+      {activeTab === "logs"       && <LogsTab        items={filteredLogEvents} />}
       {activeTab === "config"     && <ConfigTab      config={config} />}
       </>}
     </div>

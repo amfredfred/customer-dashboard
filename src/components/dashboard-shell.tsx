@@ -4,7 +4,7 @@ import {
   DashboardIcon, SignalIcon, ExecutionIcon, EngineIcon,
   LicenseKeyIcon, InstallIcon,
 } from "@/components/icons";
-import { CreditCard, LogOut, Menu, Shield, X } from "lucide-react";
+import { CreditCard, LogOut, Menu, Server, Shield, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -16,9 +16,10 @@ const NAV_GROUPS = [
   {
     label: "Monitor",
     links: [
-      ["/app",           "Overview",           DashboardIcon],
-      ["/app/signals",   "Signal Performance", SignalIcon],
-      ["/app/execution", "My Execution",       ExecutionIcon],
+      ["/app",                      "Overview",           DashboardIcon],
+      ["/app/signals",              "Signal Performance", SignalIcon],
+      ["/app/execution",            "My Execution",       ExecutionIcon],
+      ["/app/execution-sources",    "Execution Sources",  Server],
     ],
   },
   {
