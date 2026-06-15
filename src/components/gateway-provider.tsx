@@ -20,6 +20,15 @@ export type EngineRegistryEntry = {
   account: { login: string; server: string; mode: "demo" | "live" } | null;
   deviceName: string | null;
   engineVersion: string | null;
+  parentSourceKey?: string | null;
+};
+
+export type SignalEventEntry = {
+  id: string;
+  event_type: string;
+  ts: string;
+  summary: string;
+  data: Record<string, unknown>;
 };
 
 export type SignalMetricsSnapshot = {
@@ -30,6 +39,13 @@ export type SignalMetricsSnapshot = {
   scheduler?: Record<string, unknown>[];
   active_signals?: Record<string, unknown>[];
   api?: { calls_last_min?: number; by_source?: Record<string, unknown> };
+  by_source?: Record<string, {
+    connected: boolean;
+    connected_since?: number | null;
+    signals_received: number;
+    latest_metrics?: Record<string, unknown> | null;
+  }>;
+  recent_events?: SignalEventEntry[];
 };
 
 export type ExecutionMetricsSnapshot = {
@@ -39,7 +55,30 @@ export type ExecutionMetricsSnapshot = {
   riskGuards?: Record<string, unknown>[];
   metrics?: Record<string, unknown>;
   signals?: Record<string, unknown>[];
+  recent_events?: Record<string, unknown>[];
 };
+
+function normalizeExecutionSnapshot(value: unknown): ExecutionMetricsSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const snapshot = value as Record<string, unknown>;
+  if (snapshot.metrics && typeof snapshot.metrics === "object") {
+    return snapshot as ExecutionMetricsSnapshot;
+  }
+  const isManagedFlatSnapshot = [
+    "balance",
+    "equity",
+    "open_trades",
+    "uptime_sec",
+    "observed_at",
+  ].some(key => key in snapshot);
+  if (!isManagedFlatSnapshot) return snapshot as ExecutionMetricsSnapshot;
+
+  const { recent_events, ...metrics } = snapshot;
+  return {
+    metrics,
+    ...(Array.isArray(recent_events) ? { recent_events: recent_events as Record<string, unknown>[] } : {}),
+  };
+}
 
 type GatewayValue = {
   status: GatewayStatus;
@@ -94,7 +133,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const previous = executionEngineDesired.current;
     executionEngineDesired.current = engineId;
     setExecutionMetricsError(null);
-    if (!engineId) setExecutionMetrics(null);
+    if (previous !== engineId) setExecutionMetrics(null);
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     if (previous && previous !== engineId) {
@@ -163,11 +202,39 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             socket?.send(JSON.stringify({ event: "gateway.engines.snapshot", data: {} }));
 
           } else if (ev === "signal.metrics.snapshot") {
-            setSignalMetrics(data as SignalMetricsSnapshot);
+            setSignalMetrics(prev => {
+              const incoming = data as SignalMetricsSnapshot;
+              // Preserve any events already injected by real-time signal.event
+              // pushes that arrived before this snapshot.
+              if (!prev?.recent_events?.length) return incoming;
+              const incomingIds = new Set((incoming.recent_events ?? []).map(e => e.id));
+              const extra = prev.recent_events.filter(e => !incomingIds.has(e.id));
+              return { ...incoming, recent_events: [...(incoming.recent_events ?? []), ...extra] };
+            });
+
+          } else if (ev === "signal.event") {
+            // Real-time push — inject immediately so the Logs tab doesn't wait
+            // for the next 5-second metrics cycle.
+            setSignalMetrics(prev => {
+              const entry = data as SignalEventEntry;
+              if (!entry?.id) return prev;
+              const existing = prev?.recent_events ?? [];
+              if (existing.some(e => e.id === entry.id)) return prev;
+              return {
+                ...(prev ?? {}),
+                recent_events: [entry, ...existing].slice(0, 200),
+              } as SignalMetricsSnapshot;
+            });
 
           } else if (ev === "execution.metrics.snapshot") {
-            const payload = data as { snapshot?: ExecutionMetricsSnapshot };
-            setExecutionMetrics(payload.snapshot ?? null);
+            const payload = data as { engine_id?: unknown; snapshot?: unknown };
+            if (
+              payload.engine_id &&
+              String(payload.engine_id) !== executionEngineDesired.current
+            ) {
+              return;
+            }
+            setExecutionMetrics(normalizeExecutionSnapshot(payload.snapshot));
             setExecutionMetricsError(null);
 
           } else if (ev === "engine.offline") {
@@ -190,6 +257,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             if (Array.isArray(engines)) {
               setEngineRegistry(engines as EngineRegistryEntry[]);
             }
+
+          } else if (ev === "engine.registry.updated") {
+            const entry = data.entry as EngineRegistryEntry | undefined;
+            if (entry?.sourceKey) mergeEntry(entry);
 
           } else if (ev === "engine.awareness") {
             const engineId = String(data.engine_id ?? "");

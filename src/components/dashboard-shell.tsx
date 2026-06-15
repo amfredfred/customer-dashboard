@@ -172,12 +172,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     executionMetrics,
     executionMetricsError,
     setSignalMetricsSubscribed,
-    setExecutionMetricsEngine,
   } = useGateway();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [planName, setPlanName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeEngineId, setActiveEngineId] = useState<string | null>(null);
   const supabase = getBrowserSupabase();
   const fetchedRef = useRef(false);
 
@@ -187,18 +185,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     fetchedRef.current = true;
     void Promise.all([
       supabase.from("licenses").select("id,status").eq("status", "active").limit(1),
-      supabase.from("engine_devices").select("engine_id").eq("status", "active")
-        .order("activated_at", { ascending: false }).limit(1),
       // Check admin access silently - 403 is expected for non-admins
       session.access_token
         ? fetch("/api/admin/me", { headers: { Authorization: `Bearer ${session.access_token}` } })
             .then((r) => r.ok)
             .catch(() => false)
         : Promise.resolve(false),
-    ]).then(([licResult, devResult, adminOk]) => {
+    ]).then(([licResult, adminOk]) => {
       if (licResult.data?.[0]) setPlanName("Licensed");
-      const engineId = (devResult.data?.[0] as { engine_id: string } | undefined)?.engine_id ?? null;
-      if (engineId) setActiveEngineId(engineId);
       if (adminOk === true) setIsAdmin(true);
     });
   }, [supabase, session]);
@@ -208,13 +202,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     if (gwStatus !== "authenticated") return;
     setSignalMetricsSubscribed(true);
   }, [gwStatus, setSignalMetricsSubscribed]);
-
-  /* Execution metrics - subscribe to the first active engine. */
-  useEffect(() => {
-    if (gwStatus === "authenticated" && activeEngineId) {
-      setExecutionMetricsEngine(activeEngineId);
-    }
-  }, [gwStatus, activeEngineId, setExecutionMetricsEngine]);
 
   return (
     <div className="min-h-screen md:h-screen md:flex overflow-hidden">
@@ -300,13 +287,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             value={
               executionMetricsError ? "forbidden"
               : executionMetrics ? "live"
-              : activeEngineId ? "waiting"
+              : gwStatus === "authenticated" ? "waiting"
               : "no engine"
             }
             tone={
               executionMetricsError ? "danger"
               : executionMetrics ? "success"
-              : activeEngineId ? "warning"
+              : gwStatus === "authenticated" ? "warning"
               : "neutral"
             }
           />

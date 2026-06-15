@@ -27,6 +27,7 @@ interface SchedulerItem {
   tick_count?:  number;
   last_fired_at?: number;
   tick_stats?:  Record<string, { avg_ms?: number; p95_ms?: number; max_ms?: number; count?: number }>;
+  broker?:      string;
 }
 
 interface NSig {
@@ -256,7 +257,7 @@ function SourceInfoPanel({ source, entry }: { source: string; entry: SourceEntry
     <div className="panel p-4 flex flex-wrap items-center gap-x-8 gap-y-2"
          style={{ borderLeft: "3px solid rgba(61,220,151,.4)" }}>
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Engine</div>
+        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Broker</div>
         <div className="font-semibold text-sm" style={{ color: "var(--text)" }}>{source}</div>
       </div>
       <div>
@@ -287,10 +288,11 @@ function SourceInfoPanel({ source, entry }: { source: string; entry: SourceEntry
 }
 
 /* ── Overview tab ───────────────────────────────────────────────────────── */
-function OverviewTab({ metrics, scheduler, activeSignals }: {
+function OverviewTab({ metrics, scheduler, activeSignals, showBrokerCol }: {
   metrics: Record<string, unknown>;
   scheduler: SchedulerItem[];
   activeSignals: Record<string, unknown>[];
+  showBrokerCol: boolean;
 }) {
   const counters = (metrics.raw_counters ?? {}) as Record<string, number>;
   const gauges   = (metrics.raw_gauges   ?? {}) as Record<string, number>;
@@ -311,8 +313,8 @@ function OverviewTab({ metrics, scheduler, activeSignals }: {
           <StatCard label="MT5 Calls"         value={cnt(pick(metrics, "mt5_calls"))}
             detail={`${cnt(pick(metrics, "mt5_errors"))} errors`}
             tone={errTone(pick(metrics, "mt5_errors"))} />
-          <StatCard label="WebSocket Clients" value={cnt(pick(metrics, "websocket_clients") ?? gauges["websocket.clients"])}
-            detail="dashboards connected" />
+          <StatCard label="Active Symbols" value={cnt(pick(metrics, "scheduler_symbols") ?? gauges["scheduler.active_symbols"])}
+            detail="symbols being scanned" />
         </div>
       </section>
 
@@ -363,15 +365,19 @@ function OverviewTab({ metrics, scheduler, activeSignals }: {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-max text-xs">
                   <thead>
-                    <tr>{["Symbol", "Mode", "Ticks", "Last Fired", "Avg MS", "P95 MS"].map(c => <TH key={c}>{c}</TH>)}</tr>
+                    <tr>
+                      {showBrokerCol && <TH>Broker</TH>}
+                      {["Symbol", "Mode", "Ticks", "Last Fired", "Avg MS", "P95 MS"].map(c => <TH key={c}>{c}</TH>)}
+                    </tr>
                   </thead>
                   <tbody>
                     {scheduler.map((item, i) => {
                       const stats = item.tick_stats ? Object.values(item.tick_stats)[0] ?? {} : {};
                       return (
-                        <tr key={item.symbol ?? i} style={TR_BORDER}
+                        <tr key={`${item.broker ?? ""}-${item.symbol ?? i}`} style={TR_BORDER}
                             onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
                             onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                          {showBrokerCol && <TD><span className="muted">{item.broker ?? "-"}</span></TD>}
                           <TD mono><span className="font-bold text-white">{item.symbol ?? "-"}</span></TD>
                           <TD><span className="muted">{item.mode ?? "-"}</span></TD>
                           <TD mono>{cnt(item.tick_count)}</TD>
@@ -890,13 +896,12 @@ function SourceSelector({ sources, selected, onChange }: {
   return (
     <div className="flex items-center gap-2 flex-wrap"
          style={{ padding: "8px 0 10px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-      <span className="text-[10px] font-bold uppercase tracking-[.1em] shrink-0"
-            style={{ color: "var(--muted)", minWidth: 48 }}>Engine</span>
-      <button style={pill(selected === null)} onClick={() => onChange(null)}>
-        All Sources
-      </button>
       {sources.map(src => (
-        <button key={src} style={pill(selected === src)} onClick={() => onChange(src)}>
+        <button
+          key={src}
+          style={pill(selected === src)}
+          onClick={() => onChange(selected === src ? null : src)}
+        >
           {src}
         </button>
       ))}
@@ -988,30 +993,19 @@ export default function Signals() {
   const sourceEntry   = selectedSource ? (bySource[selectedSource] ?? null) : null;
   // When a source has its own metrics forwarded, use those; otherwise fall back to aggregate.
   const metrics       = ((sourceEntry?.latest_metrics ?? snapshotRaw?.metrics) ?? {}) as Record<string, unknown>;
-  const scheduler     = (snapshot?.scheduler     ?? []) as unknown as SchedulerItem[];
+  const schedulerAll  = (snapshot?.scheduler     ?? []) as unknown as SchedulerItem[];
+  const scheduler     = selectedSource
+    ? schedulerAll.filter(s => s.broker === selectedSource)
+    : schedulerAll;
   const activeSignals = (snapshot?.active_signals ?? []) as Record<string, unknown>[];
   const api           = (snapshot?.api           ?? {}) as Record<string, unknown>;
   const config        = snapshotRaw?.config as Record<string, unknown> | null | undefined;
 
-  /* Available sources = by_source keys + engine registry source_keys + broker values in events */
-  const availableSources = useMemo(() => {
-    const set = new Set<string>();
-    // Manager-reported sources (appear as soon as engines connect)
-    for (const key of Object.keys(bySource)) {
-      if (key) set.add(key);
-    }
-    // Gateway engine registry (execution engines that sent awareness)
-    for (const entry of engineRegistry) {
-      const sk = String(entry.latestAwareness?.source_key ?? "").trim();
-      if (sk) set.add(sk);
-    }
-    // Broker values seen in accumulated events
-    for (const ev of logEvents) {
-      const b = String(ev.data.broker ?? "").trim();
-      if (b) set.add(b);
-    }
-    return [...set].sort();
-  }, [bySource, engineRegistry, logEvents]);
+  /* Available sources = exactly what the signal manager reports via by_source */
+  const availableSources = useMemo(
+    () => Object.keys(bySource).sort(),
+    [bySource],
+  );
 
   /* Filtered event lists */
   const filteredSigEvents = useMemo(
@@ -1072,7 +1066,7 @@ export default function Signals() {
         </div>
       )}
 
-      {activeTab === "overview"   && <OverviewTab    metrics={metrics} scheduler={scheduler} activeSignals={activeSignals} />}
+      {activeTab === "overview"   && <OverviewTab    metrics={metrics} scheduler={scheduler} activeSignals={activeSignals} showBrokerCol={!selectedSource} />}
       {activeTab === "metrics"    && <MetricsTab     metrics={metrics} api={api} />}
       {activeTab === "signals"    && <SignalsTab      signals={filteredSigEvents} />}
       {activeTab === "rejections" && <RejectionsTab  items={filteredRejEvents} />}

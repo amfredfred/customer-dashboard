@@ -1869,7 +1869,7 @@ function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
 
 export default function Execution() {
   const gateway = useGateway();
-  const { setExecutionMetricsEngine, status: gwStatus } = gateway;
+  const { engineRegistry, setExecutionMetricsEngine, status: gwStatus } = gateway;
   const supabase = getBrowserSupabase();
 
   const [engines, setEngines]         = useState<EngineOption[]>([]);
@@ -1897,12 +1897,33 @@ export default function Execution() {
         .select("id")
         .limit(1),
     ]);
-    const rows = (devResult.data ?? []) as EngineOption[];
+    const databaseRows = (devResult.data ?? []) as EngineOption[];
+    const liveRows = engineRegistry
+      .filter(entry => entry.sourceKey !== "manager-main")
+      .map(entry => ({
+        id: entry.sourceKey,
+        engine_id: entry.sourceKey,
+        device_name:
+          entry.deviceName ||
+          entry.account?.server ||
+          entry.account?.login ||
+          entry.sourceKey,
+      }));
+    // The gateway registry is authoritative for live metric source IDs.
+    // Supabase stores the licensed parent socket (manager-main), while managed
+    // account metrics are published under execution-<login> virtual sources.
+    const rows = liveRows.length > 0 ? liveRows : databaseRows;
     setEngines(rows);
     setHasLicense((licResult.data?.length ?? 0) > 0);
-    if (rows.length > 0) setSelectedId(prev => prev ?? rows[0].engine_id);
+    if (rows.length > 0) {
+      setSelectedId(prev =>
+        prev && rows.some(row => row.engine_id === prev)
+          ? prev
+          : rows[0].engine_id,
+      );
+    }
     setEnginesLoading(false);
-  }, [supabase]);
+  }, [engineRegistry, supabase]);
 
   useEffect(() => { void loadEngines(); }, [loadEngines]);
 
@@ -1914,9 +1935,7 @@ export default function Execution() {
     setEventLog([]);
   }, [selectedId]);
 
-  /* Override the shell's baseline subscription when the user selects a
-     specific engine on this page. No cleanup - the shell keeps a live
-     subscription alive across navigation; we don't null it on unmount. */
+  /* Subscribe to the selected execution source while this page is active. */
   useEffect(() => {
     if (gwStatus === "authenticated" && selectedId) {
       setExecutionMetricsEngine(selectedId);
