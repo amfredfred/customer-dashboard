@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export type MetricTone = "neutral" | "success" | "warning" | "danger" | "info";
 
@@ -25,6 +25,28 @@ export type MetricCardProps = {
   loading?: boolean;
 };
 
+/** Briefly flags `true` right after `value` changes (skips the initial mount). */
+function useFlashOnChange(value: ReactNode): boolean {
+  const [flashing, setFlashing] = useState(false);
+  const prevRef = useRef(value);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      prevRef.current = value;
+      return;
+    }
+    if (prevRef.current === value) return;
+    prevRef.current = value;
+    setFlashing(true);
+    const t = setTimeout(() => setFlashing(false), 700);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  return flashing;
+}
+
 /** The single KPI primitive. Replaces StatCard / Metric / page-local KPI grids. */
 export function MetricCard({
   label,
@@ -39,8 +61,9 @@ export function MetricCard({
     tone !== "neutral" ? { color: VALUE_COLOR[tone] } : undefined;
   const valueSize =
     size === "sm" ? "16px" : size === "lg" ? "26px" : "20px";
+  const flashing = useFlashOnChange(loading ? undefined : value);
   return (
-    <div className={`kpi${accent}`}>
+    <div className={`kpi${accent}${flashing ? " kpi-flash" : ""}`}>
       <div className="kpi-label">{label}</div>
       {loading ? (
         <div className="skeleton mt-2.5" style={{ height: valueSize, width: "60%" }} />

@@ -63,6 +63,10 @@
   to   { opacity: 1; transform: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes kpi-flash {
+  0%   { background: rgba(61,220,151,.16); }
+  100% { background: rgba(255,255,255,.022); }
+}
 @keyframes loading-bar {
   0%   { transform: translateX(-100%); }
   50%  { transform: translateX(80%); }
@@ -328,6 +332,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--kpi-accent, transparent);
 }
 .kpi:hover { border-color: var(--line-strong); }
+.kpi.kpi-flash { animation: kpi-flash .7s ease-out; }
 
 /* Tone accents */
 .kpi.kpi-good   { --kpi-accent: var(--success); }

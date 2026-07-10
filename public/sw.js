@@ -14,9 +14,8 @@
 const CACHE = "apex-shell-v1";
 
 const SHELL = [
-  "/",
-  "/app",
-  "/login",
+  "/app/signals",
+  "/app/execution",
   "/icon.png",
   "/manifest.json",
 ];

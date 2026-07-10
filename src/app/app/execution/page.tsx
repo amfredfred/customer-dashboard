@@ -1,28 +1,23 @@
 "use client";
 
 import { PageHeader, SectionHead } from "@/components/metric-detail";
-import { useGateway } from "@/components/gateway-provider";
-import { useAuth } from "@/components/auth-provider";
-import { gatewayHttpBase } from "@/lib/gateway";
-import { getBrowserSupabase } from "@/lib/supabase-singleton";
-import { ChevronDown, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useExecutionEngine } from "@/components/execution-engine-provider";
+import { useState, type ReactNode } from "react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Tabs } from "@/components/ui/tabs";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { EventFeed, type FeedEvent, type FeedTone } from "@/components/ui/event-feed";
-import { CommandBar } from "@/components/ui/command-bar";
 import { SurfaceSection } from "@/components/ui/surface";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StaleBanner, LastUpdated } from "@/components/ui/stale-banner";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
-type EngineOption = { id: string; engine_id: string; device_name: string };
 type Tone = "normal" | "good" | "warn" | "danger";
 type TabId =
-  | "overview" | "positions" | "signals" | "metrics" | "guards"
-  | "rejections" | "activity" | "logs";
+  | "overview" | "configuration" | "positions" | "signals" | "metrics" | "performance"
+  | "guards" | "rejections" | "activity" | "events" | "logs";
 
-/** Execution events buffered by the gateway and merged into every snapshot. */
+/** Execution events accumulated from the execution engine's live event stream. */
 interface EventEntry {
   id:         string;
   event_type: string;
@@ -69,14 +64,17 @@ interface RGuard {
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "overview",    label: "Overview"    },
-  { id: "positions",   label: "Positions"   },
-  { id: "signals",     label: "Signals"     },
-  { id: "metrics",     label: "Metrics"     },
-  { id: "guards",      label: "Risk Guards" },
-  { id: "rejections",  label: "Rejections"  },
-  { id: "activity",    label: "Activity"    },
-  { id: "logs",        label: "Logs"        },
+  { id: "overview",      label: "Overview"          },
+  { id: "configuration", label: "Configuration"      },
+  { id: "metrics",       label: "Runtime Metrics"    },
+  { id: "performance",   label: "Performance"        },
+  { id: "positions",     label: "Positions"          },
+  { id: "signals",       label: "Recent Signals"     },
+  { id: "guards",        label: "Risk Guards"        },
+  { id: "rejections",    label: "Rejections"         },
+  { id: "activity",      label: "Activity"           },
+  { id: "events",        label: "Recent Events"      },
+  { id: "logs",          label: "Logs"               },
 ];
 
 /* ── event classification ───────────────────────────────────────────────── */
@@ -125,6 +123,17 @@ function fmtPrice(n: number): string {
   if (n > 1000) return n.toFixed(2);
   if (n > 10)   return n.toFixed(3);
   return n.toFixed(5);
+}
+
+function fmtDuration(totalSeconds: unknown): string {
+  if (!isN(totalSeconds) || totalSeconds < 0) return "-";
+  const s = Math.round(totalSeconds);
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
 function fmtTs(ts: unknown): string {
@@ -309,9 +318,16 @@ function GaugeCard({ label, value, display, context, tone = "normal" }: {
 }
 
 /* ── Overview tab ───────────────────────────────────────────────────────── */
-function OverviewTab({ metrics, engineMode }: {
+function OverviewTab({
+  metrics, engineMode, version, connStatus, connectedMt5, lastMetricsAt, isStale,
+}: {
   metrics: Record<string, unknown>;
   engineMode?: string;
+  version: string;
+  connStatus: string;
+  connectedMt5: boolean;
+  lastMetricsAt: number | null;
+  isStale: boolean;
 }) {
   const balance      = pick(metrics, "balance", "current_balance");
   const equity       = pick(metrics, "equity");
@@ -340,6 +356,30 @@ function OverviewTab({ metrics, engineMode }: {
 
   return (
     <div className="space-y-5">
+      {isStale && <StaleBanner label="Execution engine" lastUpdatedAt={lastMetricsAt} />}
+
+      <section>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <SectionHead label="Engine Health" />
+          <LastUpdated at={lastMetricsAt} />
+        </div>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <div className="kpi">
+            <div className="kpi-label">Connection</div>
+            <div className="mt-2"><StatusBadge kind={connStatus === "connected" ? "online" : connStatus === "connecting" ? "connecting" : "offline"} /></div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">MT5 Broker</div>
+            <div className="mt-2"><StatusBadge kind={connectedMt5 ? "connected" : "disconnected"} /></div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">Trading State</div>
+            <div className="mt-2"><StatusBadge kind={engineMode === "PAUSED" ? "paused" : "active"} label={engineMode || "-"} /></div>
+          </div>
+          <StatCard label="Version" value={version} />
+        </div>
+      </section>
+
       <section>
         <SectionHead label="Account Snapshot" />
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
@@ -402,7 +442,7 @@ function OverviewTab({ metrics, engineMode }: {
       </section>
 
       <section>
-        <SectionHead label="Engine Health" />
+        <SectionHead label="Latency Snapshot" />
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
           <StatCard label="Signal Age"         value={msf(signalAgeMs)}  tone={latTone(signalAgeMs)} />
           <StatCard label="Execution Pipeline" value={msf(execPipeMs)}   tone={latTone(execPipeMs)} />
@@ -796,6 +836,165 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
   );
 }
 
+/* ── Configuration tab ──────────────────────────────────────────────────── */
+function ConfigRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5"
+         style={{ borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+      <span className="text-xs muted shrink-0">{label}</span>
+      <span className="font-mono text-xs text-right min-w-0 break-all" style={{ color: "var(--text-soft)" }}>{value}</span>
+    </div>
+  );
+}
+
+function cfgValue(v: unknown): string {
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (Array.isArray(v)) return v.join(", ");
+  if (v && typeof v === "object") return JSON.stringify(v);
+  return String(v ?? "-");
+}
+
+function ConfigurationTab({ config, version }: {
+  config: Record<string, unknown> | null | undefined;
+  version: string;
+}) {
+  if (!config) {
+    return (
+      <div className="surface state-block">
+        <div className="font-medium">Config not available</div>
+        <p className="muted text-xs">The execution engine has not reported its configuration in this snapshot.</p>
+      </div>
+    );
+  }
+
+  const risk = (config.risk ?? {}) as Record<string, unknown>;
+  const execCfg = (config.execution ?? {}) as Record<string, unknown>;
+  const mt5 = (config.mt5 ?? {}) as Record<string, unknown>;
+  const engineCfg = (config.engine ?? {}) as Record<string, unknown>;
+
+  return (
+    <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Enabled Symbols</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Environment" value={String(config.mode ?? "-").toUpperCase()} />
+          {Array.isArray(config.symbols) && (
+            <ConfigRow label="Symbols" value={(config.symbols as string[]).join(", ")} />
+          )}
+          <ConfigRow label="Signal Engine WS" value={String(config.signal_ws_url ?? "-")} />
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Risk Settings</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Max Losing Streak" value={cfgValue(risk.max_losing_streak)} />
+          <ConfigRow label="Max Daily Loss %" value={cfgValue(risk.max_daily_loss_percent)} />
+          <ConfigRow label="Max Exposure / Symbol" value={cfgValue(risk.max_exposure_per_symbol)} />
+          <ConfigRow label="Min RR Ratio" value={cfgValue(risk.min_rr_ratio)} />
+          <ConfigRow label="Lot Size (min/max)" value={`${cfgValue(risk.min_lot_size)} / ${cfgValue(risk.max_lot_size)}`} />
+          <ConfigRow label="SL Ratio Threshold" value={cfgValue(risk.sl_ratio_threshold)} />
+          <ConfigRow label="No Hedging" value={cfgValue(risk.no_hedging)} />
+          <ConfigRow label="Max Profit Drawdown %" value={cfgValue(risk.max_profit_drawdown_percent)} />
+          <ConfigRow label="Rolling Window" value={cfgValue(risk.rolling_window_size)} />
+          <ConfigRow label="Rolling Drawdown %" value={cfgValue(risk.rolling_drawdown_pct)} />
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Feature Flags</div></div>
+        <div className="panel-body">
+          {[
+            ["Equity Throttle", (risk.equity_throttle as Record<string, unknown> | undefined)?.enabled],
+            ["Cluster Risk", (risk.cluster_risk as Record<string, unknown> | undefined)?.enabled],
+            ["No Hedging", risk.no_hedging],
+            ["Close on Slippage Exceed", execCfg.close_on_slippage_exceed],
+            ["Adjust Levels on Slippage", execCfg.adjust_levels_on_slippage],
+            ["Move SL to BE on TP1", execCfg.move_sl_to_be_on_tp1],
+          ].map(([label, value]) => (
+            <div key={label as string} className="flex items-center justify-between py-1.5">
+              <span className="text-xs muted">{label as string}</span>
+              <StatusBadge kind={value ? "active" : "idle"} label={value ? "Enabled" : "Disabled"} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Execution Settings</div></div>
+        <div className="panel-body">
+          <ConfigRow label="TP1 Trigger %" value={cfgValue(execCfg.tp1_trigger_pct)} />
+          <ConfigRow label="TP1 Percentage" value={cfgValue(execCfg.tp1_percentage)} />
+          <ConfigRow label="Spread Risk Mult" value={cfgValue(execCfg.spread_risk_multiplier)} />
+          <ConfigRow label="Order Retry Count" value={cfgValue(execCfg.order_retry_count)} />
+          <ConfigRow label="Order Retry Delay (s)" value={cfgValue(execCfg.order_retry_delay_sec)} />
+          <ConfigRow label="Max Entry Slippage %" value={cfgValue(execCfg.max_entry_slippage_pct_of_stop)} />
+          <ConfigRow label="Max Signal Age (ms)" value={cfgValue(execCfg.max_signal_age_ms)} />
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Broker / MT5</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Login" value={cfgValue(mt5.login)} />
+          <ConfigRow label="Server" value={cfgValue(mt5.server)} />
+          <ConfigRow label="Magic #" value={cfgValue(mt5.magic)} />
+          <ConfigRow label="Slippage" value={cfgValue(mt5.slippage)} />
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Engine / WebSocket Settings</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Timezone" value={cfgValue(engineCfg.timezone)} />
+          <ConfigRow label="Position Poll Interval (s)" value={cfgValue(engineCfg.position_poll_interval)} />
+          <ConfigRow label="Dashboard Bridge Port" value={cfgValue(engineCfg.monitoring_port)} />
+          <ConfigRow label="Engine Version" value={version} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Performance tab ────────────────────────────────────────────────────── */
+function PerformanceTab({ metrics, system }: {
+  metrics: Record<string, unknown>;
+  system:  Record<string, unknown>;
+}) {
+  const n = (...keys: string[]) => pick(metrics, ...keys);
+  return (
+    <div className="space-y-5">
+      <section>
+        <SectionHead label="Latency" />
+        <div className="grid grid-cols-2 xl:grid-cols-3 gap-2.5">
+          <StatCard label="Signal-to-Trade"   value={msf(n("latency_signal_to_trade_ms", "signal_to_trade_ms"))}
+            tone={latTone(n("latency_signal_to_trade_ms", "signal_to_trade_ms"))} />
+          <StatCard label="Market Signal Age" value={msf(n("latency_market_signal_age_ms"))}
+            tone={latTone(n("latency_market_signal_age_ms"))} />
+          <StatCard label="Emit-to-Receive"   value={msf(n("latency_emit_to_receive_ms"))}
+            tone={latTone(n("latency_emit_to_receive_ms"))} />
+          <StatCard label="Recv-to-Execute"   value={msf(n("latency_receive_to_execute_ms"))}
+            tone={latTone(n("latency_receive_to_execute_ms"))} />
+          <StatCard label="Exec Pipeline"     value={msf(n("latency_execution_pipeline_ms", "latency_pipeline_ms"))}
+            tone={latTone(n("latency_execution_pipeline_ms", "latency_pipeline_ms"))} />
+          <StatCard label="Broker RTT"        value={msf(n("latency_broker_round_trip_ms"))}
+            tone={latTone(n("latency_broker_round_trip_ms"))} />
+        </div>
+      </section>
+
+      <section>
+        <SectionHead label="Resource Usage" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Memory" value={isN(system.memory_mb ?? n("memory_mb")) ? `${Number(system.memory_mb ?? n("memory_mb")).toFixed(0)} MB` : "-"} />
+          <StatCard label="CPU" value={isN(system.cpu_percent ?? n("cpu_percent")) ? `${Number(system.cpu_percent ?? n("cpu_percent")).toFixed(1)}%` : "n/a"} />
+          <StatCard label="Uptime" value={fmtDuration(n("uptime_sec") ?? pick(system, "uptime_sec"))} />
+          <StatCard label="Connected Clients" value={cnt(n("connected_clients") ?? pick(system, "connected_clients"))} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 /* ── Guards tab ─────────────────────────────────────────────────────────── */
 function GuardsTab({ guards }: { guards: RGuard[] }) {
   if (guards.length === 0) {
@@ -1016,57 +1215,100 @@ function ActivityTab({ items }: { items: EventEntry[] }) {
   );
 }
 
-function LogsTab({ items }: { items: EventEntry[] }) {
+function EventsTab({ items }: { items: EventEntry[] }) {
   return (
     <EventTab
       items={items}
-      title="Event Log"
+      title="Recent Events"
       subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} (max 500)`}
       emptyTitle="No events yet"
-      emptyBody="All execution events forwarded by the gateway will be logged here in real time."
+      emptyBody="All execution events will be logged here in real time."
     />
   );
 }
 
+/* ── Logs tab (raw text log lines from the execution engine's UIBridge) ─── */
+interface LogLine { ts: number; level: string; name: string; msg: string }
+
+function LogsTab({ lines }: { lines: LogLine[] }) {
+  if (!lines.length) {
+    return (
+      <div className="surface state-block">
+        <div className="font-medium">No log lines</div>
+        <p className="muted text-xs">Log lines captured by the execution engine will appear here (most recent 50).</p>
+      </div>
+    );
+  }
+  return (
+    <SurfaceSection
+      title="Engine Logs"
+      subtitle={`${lines.length} line${lines.length !== 1 ? "s" : ""} (most recent 50)`}
+      badge={<span className="badge badge-muted">{lines.length}</span>}
+      flush
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-max text-xs">
+          <thead>
+            <tr>{["Time", "Level", "Logger", "Message"].map(c => <TH key={c}>{c}</TH>)}</tr>
+          </thead>
+          <tbody>
+            {lines.map((l, i) => (
+              <tr key={i} style={TR_BORDER}>
+                <TD mono><span className="muted">{fmtTs(l.ts)}</span></TD>
+                <TD>
+                  <span className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded"
+                        style={{
+                          background: l.level === "ERROR" || l.level === "CRITICAL" ? "rgba(244,63,94,.12)"
+                            : l.level === "WARNING" ? "rgba(245,185,66,.12)" : "rgba(255,255,255,.06)",
+                          color: l.level === "ERROR" || l.level === "CRITICAL" ? "#f43f5e"
+                            : l.level === "WARNING" ? "#f5b942" : "var(--text-soft)",
+                        }}>
+                    {l.level}
+                  </span>
+                </TD>
+                <TD><span className="muted">{l.name}</span></TD>
+                <TD><span className="block max-w-[440px] truncate">{l.msg}</span></TD>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </SurfaceSection>
+  );
+}
+
 /* ── loading shell ──────────────────────────────────────────────────────── */
-type LoadPhase = "engines" | "stream" | "forbidden";
 function ExecutionLoadingShell({
-  phase,
-  gwStatus = "",
+  connStatus,
   error,
 }: {
-  phase: LoadPhase;
-  gwStatus?: string;
-  error?: string;
+  connStatus: string;
+  error?: string | null;
 }) {
-  const offline    = gwStatus !== "authenticated" && gwStatus !== "connecting";
-  const connecting = gwStatus === "connecting";
-  const forbidden  = phase === "forbidden" || Boolean(error);
+  const offline    = connStatus !== "connected" && connStatus !== "connecting";
+  const connecting = connStatus === "connecting";
+  const errored    = connStatus === "error" || Boolean(error);
 
-  const dot   = forbidden ? "dead" : offline ? "dead" : "warn";
-  const pulse  = !forbidden && !offline;
+  const dot   = errored ? "dead" : offline ? "dead" : "warn";
+  const pulse = !errored && !offline;
 
   const title =
-    phase === "engines"
-      ? "Loading engines…"
-      : forbidden
-      ? "Stream access denied"
+    errored
+      ? "Connection error"
       : offline
-      ? "Gateway offline"
+      ? "Execution engine offline"
       : connecting
-      ? "Connecting to gateway…"
-      : "Waiting for AQ Agent…";
+      ? "Connecting to execution engine…"
+      : "Waiting for first snapshot…";
 
   const body =
-    phase === "engines"
-      ? "Fetching your activated engine list from the database."
-      : forbidden
-      ? (error ?? "The gateway could not verify ownership of this AQ Agent. Check that it is activated under your license.")
+    errored
+      ? (error ?? "The execution engine connection was rejected.")
       : offline
-      ? "Start the execution gateway and reload to stream execution metrics."
+      ? "Start the execution engine (AQ Agent) and reload to stream live telemetry."
       : connecting
-      ? "Authenticating with the gateway - this only takes a moment."
-      : "Gateway is subscribed and waiting for the first metrics snapshot from AQ Agent.";
+      ? "Opening the WebSocket connection to the execution engine."
+      : "Connected - waiting for the first state snapshot from the execution engine.";
 
   return (
     <div className="space-y-4">
@@ -1078,8 +1320,7 @@ function ExecutionLoadingShell({
         <div className="text-sm font-medium">{title}</div>
         <p className="muted text-xs max-w-[300px] leading-5">{body}</p>
       </div>
-      {/* Skeleton KPIs hint at the layout that will appear */}
-      {!forbidden && (
+      {!errored && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {([0, 1, 2, 3] as const).map(i => (
             <div key={i} className="kpi">
@@ -1094,971 +1335,93 @@ function ExecutionLoadingShell({
   );
 }
 
-
-/* ── Remote control types ───────────────────────────────────────────────── */
-type CmdType  = "command.pause" | "command.resume" | "command.emergency_stop";
-type CmdPhase = "idle" | "sending" | "pending" | "delivered" | "completed" | "failed";
-
-interface CmdState {
-  id:    string | null;
-  type:  CmdType | null;
-  phase: CmdPhase;
-  error: string | null;
-}
-
-/** Live engine state used by the remote-control panel to gate each button. */
-interface EngineControlState {
-  /** True once the first execution-metrics snapshot has arrived. */
-  snapshotAvailable: boolean;
-  /**
-   * True when the engine is command-paused (signal queue held by an explicit
-   * pause command).  Does NOT reflect risk-guard pauses - those can't be
-   * cleared remotely via Resume.
-   */
-  isPaused: boolean;
-  /** Count of currently open MT5 positions tracked by the engine. */
-  openPositionsCount: number;
-}
-
-interface ConfirmConfig {
-  command:      CmdType;
-  title:        string;
-  description:  string;
-  confirmLabel: string;
-  destructive:  boolean;
-}
-
-const IDLE_CMD: CmdState = { id: null, type: null, phase: "idle", error: null };
-
-/* ── Confirmation dialog ────────────────────────────────────────────────── */
-function CommandConfirmDialog({
-  open, config, loading, error, onCancel, onConfirm,
-}: {
-  open:     boolean;
-  config:   ConfirmConfig | null;
-  loading:  boolean;
-  error:    string | null;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  // Ensure we only render the portal on the client (document.body not
-  // available during SSR / Next.js App Router initial server render).
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-
-  if (!open || !config || !mounted) return null;
-
-  // Render through a portal so the overlay is a direct child of <body>,
-  // escaping any ancestor transform / overflow / stacking-context that would
-  // break position:fixed inside the dashboard shell.
-  return createPortal(
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 9999,
-        background: "rgba(0,0,0,.65)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "16px",
-      }}
-      onClick={!loading ? onCancel : undefined}
-    >
-      <div
-        style={{
-          background: "var(--surface-raised)",
-          border: "1px solid var(--line-strong)",
-          borderRadius: 10, padding: "24px 26px",
-          maxWidth: 420, width: "100%",
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Title */}
-        <div className="text-sm font-semibold" style={{ marginBottom: 10, color: "var(--text)" }}>
-          {config.title}
-        </div>
-
-        {/* Description */}
-        <p style={{
-          fontSize: 13, lineHeight: 1.6,
-          color: "rgba(255,255,255,.52)",
-          whiteSpace: "pre-line",
-          marginBottom: error ? 12 : 22,
-        }}>
-          {config.description}
-        </p>
-
-        {/* Error message (stays open on failure) */}
-        {error && (
-          <div style={{
-            background: "rgba(244,63,94,.1)",
-            border: "1px solid rgba(244,63,94,.25)",
-            borderRadius: 6, padding: "8px 11px",
-            color: "#f43f5e", fontSize: 12, marginBottom: 18,
-          }}>
-            {error}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button
-            onClick={onCancel}
-            disabled={loading && !error}
-            className="text-xs font-medium rounded-md"
-            style={{
-              padding: "7px 15px",
-              background: "rgba(255,255,255,.06)",
-              border: "1px solid rgba(255,255,255,.1)",
-              color: "rgba(255,255,255,.55)",
-              cursor: loading && !error ? "default" : "pointer",
-              opacity: loading && !error ? 0.45 : 1,
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={!loading ? onConfirm : undefined}
-            className="flex items-center gap-1.5 text-xs font-semibold rounded-md"
-            style={{
-              padding: "7px 16px",
-              background: config.destructive ? "rgba(244,63,94,.14)" : "rgba(255,255,255,.08)",
-              border: `1px solid ${config.destructive ? "rgba(244,63,94,.35)" : "rgba(255,255,255,.15)"}`,
-              color: config.destructive ? "#f43f5e" : "var(--text)",
-              cursor: loading ? "default" : "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading && <Loader2 size={11} className="animate-spin" />}
-            {config.confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-/* ── Remote control panel ───────────────────────────────────────────────── */
-function RemoteControlPanel({
-  engineId,
-  controlState,
-  engineSelector,
-}: {
-  engineId:       string | null;
-  controlState:   EngineControlState;
-  engineSelector?: React.ReactNode;
-}) {
-  const { session } = useAuth();
-
-  const [cmd, setCmd]               = useState<CmdState>(IDLE_CMD);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmCfg,  setConfirmCfg]  = useState<ConfirmConfig | null>(null);
-  const [confirmErr,  setConfirmErr]  = useState<string | null>(null);
-
-  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollGenRef = useRef(0);
-  const errCountRef = useRef(0);
-
-  const { snapshotAvailable, isPaused, openPositionsCount } = controlState;
-  const inFlight = cmd.phase !== "idle";
-
-  /* Availability gates */
-  const canPause     = snapshotAvailable && !isPaused  && !inFlight;
-  const canResume    = snapshotAvailable &&  isPaused  && !inFlight;
-  const canEmergency = openPositionsCount > 0          && !inFlight;
-
-  /* Human-readable disabled reasons (shown as title tooltip) */
-  const pauseReason: string | null =
-    inFlight          ? "Command pending - waiting for engine response."
-    : !snapshotAvailable ? "Waiting for engine stream…"
-    : isPaused           ? "Pause unavailable - engine is already paused."
-    : null;
-
-  const resumeReason: string | null =
-    inFlight          ? "Command pending - waiting for engine response."
-    : !snapshotAvailable ? "Resume unavailable - engine state unknown."
-    : !isPaused          ? "Resume unavailable - engine is not paused."
-    : null;
-
-  const emergencyReason: string | null =
-    inFlight          ? "Command pending - waiting for engine response."
-    : openPositionsCount === 0 ? "Emergency unavailable - no open positions."
-    : null;
-
-  /* Reset on engine change */
-  useEffect(() => {
-    setCmd(IDLE_CMD);
-    setConfirmOpen(false);
-    setConfirmCfg(null);
-    setConfirmErr(null);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [engineId]);
-
-  /* Auto-close dialog on completion; surface error on failure */
-  useEffect(() => {
-    if (cmd.phase === "completed") {
-      setConfirmOpen(false);
-      setConfirmErr(null);
-      const t = setTimeout(() => setCmd(IDLE_CMD), 1500);
-      return () => clearTimeout(t);
-    }
-    if (cmd.phase === "failed") {
-      setConfirmErr(cmd.error ?? "Command failed");
-    }
-  }, [cmd.phase, cmd.error]);
-
-  const stopPoll = () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-  };
-
-  const pollStatus = useCallback((commandId: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    errCountRef.current = 0;
-    const gen = ++pollGenRef.current;
-    pollRef.current = setInterval(async () => {
-      if (gen !== pollGenRef.current) return;           // stale series
-      try {
-        const token = session?.access_token;
-        if (!token) { stopPoll(); return; }
-        const res = await fetch(`${gatewayHttpBase()}/commands/${commandId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (gen !== pollGenRef.current) return;
-        if (!res.ok) {
-          if (++errCountRef.current >= 3) {
-            stopPoll();
-            setCmd(prev => ({ ...prev, phase: "failed", error: `Poll error ${res.status}` }));
-          }
-          return;
-        }
-        errCountRef.current = 0;
-        const data = await res.json() as { status?: string };
-        if (gen !== pollGenRef.current) return;
-        const s = data.status ?? "";
-        if (s === "completed") {
-          stopPoll();
-          setCmd(prev => ({ ...prev, phase: "completed" }));
-        } else if (s === "failed" || s === "expired") {
-          stopPoll();
-          setCmd(prev => ({ ...prev, phase: "failed", error: `Command ${s}` }));
-        } else if (s === "delivered") {
-          setCmd(prev => ({ ...prev, phase: "delivered" }));
-        }
-      } catch { /* transient - keep polling */ }
-    }, 2500);
-  }, [session]);
-
-  /* Step 1 - open confirmation */
-  const requestCommand = (type: CmdType) => {
-    if (inFlight) return;
-    if (type === "command.pause"         && !canPause)     return;
-    if (type === "command.resume"        && !canResume)    return;
-    if (type === "command.emergency_stop" && !canEmergency) return;
-
-    const cfgs: Record<CmdType, ConfirmConfig> = {
-      "command.pause": {
-        command: "command.pause",
-        title: "Pause Engine?",
-        description: "This will stop the engine from processing new execution actions until resumed.\n\nOpen positions will not be closed by this action.",
-        confirmLabel: "Pause Engine",
-        destructive: false,
-      },
-      "command.resume": {
-        command: "command.resume",
-        title: "Resume Engine?",
-        description: "This will allow the engine to continue processing execution actions.",
-        confirmLabel: "Resume Engine",
-        destructive: false,
-      },
-      "command.emergency_stop": {
-        command: "command.emergency_stop",
-        title: "Emergency Action?",
-        description: `This should only be used when immediate risk control is required.\n\nOpen positions detected: ${openPositionsCount}`,
-        confirmLabel: "Run Emergency",
-        destructive: true,
-      },
-    };
-    setConfirmCfg(cfgs[type]);
-    setConfirmErr(null);
-    setConfirmOpen(true);
-  };
-
-  /* Step 2 - execute after user confirms */
-  const executeConfirmed = async () => {
-    if (!confirmCfg || !engineId || !session?.access_token) return;
-    if (inFlight) return;                               // prevent double-submit
-
-    const type = confirmCfg.command;
-    setCmd({ id: null, type, phase: "sending", error: null });
-
-    try {
-      const res = await fetch(`${gatewayHttpBase()}/commands`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ engine_id: engineId, command_type: type }),
-      });
-      const data = await res.json() as { command_id?: string; error?: string };
-      if (!res.ok || !data.command_id) {
-        setCmd({ id: null, type, phase: "failed", error: data.error ?? `HTTP ${res.status}` });
-        return;
-      }
-      setCmd({ id: data.command_id, type, phase: "pending", error: null });
-      pollStatus(data.command_id);
-    } catch (err) {
-      setCmd({ id: null, type, phase: "failed", error: String(err) });
-    }
-  };
-
-  /* Close dialog - only possible when not actively in-flight (or after failure) */
-  const closeConfirm = () => {
-    const canClose = !inFlight || cmd.phase === "failed";
-    if (!canClose) return;
-    if (cmd.phase === "failed") { stopPoll(); setCmd(IDLE_CMD); }
-    setConfirmOpen(false);
-    setConfirmCfg(null);
-    setConfirmErr(null);
-  };
-
-  if (!engineId) return null;
-
-
-  return (
-    <>
-      <CommandConfirmDialog
-        open={confirmOpen}
-        config={confirmCfg}
-        loading={inFlight && cmd.phase !== "failed"}
-        error={confirmErr}
-        onCancel={closeConfirm}
-        onConfirm={() => void executeConfirmed()}
-      />
-
-      <CommandBar
-        context={
-          <span className="text-[10px] font-bold uppercase tracking-[.1em]"
-                style={{ color: "var(--muted)" }}>
-            Engine Control
-          </span>
-        }
-        commands={[
-          {
-            id: "pause",
-            label: "Pause",
-            variant: "warn",
-            disabled: !canPause,
-            disabledReason: pauseReason ?? undefined,
-            onClick: () => requestCommand("command.pause"),
-          },
-          {
-            id: "resume",
-            label: "Resume",
-            variant: "success",
-            disabled: !canResume,
-            disabledReason: resumeReason ?? undefined,
-            onClick: () => requestCommand("command.resume"),
-          },
-          {
-            id: "emergency",
-            label: "Emergency Stop",
-            dangerous: true,
-            disabled: !canEmergency,
-            disabledReason: emergencyReason ?? undefined,
-            onClick: () => requestCommand("command.emergency_stop"),
-          },
-        ]}
-        right={engineSelector}
-      />
-    </>
-  );
-}
-
-/* ── Engine selector dropdown ───────────────────────────────────────────── */
-function EngineDropdown({
-  engines,
-  selectedId,
-  onChange,
-}: {
-  engines: EngineOption[];
-  selectedId: string | null;
-  onChange: (engineId: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const selected = engines.find(e => e.engine_id === selectedId) ?? engines[0];
-
-  /* close on outside click */
-  useEffect(() => {
-    if (!open) return;
-    function handle(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  if (engines.length === 0) return null;
-
-  /* single engine - rich two-line static display */
-  if (engines.length === 1) {
-    const e = engines[0];
-    return (
-      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl w-full"
-           style={{ background: "var(--surface-3)", border: "1px solid var(--line-strong)" }}>
-        <span className="dot dot-live pulse shrink-0" style={{ width: 7, height: 7 }} />
-        <div className="min-w-0">
-          <div className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>
-            {e.device_name || "Unnamed Engine"}
-          </div>
-          <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: "var(--muted)" }}>
-            {e.engine_id.slice(0, 20)}…
-          </div>
-        </div>
-        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ml-auto"
-              style={{ background: "var(--success-bg)", color: "var(--success)", border: "1px solid var(--success-border)" }}>
-          Connected
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      {/* Trigger - two-line rich display */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all w-full"
-        style={{
-          background: "var(--surface-3)",
-          border:     `1px solid ${open ? "var(--line-strong)" : "var(--line)"}`,
-          outline:    "none",
-          boxShadow:  open ? "0 0 0 1px rgba(255,255,255,.06)" : "none",
-        }}
-      >
-        <span className="dot dot-live pulse shrink-0" style={{ width: 7, height: 7 }} />
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>
-            {selected ? (selected.device_name || "Unnamed Engine") : "Select engine"}
-          </div>
-          <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: "var(--muted)" }}>
-            {selected ? `${selected.engine_id.slice(0, 18)}… · ${engines.length} engines` : `${engines.length} engines`}
-          </div>
-        </div>
-        <ChevronDown
-          size={13}
-          className="shrink-0 transition-transform"
-          style={{ color: "var(--muted)", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-        />
-      </button>
-
-      {/* Panel */}
-      {open && (
-        <div
-          className="absolute right-0 mt-1.5 z-50 rounded-xl overflow-hidden"
-          style={{
-            minWidth:  240,
-            background: "#0e1015",
-            border:    "1px solid rgba(255,255,255,.1)",
-            boxShadow: "0 8px 32px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4)",
-          }}
-        >
-          {/* Header */}
-          <div className="px-3.5 py-2.5 border-b"
-               style={{ borderColor: "rgba(255,255,255,.06)" }}>
-            <div className="text-[10px] font-bold uppercase tracking-widest muted">
-              AQ Agents
-            </div>
-          </div>
-
-          {/* Options */}
-          <div className="py-1.5">
-            {engines.map(e => {
-              const isActive = e.engine_id === selectedId;
-              const label    = e.device_name || e.engine_id;
-              return (
-                <button
-                  key={e.id}
-                  onClick={() => { onChange(e.engine_id); setOpen(false); }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors"
-                  style={{
-                    background: isActive ? "rgba(61,220,151,.07)" : "transparent",
-                    color:      isActive ? "#3ddc97" : "rgba(255,255,255,.7)",
-                  }}
-                  onMouseEnter={ev => { if (!isActive) (ev.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.04)"; }}
-                  onMouseLeave={ev => { if (!isActive) (ev.currentTarget as HTMLElement).style.background = "transparent"; }}
-                >
-                  {/* Selection indicator */}
-                  <span
-                    className="w-4 h-4 rounded-full shrink-0 grid place-items-center"
-                    style={{
-                      background:  isActive ? "rgba(61,220,151,.15)" : "transparent",
-                      border:      isActive ? "1.5px solid #3ddc97" : "1.5px solid rgba(255,255,255,.15)",
-                      transition: "all .15s",
-                    }}
-                  >
-                    {isActive && (
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3ddc97" }} />
-                    )}
-                  </span>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate">{label}</div>
-                    <div className="text-[10px] muted mono truncate mt-0.5">{e.engine_id}</div>
-                  </div>
-
-                  {isActive && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
-                          style={{ background: "rgba(61,220,151,.12)", color: "#3ddc97" }}>
-                      Watching
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── No-engines empty state ─────────────────────────────────────────────── */
-
-const WAVE_BADGE: React.CSSProperties = {
-  display: "inline-block",
-  background: "rgba(255,255,255,.022)",
-  color: "rgba(255,255,255,.65)",
-  fontWeight: 900,
-  fontSize: 10,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase" as const,
-  padding: "7px 16px",
-  WebkitMaskImage: [
-    "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
-    "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
-    "linear-gradient(white, white)",
-  ].join(", "),
-  WebkitMaskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
-  WebkitMaskPosition: "top, bottom, 0 5px",
-  WebkitMaskRepeat:   "repeat-x, repeat-x, no-repeat",
-  maskImage: [
-    "radial-gradient(circle at 50% 0%,   transparent 5px, white 5.5px)",
-    "radial-gradient(circle at 50% 100%, transparent 5px, white 5.5px)",
-    "linear-gradient(white, white)",
-  ].join(", "),
-  maskSize:     "10px 10px, 10px 10px, 100% calc(100% - 10px)",
-  maskPosition: "top, bottom, 0 5px",
-  maskRepeat:   "repeat-x, repeat-x, no-repeat",
-};
-
-function SubscribeIllustration() {
-  return (
-    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
-      {/* billing card */}
-      <rect x="14" y="14" width="80" height="60" rx="7"
-            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
-      <rect x="14" y="14" width="80" height="18" rx="7" fill="rgba(255,255,255,.06)"/>
-      <rect x="14" y="28" width="80" height="4" fill="rgba(255,255,255,.06)"/>
-      {/* plan badge */}
-      <rect x="22" y="38" width="30" height="8" rx="3"
-            fill="rgba(61,220,151,.12)" stroke="rgba(61,220,151,.3)" strokeWidth=".8"/>
-      <rect x="26" y="41" width="22" height="2" rx="1" fill="rgba(61,220,151,.55)"/>
-      {/* price */}
-      <rect x="22" y="52" width="44" height="5" rx="2" fill="rgba(255,255,255,.1)"/>
-      <rect x="22" y="60" width="28" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
-      {/* checkmark */}
-      <circle cx="80" cy="22" r="6" fill="rgba(61,220,151,.15)" stroke="rgba(61,220,151,.4)" strokeWidth="1"/>
-      <path d="M77 22 L79.5 24.5 L83 20" stroke="#3ddc97" strokeWidth="1.3"
-            strokeLinecap="round" strokeLinejoin="round"/>
-      {/* right side - license key block */}
-      <rect x="110" y="22" width="72" height="44" rx="6"
-            fill="rgba(61,220,151,.05)" stroke="rgba(61,220,151,.18)" strokeWidth="1"/>
-      <rect x="118" y="30" width="56" height="3" rx="1.5" fill="rgba(255,255,255,.1)"/>
-      <rect x="118" y="37" width="42" height="3" rx="1.5" fill="rgba(255,255,255,.07)"/>
-      <rect x="118" y="44" width="50" height="3" rx="1.5" fill="rgba(255,255,255,.06)"/>
-      {/* key icon */}
-      <circle cx="122" cy="56" r="5" fill="none" stroke="rgba(61,220,151,.45)" strokeWidth="1.1"/>
-      <circle cx="122" cy="56" r="2" fill="rgba(61,220,151,.3)" stroke="#3ddc97" strokeWidth=".9"/>
-      <rect x="126" y="54.5" width="14" height="3" rx="1.5" fill="rgba(255,255,255,.12)"/>
-      <rect x="132" y="57.5" width="3" height="4" rx="1" fill="rgba(255,255,255,.12)"/>
-      <rect x="137" y="57.5" width="3" height="5.5" rx="1" fill="rgba(255,255,255,.12)"/>
-      {/* connect dash */}
-      <line x1="94" y1="44" x2="110" y2="44"
-            stroke="rgba(61,220,151,.2)" strokeWidth="1" strokeDasharray="3,2.5"/>
-    </svg>
-  );
-}
-
-function InstallEngineIllustration() {
-  return (
-    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
-      {/* installer window */}
-      <rect x="14" y="10" width="88" height="68" rx="7"
-            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
-      <rect x="14" y="10" width="88" height="18" rx="7" fill="rgba(255,255,255,.06)"/>
-      <rect x="14" y="24" width="88" height="4" fill="rgba(255,255,255,.06)"/>
-      <circle cx="24" cy="19" r="2.5" fill="rgba(244,63,94,.35)"/>
-      <circle cx="32" cy="19" r="2.5" fill="rgba(245,185,66,.35)"/>
-      <circle cx="40" cy="19" r="2.5" fill="rgba(61,220,151,.35)"/>
-      <rect x="50" y="16" width="30" height="3" rx="1.5" fill="rgba(255,255,255,.12)"/>
-      {/* chip icon */}
-      <rect x="30" y="34" width="28" height="24" rx="4"
-            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
-      <rect x="35" y="38" width="18" height="16" rx="2"
-            fill="rgba(255,255,255,.025)" stroke="rgba(255,255,255,.06)" strokeWidth="1"/>
-      <polyline points="37,46 40,46 42,41 44,51 46,41 48,51 50,46 51,46"
-                stroke="#3ddc97" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".8"/>
-      {/* progress bar */}
-      <rect x="24" y="64" width="68" height="5" rx="2.5" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.07)" strokeWidth=".8"/>
-      <rect x="24" y="64" width="48" height="5" rx="2.5" fill="rgba(61,220,151,.4)"/>
-      {/* download arrow */}
-      <circle cx="148" cy="36" r="18" fill="rgba(61,220,151,.07)" stroke="rgba(61,220,151,.2)" strokeWidth="1.2"/>
-      <line x1="148" y1="27" x2="148" y2="38" stroke="#3ddc97" strokeWidth="1.6" strokeLinecap="round"/>
-      <polyline points="141,35 148,43 155,35" stroke="#3ddc97" strokeWidth="1.6" fill="none"
-                strokeLinecap="round" strokeLinejoin="round"/>
-      <rect x="137" y="47" width="22" height="2.5" rx="1.25" fill="rgba(61,220,151,.3)"/>
-      <rect x="140" y="52" width="16" height="2" rx="1" fill="rgba(61,220,151,.18)"/>
-      <line x1="102" y1="44" x2="128" y2="36"
-            stroke="rgba(255,255,255,.08)" strokeWidth="1" strokeDasharray="2.5,2.5"/>
-    </svg>
-  );
-}
-
-function StreamIllustration() {
-  return (
-    <svg viewBox="0 0 200 88" fill="none" className="w-full h-auto">
-      {/* engine chip */}
-      <rect x="14" y="24" width="52" height="48" rx="6"
-            fill="rgba(61,220,151,.06)" stroke="rgba(61,220,151,.2)" strokeWidth="1"/>
-      <rect x="21" y="32" width="38" height="32" rx="3"
-            fill="rgba(255,255,255,.025)" stroke="rgba(61,220,151,.1)" strokeWidth="1"/>
-      {/* live waveform */}
-      <polyline points="23,48 27,48 30,39 33,57 36,39 39,57 42,48 45,48 48,43 52,43"
-                stroke="#3ddc97" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity=".9"/>
-      <ellipse cx="38" cy="48" rx="14" ry="8" fill="#3ddc97" fillOpacity=".05"/>
-      {/* status dot */}
-      <circle cx="40" cy="64" r="2.5" fill="#3ddc97" opacity=".8"/>
-      <circle cx="40" cy="64" r="5" fill="#3ddc97" fillOpacity=".1"/>
-      {/* connection dash */}
-      <line x1="70" y1="48" x2="96" y2="48"
-            stroke="rgba(61,220,151,.25)" strokeWidth="1.2" strokeDasharray="3,2"/>
-      <circle cx="84" cy="48" r="2.5" fill="#3ddc97" opacity=".5"/>
-      {/* dashboard panel */}
-      <rect x="100" y="12" width="84" height="64" rx="7"
-            fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.09)" strokeWidth="1"/>
-      <rect x="100" y="12" width="84" height="16" rx="7" fill="rgba(255,255,255,.05)"/>
-      <rect x="100" y="24" width="84" height="4" fill="rgba(255,255,255,.05)"/>
-      <rect x="108" y="14" width="28" height="2.5" rx="1.25" fill="rgba(255,255,255,.12)"/>
-      {/* mini chart inside dashboard */}
-      <polyline points="108,52 115,46 122,54 129,42 136,50 143,44 150,48 157,38 165,46 172,42 179,44"
-                stroke="#3ddc97" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".7"/>
-      <rect x="108" y="58" width="66" height="2.5" rx="1.25" fill="rgba(255,255,255,.07)"/>
-      <rect x="108" y="63" width="44" height="2" rx="1" fill="rgba(255,255,255,.05)"/>
-      {/* live badge on dashboard */}
-      <rect x="142" y="13" width="24" height="10" rx="3"
-            fill="rgba(61,220,151,.12)" stroke="rgba(61,220,151,.3)" strokeWidth=".8"/>
-      <circle cx="148" cy="18" r="1.8" fill="#3ddc97" opacity=".8"/>
-      <rect x="151" y="16.5" width="12" height="2" rx="1" fill="rgba(61,220,151,.6)"/>
-    </svg>
-  );
-}
-
-function NoEnginesState({ hasLicense }: { hasLicense: boolean }) {
-  const steps = [
-    {
-      Illustration: SubscribeIllustration,
-      done: hasLicense,
-      badge: "Step 1",
-      name: "Get a subscription",
-      desc: hasLicense
-        ? "License active. Your subscription is set up - head to Licenses & Keys to manage keys and install AQ Agent."
-        : "Choose a plan on the Billing page. After checkout, an activation key is provisioned for each device slot on your license.",
-      features: ["Choose Starter or Pro plan", "License provisioned instantly", "One key per device slot", "Managed from Licenses & Keys"],
-      cta: { label: hasLicense ? "View Licenses & Keys →" : "Go to Billing →", href: hasLicense ? "/app/licenses" : "/app/billing", active: true },
-    },
-    {
-      Illustration: InstallEngineIllustration,
-      done: false,
-      badge: "Step 2",
-      name: "Install AQ Agent",
-      desc: "Download the AQ Agent installer from Licenses & Keys. Run it on your Windows PC or VPS - the setup wizard handles everything.",
-      features: ["Windows 10 / 11 or Server", "Runs on any VPS provider", "MT5 must be installed", "One AQ Agent per device slot"],
-      cta: { label: "Download from Licenses & Keys →", href: "/app/licenses", active: true },
-    },
-    {
-      Illustration: StreamIllustration,
-      done: false,
-      badge: "Step 3",
-      name: "Activate & stream live data",
-      desc: "Paste your activation key into AQ Agent's config.yaml. AQ Agent connects, registers itself, and this page starts streaming live execution telemetry.",
-      features: ["Paste key into config.yaml", "AQ Agent auto-registers on first run", "Live P&L, signals & guards", "Telemetry updates in real time"],
-      cta: { label: "Data appears here automatically", href: null, active: false },
-    },
-  ];
-
-  const doneBadge: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    background: "rgba(61,220,151,.12)",
-    color: "#3ddc97",
-    fontWeight: 700,
-    fontSize: 10,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    padding: "5px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(61,220,151,.3)",
-  };
-
-  return (
-    <div className="flex justify-center mt-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl">
-        {steps.map(({ Illustration, done, badge, name, desc, features, cta }) => (
-          <div key={name}
-               className="panel flex flex-col overflow-hidden"
-               style={{ border: "none", opacity: done ? 0.55 : 1, transition: "opacity .2s" }}>
-            <div className="px-4 pt-4 pb-1"><Illustration /></div>
-            <div className="px-5 pt-2 pb-4">
-              <div className="text-sm font-semibold mb-0.5">{name}</div>
-              <div className="text-[11px] muted leading-snug">{desc}</div>
-              <div className="mt-3">
-                {done ? (
-                  <span style={doneBadge}>
-                    <svg viewBox="0 0 12 12" fill="none" className="w-2.5 h-2.5">
-                      <path d="M2 6 L5 9 L10 3" stroke="#3ddc97" strokeWidth="1.6"
-                            strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Done
-                  </span>
-                ) : (
-                  <div style={WAVE_BADGE}>{badge}</div>
-                )}
-              </div>
-            </div>
-            <div className="px-5 pt-1 pb-5 flex flex-col flex-1">
-              <ul className="mb-5 flex flex-col gap-1.5" style={{ minHeight: 88 }}>
-                {features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-[11px] muted">
-                    <span className="w-1 h-1 rounded-full shrink-0"
-                          style={{ background: "var(--success)", opacity: done ? 0.4 : 0.7 }} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              {cta.href ? (
-                <a href={cta.href}
-                   className="flex items-center justify-center py-2.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
-                   style={{ background: "rgba(61,220,151,.1)", color: "#3ddc97", border: "1px solid rgba(61,220,151,.25)", textDecoration: "none" }}>
-                  {cta.label}
-                </a>
-              ) : (
-                <div className="flex items-center justify-center py-2.5 rounded text-xs font-semibold"
-                     style={{ background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.25)", border: "1px solid rgba(255,255,255,.06)" }}>
-                  {cta.label}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+/** Signal-related event types the engine reports (see ui_bridge's STATUS_TO_EVENT_TYPE map). */
+const SIGNAL_TAB_EVENT_TYPES = new Set([
+  "signal.received", "signal.triggered", "signal.opened",
+  "risk.approved", "risk.rejected", "trade.error",
+]);
 
 export default function Execution() {
-  const gateway = useGateway();
-  const { engineRegistry, setExecutionMetricsEngine, status: gwStatus } = gateway;
-  const supabase = getBrowserSupabase();
+  const {
+    status: connStatus,
+    error,
+    connectedMt5,
+    engine: engineSnap,
+    system: rawSystem,
+    config,
+    metrics: rawMetrics,
+    trades: rawTrades,
+    riskGuards: rawGuards,
+    events,
+    logs,
+    lastMetricsAt,
+    isStale,
+  } = useExecutionEngine();
 
-  const [engines, setEngines]         = useState<EngineOption[]>([]);
-  const [selectedId, setSelectedId]   = useState<string | null>(null);
-  const [enginesLoading, setEnginesLoading] = useState(true);
-  const [hasLicense, setHasLicense]   = useState(false);
-  const [activeTab, setActiveTab]     = useState<TabId>("overview");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  /* ── event accumulation ─────────────────────────────────────────────── */
-  const seenRef    = useRef<Set<string>>(new Set());
-  const [rejections, setRejections] = useState<EventEntry[]>([]);
-  const [activity,   setActivity]   = useState<EventEntry[]>([]);
-  const [eventLog,   setEventLog]   = useState<EventEntry[]>([]);
-
-  const loadEngines = useCallback(async () => {
-    if (!supabase) { setEnginesLoading(false); return; }
-    const [devResult, licResult] = await Promise.all([
-      supabase
-        .from("engine_devices")
-        .select("id,engine_id,device_name")
-        .eq("status", "active")
-        .order("activated_at", { ascending: false }),
-      supabase
-        .from("licenses")
-        .select("id")
-        .limit(1),
-    ]);
-    const databaseRows = (devResult.data ?? []) as EngineOption[];
-    const liveRows = engineRegistry
-      .filter(entry => entry.sourceKey !== "manager-main")
-      .map(entry => ({
-        id: entry.sourceKey,
-        engine_id: entry.sourceKey,
-        device_name:
-          entry.deviceName ||
-          entry.account?.server ||
-          entry.account?.login ||
-          entry.sourceKey,
-      }));
-    // The gateway registry is authoritative for live metric source IDs.
-    // Supabase stores the licensed parent socket (manager-main), while managed
-    // account metrics are published under execution-<login> virtual sources.
-    const rows = liveRows.length > 0 ? liveRows : databaseRows;
-    setEngines(rows);
-    setHasLicense((licResult.data?.length ?? 0) > 0);
-    if (rows.length > 0) {
-      setSelectedId(prev =>
-        prev && rows.some(row => row.engine_id === prev)
-          ? prev
-          : rows[0].engine_id,
-      );
-    }
-    setEnginesLoading(false);
-  }, [engineRegistry, supabase]);
-
-  useEffect(() => { void loadEngines(); }, [loadEngines]);
-
-  /* Clear accumulated events when the selected engine changes */
-  useEffect(() => {
-    seenRef.current.clear();
-    setRejections([]);
-    setActivity([]);
-    setEventLog([]);
-  }, [selectedId]);
-
-  /* Subscribe to the selected execution source while this page is active. */
-  useEffect(() => {
-    if (gwStatus === "authenticated" && selectedId) {
-      setExecutionMetricsEngine(selectedId);
-    }
-  }, [gwStatus, selectedId, setExecutionMetricsEngine]);
-
-  /* Accumulate events from each incoming snapshot */
-  const snapshot   = gateway.executionMetrics;
-
-  useEffect(() => {
-    if (!snapshot) return;
-    const recentEvents = (snapshot as Record<string, unknown>).recent_events as EventEntry[] | undefined;
-    if (!recentEvents?.length) return;
-
-    const newRej: EventEntry[] = [];
-    const newAct: EventEntry[] = [];
-    const newLog: EventEntry[] = [];
-
-    for (const ev of recentEvents) {
-      if (seenRef.current.has(ev.id)) continue;
-      seenRef.current.add(ev.id);
-      newLog.push(ev);
-      if (REJECTION_EVENT_TYPES.has(ev.event_type)) newRej.push(ev);
-      else if (ACTIVITY_EVENT_TYPES.has(ev.event_type)) newAct.push(ev);
-    }
-
-    if (newLog.length === 0) return;
-    setEventLog(prev => [...newLog, ...prev].slice(0, 500));
-    if (newRej.length) setRejections(prev => [...newRej, ...prev].slice(0, 200));
-    if (newAct.length) setActivity(prev =>   [...newAct, ...prev].slice(0, 200));
-  }, [snapshot]);
-
-  /* Data extraction */
-  const metrics    = (snapshot?.metrics   ?? {}) as Record<string, unknown>;
-  const rawTrades  = (snapshot?.trades    ?? []) as Record<string, unknown>[];
-  const rawSigs    = (snapshot?.signals   ?? []) as Record<string, unknown>[];
-  const rawGuards  = (snapshot?.riskGuards ?? []) as Record<string, unknown>[];
-  const engineSnap = snapshot?.engine as Record<string, unknown> | undefined;
+  const hasSnapshot = engineSnap !== null;
+  const metrics = rawMetrics ?? {};
+  const system  = rawSystem ?? {};
+  const version = String(engineSnap?.version ?? "?");
   const engineMode = pickStr(metrics, "engine_mode", "mode")
     ?? (engineSnap?.mode ? String(engineSnap.mode) : undefined);
 
   const positions = rawTrades.map(normalizePos);
-  const signals   = rawSigs.map((s, i) => normalizeSig(s, i));
   const guards    = rawGuards as unknown as RGuard[];
 
-  const streamStatus = gateway.executionMetricsError ?? undefined;
-
-  /* Derive engine control state for the remote-control panel.
-   * `is_paused` is the command-driven pause flag emitted by the engine in
-   * every execution-metrics snapshot (added in ui_bridge._build_engine_info).
-   * Falls back to checking status === "PAUSED" for older engine builds. */
-  const engineControlState: EngineControlState = {
-    snapshotAvailable: Boolean(snapshot),
-    isPaused:
-      engineSnap?.is_paused === true ||
-      (engineSnap?.is_paused === undefined && engineSnap?.status === "PAUSED"),
-    openPositionsCount: positions.length,
-  };
+  const signals    = events
+    .filter(e => SIGNAL_TAB_EVENT_TYPES.has(e.event_type))
+    .map((e, i) => normalizeSig(e.data, i));
+  const rejections = events.filter(e => REJECTION_EVENT_TYPES.has(e.event_type));
+  const activity   = events.filter(e => ACTIVITY_EVENT_TYPES.has(e.event_type));
+  const eventLog    = events;
 
   return (
     <div className="page-wrap space-y-5">
       <PageHeader
         eyebrow="Private execution domain"
         title="My Execution"
-        description="Owner-scoped account, risk, trade, and broker execution telemetry from your installed engine."
+        description="Live account, risk, trade, and broker execution telemetry from the execution engine."
       />
 
-      {/* 1 - DB query in progress */}
-      {enginesLoading && <ExecutionLoadingShell phase="engines" />}
-
-      {/* 2 - No engines registered */}
-      {!enginesLoading && engines.length === 0 && <NoEnginesState hasLicense={hasLicense} />}
-
-      {!enginesLoading && engines.length > 0 && (
-        <>
-          {/* Remote controls - always visible once an engine is selected */}
-          <RemoteControlPanel
-            engineId={selectedId}
-            controlState={engineControlState}
-            engineSelector={
-              <EngineDropdown
-                engines={engines}
-                selectedId={selectedId}
-                onChange={id => setSelectedId(id)}
-              />
-            }
-          />
-
-          {/* 3 - Engines found but stream not yet live */}
-          {!snapshot && (
-            <ExecutionLoadingShell
-              phase={streamStatus ? "forbidden" : "stream"}
-              gwStatus={gwStatus}
-              error={streamStatus}
-            />
-          )}
-
-          {/* 4 - Live: tab strip + content (only when snapshot is present) */}
-          {snapshot && <>
-          <Tabs
-            tabs={TABS.map(tab => ({
-              id: tab.id,
-              label: tab.label,
-              count:
-                tab.id === "rejections" && rejections.length ? rejections.length :
-                tab.id === "activity"   && activity.length   ? activity.length :
-                tab.id === "logs"       && eventLog.length   ? eventLog.length : undefined,
-            }))}
-            active={activeTab}
-            onChange={id => setActiveTab(id as TabId)}
-          />
-
-          {activeTab === "overview"    && <OverviewTab    metrics={metrics} engineMode={engineMode} />}
-          {activeTab === "positions"   && <PositionsTab   positions={positions} />}
-          {activeTab === "signals"     && <SignalsTab     signals={signals} />}
-          {activeTab === "metrics"     && <MetricsTab     metrics={metrics} />}
-          {activeTab === "guards"      && <GuardsTab      guards={guards} />}
-          {activeTab === "rejections"  && <RejectionsTab  items={rejections} />}
-          {activeTab === "activity"    && <ActivityTab    items={activity} />}
-          {activeTab === "logs"        && <LogsTab        items={eventLog} />}
-          </>}
-        </>
+      {!hasSnapshot && (
+        <ExecutionLoadingShell connStatus={connStatus} error={error} />
       )}
+
+      {hasSnapshot && <>
+      <Tabs
+        tabs={TABS.map(tab => ({
+          id: tab.id,
+          label: tab.label,
+          count:
+            tab.id === "rejections" && rejections.length ? rejections.length :
+            tab.id === "activity"   && activity.length   ? activity.length :
+            tab.id === "events"     && eventLog.length   ? eventLog.length :
+            tab.id === "logs"       && logs.length       ? logs.length : undefined,
+        }))}
+        active={activeTab}
+        onChange={id => setActiveTab(id as TabId)}
+      />
+
+      {activeTab === "overview"      && (
+        <OverviewTab
+          metrics={metrics} engineMode={engineMode} version={version}
+          connStatus={connStatus} connectedMt5={connectedMt5}
+          lastMetricsAt={lastMetricsAt} isStale={isStale}
+        />
+      )}
+      {activeTab === "configuration" && <ConfigurationTab config={config} version={version} />}
+      {activeTab === "metrics"       && <MetricsTab     metrics={metrics} />}
+      {activeTab === "performance"   && <PerformanceTab metrics={metrics} system={system} />}
+      {activeTab === "positions"     && <PositionsTab   positions={positions} />}
+      {activeTab === "signals"       && <SignalsTab     signals={signals} />}
+      {activeTab === "guards"        && <GuardsTab      guards={guards} />}
+      {activeTab === "rejections"    && <RejectionsTab  items={rejections} />}
+      {activeTab === "activity"      && <ActivityTab    items={activity} />}
+      {activeTab === "events"        && <EventsTab      items={eventLog} />}
+      {activeTab === "logs"          && <LogsTab        lines={logs} />}
+      </>}
     </div>
   );
 }

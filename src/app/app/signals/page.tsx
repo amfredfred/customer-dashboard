@@ -1,17 +1,21 @@
 "use client";
 
 import { PageHeader, SectionHead } from "@/components/metric-detail";
-import { useGateway } from "@/components/gateway-provider";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useSignalEngine } from "@/components/signal-engine-provider";
+import { useMemo, useState } from "react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Tabs } from "@/components/ui/tabs";
 import { EventFeed, type FeedEvent, type FeedTone } from "@/components/ui/event-feed";
 import { SurfaceSection } from "@/components/ui/surface";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StaleBanner, LastUpdated } from "@/components/ui/stale-banner";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone   = "normal" | "good" | "warn" | "danger";
-type TabId  = "overview" | "metrics" | "signals" | "rejections" | "logs" | "config";
+type TabId  =
+  | "overview" | "configuration" | "metrics" | "performance"
+  | "strategies" | "clients" | "signals" | "rejections" | "events" | "logs";
 
 interface EventEntry {
   id:         string;
@@ -27,7 +31,6 @@ interface SchedulerItem {
   tick_count?:  number;
   last_fired_at?: number;
   tick_stats?:  Record<string, { avg_ms?: number; p95_ms?: number; max_ms?: number; count?: number }>;
-  broker?:      string;
 }
 
 interface NSig {
@@ -35,16 +38,19 @@ interface NSig {
   direction: "BUY" | "SELL"; confidence?: number;
   entry: number; stopLoss: number; takeProfit: number;
   setup?: string; status: string; timestamp?: string;
-  broker?: string;
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "overview",   label: "Overview"    },
-  { id: "metrics",    label: "Metrics"     },
-  { id: "signals",    label: "Signals"     },
-  { id: "rejections", label: "Rejections"  },
-  { id: "logs",       label: "Logs"        },
-  { id: "config",     label: "Config"      },
+  { id: "overview",      label: "Overview"          },
+  { id: "configuration", label: "Configuration"      },
+  { id: "metrics",       label: "Runtime Metrics"    },
+  { id: "performance",   label: "Performance"        },
+  { id: "strategies",    label: "Active Strategies"  },
+  { id: "clients",       label: "Connected Clients"  },
+  { id: "signals",       label: "Recent Signals"     },
+  { id: "rejections",    label: "Rejections"         },
+  { id: "events",        label: "Recent Events"      },
+  { id: "logs",          label: "Logs"               },
 ];
 
 /* ── event classification ───────────────────────────────────────────────── */
@@ -89,6 +95,17 @@ function shortTime(v?: number): string {
   if (!v) return "-";
   const d = new Date(v < 1e12 ? v * 1000 : v);
   return isNaN(d.getTime()) ? "-" : d.toLocaleTimeString("en-US", { hour12: false });
+}
+
+function fmtDuration(totalSeconds: unknown): string {
+  if (!isN(totalSeconds) || totalSeconds < 0) return "-";
+  const s = Math.round(totalSeconds);
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
 function fmtPrice(n: number): string {
@@ -145,7 +162,6 @@ function normalizeSigEvent(ev: EventEntry): NSig {
     setup:      d.reason ? String(d.reason) : d.pattern ? String(d.pattern) : undefined,
     status:     String(ev.event_type.split(".").pop() ?? "EMITTED").toUpperCase(),
     timestamp:  ev.ts,
-    broker:     String(d.broker ?? "").trim() || undefined,
   };
 }
 
@@ -241,46 +257,47 @@ function FunnelView({ steps }: { steps: FunnelStep[] }) {
   );
 }
 
-/* ── Source info panel ──────────────────────────────────────────────────── */
-interface SourceEntry {
-  connected: boolean;
-  connected_since?: number | null;
-  signals_received: number;
-  latest_metrics?: Record<string, unknown> | null;
+/* ── Market status banner (always visible, above tabs) ─────────────────── */
+interface MarketStatus {
+  is_open: boolean;
+  session: string;
+  seconds_until_open: number | null;
+  opens_at_ms: number | null;
+  trading_enabled: boolean;
+  trading_disabled_reason: string | null;
 }
 
-function SourceInfoPanel({ source, entry }: { source: string; entry: SourceEntry }) {
-  const connectedSince = entry.connected_since
-    ? new Date(entry.connected_since * 1000).toLocaleTimeString("en-US", { hour12: false })
-    : null;
+function MarketStatusBanner({ market }: { market: MarketStatus | null }) {
+  if (!market) return null;
+  const openBadge = market.is_open
+    ? <StatusBadge kind="market_open" label="Market Open" />
+    : <StatusBadge kind="weekend" label="Weekend / Closed" />;
+  const tradingBadge = market.trading_enabled
+    ? <StatusBadge kind="active" label="Trading Enabled" />
+    : <StatusBadge kind="paused" label="Trading Disabled" />;
+
   return (
-    <div className="panel p-4 flex flex-wrap items-center gap-x-8 gap-y-2"
-         style={{ borderLeft: "3px solid rgba(61,220,151,.4)" }}>
+    <div className="panel p-4 flex flex-wrap items-center gap-x-8 gap-y-2">
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Broker</div>
-        <div className="font-semibold text-sm" style={{ color: "var(--text)" }}>{source}</div>
+        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-1">Market</div>
+        {openBadge}
       </div>
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Status</div>
-        <div className="flex items-center gap-1.5">
-          <span className={`dot dot-${entry.connected ? "live" : "dead"}${entry.connected ? " pulse" : ""}`}
-                style={{ width: 8, height: 8, flexShrink: 0 }} />
-          <span className="text-xs font-medium">{entry.connected ? "Connected" : "Disconnected"}</span>
-        </div>
+        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-1">Trading</div>
+        {tradingBadge}
       </div>
-      <div>
-        <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Signals Sent</div>
-        <div className="text-sm font-semibold mono">{cnt(entry.signals_received)}</div>
-      </div>
-      {connectedSince && (
+      {!market.trading_enabled && market.trading_disabled_reason && (
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-wide muted mb-0.5">Connected Since</div>
-          <div className="text-xs mono muted">{connectedSince}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide muted mb-1">Reason</div>
+          <span className="text-xs muted capitalize">{market.trading_disabled_reason.replace(/_/g, " ")}</span>
         </div>
       )}
-      {!entry.latest_metrics && (
-        <div className="text-[11px] muted ml-auto">
-          Full scanner metrics available once the engine forwards its telemetry.
+      {!market.is_open && market.seconds_until_open !== null && (
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-wide muted mb-1">Reopens In</div>
+          <span className="text-xs mono font-semibold" style={{ color: "var(--warning)" }}>
+            {fmtDuration(market.seconds_until_open)}
+          </span>
         </div>
       )}
     </div>
@@ -288,11 +305,16 @@ function SourceInfoPanel({ source, entry }: { source: string; entry: SourceEntry
 }
 
 /* ── Overview tab ───────────────────────────────────────────────────────── */
-function OverviewTab({ metrics, scheduler, activeSignals, showBrokerCol }: {
+function OverviewTab({ metrics, scheduler, activeSignals, system, version, clientCount, connStatus, lastMetricsAt, isStale }: {
   metrics: Record<string, unknown>;
   scheduler: SchedulerItem[];
   activeSignals: Record<string, unknown>[];
-  showBrokerCol: boolean;
+  system: Record<string, unknown>;
+  version: string;
+  clientCount: number;
+  connStatus: string;
+  lastMetricsAt: number | null;
+  isStale: boolean;
 }) {
   const counters = (metrics.raw_counters ?? {}) as Record<string, number>;
   const gauges   = (metrics.raw_gauges   ?? {}) as Record<string, number>;
@@ -302,6 +324,41 @@ function OverviewTab({ metrics, scheduler, activeSignals, showBrokerCol }: {
 
   return (
     <div className="space-y-5">
+      {isStale && <StaleBanner label="Signal engine" lastUpdatedAt={lastMetricsAt} />}
+
+      <section>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <SectionHead label="Engine Health" />
+          <LastUpdated at={lastMetricsAt} />
+        </div>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <div className="kpi">
+            <div className="kpi-label">Connection</div>
+            <div className="mt-2"><StatusBadge kind={connStatus === "connected" ? "online" : connStatus === "connecting" ? "connecting" : "offline"} /></div>
+          </div>
+          <StatCard label="Uptime" value={fmtDuration(pick(system, "uptime_s"))} />
+          <StatCard label="Memory" value={isN(system.memory_mb) ? `${(system.memory_mb as number).toFixed(0)} MB` : "-"} />
+          <StatCard label="CPU" value={isN(system.cpu_percent) ? `${(system.cpu_percent as number).toFixed(1)}%` : "n/a"} />
+        </div>
+      </section>
+
+      <section>
+        <SectionHead label="System Information" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Version" value={version} />
+          <StatCard label="Python" value={String(system.python ?? "-")} />
+          <StatCard label="Platform" value={String(system.platform ?? "-")} />
+          <StatCard label="Process ID" value={String(system.pid ?? "-")} />
+        </div>
+      </section>
+
+      <section>
+        <SectionHead label="Connected Clients" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Dashboard Clients" value={cnt(clientCount)} tone={clientCount > 0 ? "good" : "normal"} />
+        </div>
+      </section>
+
       <section>
         <SectionHead label="Scanner Health" />
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
@@ -336,22 +393,6 @@ function OverviewTab({ metrics, scheduler, activeSignals, showBrokerCol }: {
         />
       </section>
 
-      <section>
-        <SectionHead label="Latency" />
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-          <StatCard label="Scan Lag"
-            value={msf(pick(metrics, "last_scan_lag_ms") ?? gauges["latency.last_scan_lag_ms"])}
-            tone={lagTone(pick(metrics, "last_scan_lag_ms"))} />
-          <StatCard label="Emit Lag"
-            value={msf(pick(metrics, "last_emit_lag_ms") || undefined)}
-            tone={lagTone(pick(metrics, "last_emit_lag_ms") || undefined)} />
-          <StatCard label="Analysis Duration"
-            value={msf(pick(metrics, "last_analysis_ms") ?? gauges["scanner.analysis_ms"])} />
-          <StatCard label="Broadcast"
-            value={msf(gauges["latency.signal_broadcast_total_ms"])} />
-        </div>
-      </section>
-
       <div className="grid xl:grid-cols-[1fr_260px] gap-5">
         <section className="min-w-0">
           <SectionHead label="Scheduler" />
@@ -366,7 +407,6 @@ function OverviewTab({ metrics, scheduler, activeSignals, showBrokerCol }: {
                 <table className="w-full min-w-max text-xs">
                   <thead>
                     <tr>
-                      {showBrokerCol && <TH>Broker</TH>}
                       {["Symbol", "Mode", "Ticks", "Last Fired", "Avg MS", "P95 MS"].map(c => <TH key={c}>{c}</TH>)}
                     </tr>
                   </thead>
@@ -374,10 +414,9 @@ function OverviewTab({ metrics, scheduler, activeSignals, showBrokerCol }: {
                     {scheduler.map((item, i) => {
                       const stats = item.tick_stats ? Object.values(item.tick_stats)[0] ?? {} : {};
                       return (
-                        <tr key={`${item.broker ?? ""}-${item.symbol ?? i}`} style={TR_BORDER}
+                        <tr key={item.symbol ?? i} style={TR_BORDER}
                             onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
                             onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                          {showBrokerCol && <TD><span className="muted">{item.broker ?? "-"}</span></TD>}
                           <TD mono><span className="font-bold text-white">{item.symbol ?? "-"}</span></TD>
                           <TD><span className="muted">{item.mode ?? "-"}</span></TD>
                           <TD mono>{cnt(item.tick_count)}</TD>
@@ -637,6 +676,198 @@ function MetricsTab({ metrics, api }: {
   );
 }
 
+/* ── Performance tab ────────────────────────────────────────────────────── */
+function PerformanceTab({ metrics, api, system }: {
+  metrics: Record<string, unknown>;
+  api:     Record<string, unknown>;
+  system:  Record<string, unknown>;
+}) {
+  const gauges = (metrics.raw_gauges ?? {}) as Record<string, number>;
+  const bySource = (api.by_source ?? {}) as Record<string, { total_calls?: number; errors?: number; avg_ms?: number }>;
+  const avgApiMs = Object.values(bySource).length
+    ? Object.values(bySource).reduce((s, v) => s + (v.avg_ms ?? 0), 0) / Object.values(bySource).length
+    : undefined;
+
+  return (
+    <div className="space-y-5">
+      <section>
+        <SectionHead label="Signal Latency" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Scan Lag"
+            value={msf(pick(metrics, "last_scan_lag_ms") ?? gauges["latency.last_scan_lag_ms"])}
+            tone={lagTone(pick(metrics, "last_scan_lag_ms"))} />
+          <StatCard label="Emit Lag"
+            value={msf(pick(metrics, "last_emit_lag_ms") || undefined)}
+            tone={lagTone(pick(metrics, "last_emit_lag_ms") || undefined)} />
+          <StatCard label="Analysis Duration"
+            value={msf(pick(metrics, "last_analysis_ms") ?? gauges["scanner.analysis_ms"])} />
+          <StatCard label="Broadcast"
+            value={msf(gauges["latency.signal_broadcast_total_ms"])} />
+        </div>
+      </section>
+
+      <section>
+        <SectionHead label="API Response Time" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Avg Response" value={msf(avgApiMs)} tone={lagTone(avgApiMs)} />
+          <StatCard label="Calls / Min" value={cnt(isN(api.calls_last_min) ? api.calls_last_min : undefined)} />
+          {Object.entries(bySource).slice(0, 6).map(([src, s]) => (
+            <StatCard key={src} label={src} value={msf(s.avg_ms)}
+              detail={`${cnt(s.total_calls)} calls · ${cnt(s.errors)} err`}
+              tone={errTone(s.errors)} />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <SectionHead label="Resource Usage" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Memory" value={isN(system.memory_mb) ? `${(system.memory_mb as number).toFixed(0)} MB` : "-"} />
+          <StatCard label="CPU" value={isN(system.cpu_percent) ? `${(system.cpu_percent as number).toFixed(1)}%` : "n/a"} />
+          <StatCard label="Uptime" value={fmtDuration(pick(system, "uptime_s"))} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ── Active Strategies tab ──────────────────────────────────────────────── */
+interface StrategyRow {
+  symbol: string;
+  tfPair: string;
+  entryModel: string;
+  crtMode: string;
+  minRr: number;
+  maxRr: number;
+}
+
+function ActiveStrategiesTab({ config }: { config: Record<string, unknown> | null | undefined }) {
+  if (!config) {
+    return (
+      <div className="surface state-block">
+        <div className="font-medium">Strategy config not available</div>
+        <p className="muted text-xs">The signal engine has not reported its configuration in this snapshot.</p>
+      </div>
+    );
+  }
+
+  const symbols = Array.isArray(config.symbols) ? (config.symbols as string[]) : [];
+  const tfPairs = Array.isArray(config.tf_pairs) ? (config.tf_pairs as string[]) : [];
+  const tfEntryModels = (config.tf_entry_models ?? {}) as Record<string, string>;
+
+  const rows: StrategyRow[] = symbols.length
+    ? symbols.map(symbol => ({
+        symbol,
+        tfPair: tfPairs[0] ?? "-",
+        entryModel: tfEntryModels[tfPairs[0]] ?? String(config.entry_model ?? "-"),
+        crtMode: String(config.crt_mode ?? "-"),
+        minRr: Number(config.min_rr ?? 0),
+        maxRr: Number(config.max_rr ?? 0),
+      }))
+    : [];
+
+  return (
+    <div className="space-y-5">
+      <section>
+        <SectionHead label="Per-Symbol Strategy" />
+        {rows.length === 0 ? (
+          <div className="panel state-block">
+            <div className="font-medium">No symbols configured</div>
+          </div>
+        ) : (
+          <div className="panel overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-max text-xs">
+                <thead>
+                  <tr>{["Symbol", "Timeframe Pair", "Entry Model", "CRT Mode", "Min RR", "Max RR"].map(c => <TH key={c}>{c}</TH>)}</tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.symbol} style={TR_BORDER}>
+                      <TD mono><span className="font-bold text-white">{r.symbol}</span></TD>
+                      <TD mono><span className="muted">{r.tfPair}</span></TD>
+                      <TD><span className="muted">{r.entryModel}</span></TD>
+                      <TD><span className="muted">{r.crtMode}</span></TD>
+                      <TD mono>{r.minRr}</TD>
+                      <TD mono>{r.maxRr}</TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <SectionHead label="Feature Flags" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          {[
+            ["Trend Filter", config.use_trend_filter],
+            ["Invalidation", config.use_invalidation],
+            ["Displacement Filter", config.use_displacement_filter],
+            ["Session Filter", config.use_session_filter],
+            ["Multi-TF Independent Positions", config.multi_tf_independent_positions],
+            ["Move SL to BE on TP1", config.move_sl_to_be_on_tp1],
+          ].map(([label, value]) => (
+            <div key={label as string} className="kpi">
+              <div className="kpi-label">{label as string}</div>
+              <div className="mt-2">
+                <StatusBadge kind={value ? "active" : "idle"} label={value ? "Enabled" : "Disabled"} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ── Connected Clients tab ──────────────────────────────────────────────── */
+interface ClientRow {
+  client_id: string;
+  symbols: string[];
+  connected_at: number;
+  uptime_s: number;
+}
+
+function ConnectedClientsTab({ clients }: { clients: ClientRow[] }) {
+  if (clients.length === 0) {
+    return (
+      <div className="surface state-block">
+        <div className="font-medium">No clients connected</div>
+        <p className="muted text-xs">Dashboard and downstream WebSocket clients will appear here once connected.</p>
+      </div>
+    );
+  }
+  return (
+    <SurfaceSection
+      title="Connected Clients"
+      subtitle={`${clients.length} client${clients.length !== 1 ? "s" : ""} connected`}
+      badge={<span className="badge badge-green">{clients.length}</span>}
+      flush
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-max text-xs">
+          <thead>
+            <tr>{["Client ID", "Subscribed Symbols", "Connected Since", "Uptime"].map(c => <TH key={c}>{c}</TH>)}</tr>
+          </thead>
+          <tbody>
+            {clients.map(c => (
+              <tr key={c.client_id} style={TR_BORDER}>
+                <TD mono><span className="font-bold text-white">{c.client_id}</span></TD>
+                <TD><span className="muted">{c.symbols.join(", ") || "-"}</span></TD>
+                <TD mono><span className="muted">{shortTime(c.connected_at)}</span></TD>
+                <TD mono>{fmtDuration(c.uptime_s)}</TD>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </SurfaceSection>
+  );
+}
+
 /* ── Signals tab ────────────────────────────────────────────────────────── */
 const SIGNAL_EVENT_COLUMNS: ColumnDef<NSig>[] = [
   { key: "time",     label: "Time",     render: s => <span className="muted mono">{fmtTs(s.timestamp)}</span> },
@@ -756,23 +987,76 @@ function RejectionsTab({ items }: { items: EventEntry[] }) {
   );
 }
 
-function LogsTab({ items }: { items: EventEntry[] }) {
+function EventsTab({ items }: { items: EventEntry[] }) {
   if (!items.length) {
     return (
       <div className="surface state-block">
         <div className="font-medium">No events yet</div>
-        <p className="muted text-xs">All signal engine events forwarded by the gateway will appear here.</p>
+        <p className="muted text-xs">All signal engine events will appear here in real time.</p>
       </div>
     );
   }
   return (
     <SurfaceSection
-      title="Event Log"
+      title="Recent Events"
       subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} (max 500)`}
       badge={<span className="badge badge-muted">{items.length}</span>}
       flush
     >
       <EventFeed events={toFeedEvents(items)} maxHeight={560} />
+    </SurfaceSection>
+  );
+}
+
+/* ── Logs tab (system error records from errors.recent) ─────────────────── */
+interface ErrorRecord {
+  module: string;
+  level: string;
+  message: string;
+  at: number;
+}
+
+function LogsTab({ records }: { records: ErrorRecord[] }) {
+  if (!records.length) {
+    return (
+      <div className="surface state-block">
+        <div className="font-medium">No system log entries</div>
+        <p className="muted text-xs">Errors and warnings logged by the signal engine today will appear here.</p>
+      </div>
+    );
+  }
+  return (
+    <SurfaceSection
+      title="System Log"
+      subtitle={`${records.length} record${records.length !== 1 ? "s" : ""} today (most recent 10)`}
+      badge={<span className="badge badge-muted">{records.length}</span>}
+      flush
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-max text-xs">
+          <thead>
+            <tr>{["Time", "Level", "Module", "Message"].map(c => <TH key={c}>{c}</TH>)}</tr>
+          </thead>
+          <tbody>
+            {records.map((r, i) => (
+              <tr key={i} style={TR_BORDER}>
+                <TD mono><span className="muted">{fmtTs(r.at)}</span></TD>
+                <TD>
+                  <span className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded"
+                        style={{
+                          background: r.level === "ERROR" ? "rgba(244,63,94,.12)" : "rgba(245,185,66,.12)",
+                          color: r.level === "ERROR" ? "#f43f5e" : "#f5b942",
+                        }}>
+                    {r.level}
+                  </span>
+                </TD>
+                <TD><span className="muted">{r.module}</span></TD>
+                <TD><span className="block max-w-[420px] truncate">{r.message}</span></TD>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </SurfaceSection>
   );
 }
@@ -788,131 +1072,146 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-type RiskGuard = { id: string; name: string; description?: string; status: string; current_value: number; threshold: number; unit: string };
+const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-function ConfigTab({ config }: { config: Record<string, unknown> | null | undefined }) {
+function weekdayTime(day: unknown, time: unknown): string {
+  const name = WEEKDAY_NAMES[Number(day)] ?? String(day);
+  return `${name} ${String(time ?? "-").slice(0, 8)}`;
+}
+
+function ConfigTab({ config, version }: {
+  config: Record<string, unknown> | null | undefined;
+  version: string;
+}) {
   if (!config) {
     return (
       <div className="surface state-block">
-        <div className="font-medium">Config is not exposed by the gateway</div>
+        <div className="font-medium">Config not available</div>
         <p className="muted text-xs">
-          This view only shows sanitised operational telemetry. Private strategy
-          configuration is intentionally excluded from the dashboard stream.
+          The signal engine has not reported its configuration in this snapshot.
         </p>
       </div>
     );
   }
 
-  const reservedKeys = new Set(["mode", "version", "magic", "riskGuards", "metrics", "symbols"]);
-  const effectiveConfig = Object.entries(config).filter(([k]) => !reservedKeys.has(k));
-  const riskGuards = (config.riskGuards ?? []) as RiskGuard[];
+  const ws = (config.websocket ?? {}) as Record<string, unknown>;
+  const weekend = (config.weekend ?? {}) as Record<string, unknown>;
+  const trading = (config.trading ?? {}) as Record<string, unknown>;
+  const tfEntryModels = (config.tf_entry_models ?? {}) as Record<string, unknown>;
+  const tfMaxRr = (config.tf_max_rr ?? {}) as Record<string, unknown>;
+  const tfOverrides = (config.trade_management_tf_overrides ?? {}) as Record<string, unknown>;
+  const tfDisplacementMult = (config.tf_displacement_mult ?? {}) as Record<string, unknown>;
 
   return (
     <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-4">
-      {/* Engine */}
       <div className="panel overflow-hidden">
-        <div className="panel-head">
-          <div className="text-sm font-semibold">Engine</div>
-        </div>
+        <div className="panel-head"><div className="text-sm font-semibold">Enabled Symbols &amp; Timeframes</div></div>
         <div className="panel-body">
-          <ConfigRow label="Mode"    value={String(config.mode ?? "-").toUpperCase()} />
-          {config.version !== undefined && <ConfigRow label="Version" value={String(config.version)} />}
-          {config.magic   !== undefined && <ConfigRow label="Magic #" value={String(config.magic)} />}
+          <ConfigRow label="Environment" value={String(trading.env ?? config.mode ?? "-").toUpperCase()} />
           {Array.isArray(config.symbols) && (
             <ConfigRow label="Symbols" value={(config.symbols as string[]).join(", ")} />
+          )}
+          {Array.isArray(config.tf_pairs) && (
+            <ConfigRow label="Timeframe Pairs" value={(config.tf_pairs as string[]).join(", ")} />
+          )}
+          {Object.keys(tfEntryModels).length > 0 && (
+            <ConfigRow label="TF Entry Models" value={cfgValue(tfEntryModels)} />
           )}
         </div>
       </div>
 
-      {effectiveConfig.length > 0 && (
-        <div className="panel overflow-hidden">
-          <div className="panel-head">
-            <div className="text-sm font-semibold">Effective Configuration</div>
-            <span className="badge badge-muted">{effectiveConfig.length}</span>
-          </div>
-          <div className="panel-body">
-            {effectiveConfig.map(([k, v]) => (
-              <ConfigRow key={k} label={k.replace(/_/g, " ")} value={cfgValue(v)} />
-            ))}
-          </div>
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Strategy / Entry Rules</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Entry Model" value={String(config.entry_model ?? "-")} />
+          <ConfigRow label="CRT Mode" value={String(config.crt_mode ?? "-")} />
+          <ConfigRow label="Stop Placement" value={String(config.stop_placement ?? "-")} />
+          <ConfigRow label="Stop Buffer %" value={cfgValue(config.stop_buffer_pct)} />
+          <ConfigRow label="HTF Lookback" value={cfgValue(config.htf_lookback)} />
+          <ConfigRow label="Pivot Bars" value={cfgValue(config.pivot_bars)} />
+          <ConfigRow label="Min / Max RR" value={`${cfgValue(config.min_rr)} / ${cfgValue(config.max_rr)}`} />
+          {Object.keys(tfMaxRr).length > 0 && <ConfigRow label="Per-TF Max RR" value={cfgValue(tfMaxRr)} />}
         </div>
-      )}
+      </div>
 
-      {riskGuards.length > 0 && (
-        <div className="panel overflow-hidden">
-          <div className="panel-head">
-            <div className="text-sm font-semibold">Risk Guards</div>
-            <span className="badge badge-muted">{riskGuards.length}</span>
-          </div>
-          <div className="panel-body space-y-4">
-            {riskGuards.map(g => {
-              const guardPct = g.threshold > 0 ? (g.current_value / g.threshold) * 100 : undefined;
-              const isActive = g.status.toUpperCase() === "ACTIVE";
-              const tone: Tone = !isActive ? "normal"
-                : isN(guardPct) && guardPct >= 90 ? "danger"
-                : isN(guardPct) && guardPct >= 70 ? "warn"
-                : "good";
-              return (
-                <div key={g.id}>
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-xs font-medium">{g.name}</span>
-                    <span className={`badge ${isActive ? "badge-green" : "badge-muted"}`}>{g.status}</span>
-                  </div>
-                  {g.description && <p className="text-xs muted mb-1">{g.description}</p>}
-                  <div className="flex justify-between text-xs muted font-mono">
-                    <span className={valCls(tone)}>{g.current_value} {g.unit}</span>
-                    <span>limit {g.threshold} {g.unit}</span>
-                  </div>
-                  {isN(guardPct) && <MeterBar value={guardPct} tone={tone} />}
-                </div>
-              );
-            })}
-          </div>
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Risk &amp; Trade Management</div></div>
+        <div className="panel-body">
+          <ConfigRow label="TP1 Trigger %" value={cfgValue(config.tp1_trigger_pct)} />
+          <ConfigRow label="TP1 Close %" value={cfgValue(config.tp1_close_pct)} />
+          <ConfigRow label="Move SL to BE on TP1" value={cfgValue(config.move_sl_to_be_on_tp1)} />
+          <ConfigRow label="Signal Expiry (h)" value={cfgValue(config.signal_expiry_hours)} />
+          <ConfigRow label="Max HTF Zones/Dir" value={cfgValue(config.max_htf_zones_per_dir)} />
+          <ConfigRow label="Max Signals/Zone" value={cfgValue(config.max_signal_count_per_zone)} />
+          <ConfigRow label="Max Consecutive Losses" value={cfgValue(config.max_consecutive_losses)} />
+          <ConfigRow label="Pause After Streak (h)" value={cfgValue(config.pause_after_streak_h)} />
+          {Object.keys(tfOverrides).length > 0 && <ConfigRow label="TF Overrides" value={cfgValue(tfOverrides)} />}
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
 
-/* ── Source selector ────────────────────────────────────────────────────── */
-function SourceSelector({ sources, selected, onChange }: {
-  sources: string[];
-  selected: string | null;
-  onChange: (v: string | null) => void;
-}) {
-  if (sources.length === 0) return null;
-  const pill = (isActive: boolean): React.CSSProperties => ({
-    padding: "3px 11px",
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: 600,
-    cursor: "pointer",
-    border: "1px solid",
-    borderColor: isActive ? "rgba(61,220,151,.4)" : "rgba(255,255,255,.1)",
-    background:  isActive ? "rgba(61,220,151,.1)" : "rgba(255,255,255,.04)",
-    color:       isActive ? "#3ddc97" : "var(--text-soft)",
-    transition:  "border-color .15s, background .15s, color .15s",
-  });
-  return (
-    <div className="flex items-center gap-2 flex-wrap"
-         style={{ padding: "8px 0 10px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-      {sources.map(src => (
-        <button
-          key={src}
-          style={pill(selected === src)}
-          onClick={() => onChange(selected === src ? null : src)}
-        >
-          {src}
-        </button>
-      ))}
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Feature Flags</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Trend Filter" value={cfgValue(config.use_trend_filter)} />
+          <ConfigRow label="Invalidation" value={cfgValue(config.use_invalidation)} />
+          <ConfigRow label="Displacement Filter" value={cfgValue(config.use_displacement_filter)} />
+          {config.use_displacement_filter ? (
+            <>
+              <ConfigRow label="Displacement ATR Period" value={cfgValue(config.displacement_atr_period)} />
+              <ConfigRow label="Displacement ATR Mult" value={cfgValue(config.displacement_atr_mult)} />
+              {Object.keys(tfDisplacementMult).length > 0 && (
+                <ConfigRow label="Per-TF Displacement Mult" value={cfgValue(tfDisplacementMult)} />
+              )}
+            </>
+          ) : null}
+          <ConfigRow label="Session Filter" value={cfgValue(config.use_session_filter)} />
+          <ConfigRow label="Multi-TF Independent Positions" value={cfgValue(config.multi_tf_independent_positions)} />
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">WebSocket Settings</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Host" value={String(ws.host ?? "-")} />
+          <ConfigRow label="Port" value={String(ws.port ?? "-")} />
+          <ConfigRow label="Max Clients" value={String(ws.max_clients ?? "-")} />
+          <ConfigRow label="Auth Required" value={cfgValue(ws.auth_required)} />
+          <ConfigRow label="Candle Buffer (ms)" value={cfgValue(config.candle_buffer_ms)} />
+          <ConfigRow label="Max Emit Lag (ms)" value={cfgValue(config.max_emit_lag_ms)} />
+          <ConfigRow label="Max Spread/SL Ratio" value={cfgValue(config.max_spread_to_sl_ratio)} />
+          <ConfigRow label="Max SL Zone Mult" value={cfgValue(config.max_sl_zone_mult)} />
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Trading Hours &amp; Weekend</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Weekend Sleep" value={cfgValue(weekend.enabled)} />
+          {weekend.enabled ? (
+            <>
+              <ConfigRow label="Market Closes" value={weekdayTime(weekend.close_weekday, weekend.close_time)} />
+              <ConfigRow label="Market Reopens" value={weekdayTime(weekend.reopen_weekday, weekend.reopen_time)} />
+            </>
+          ) : null}
+          <ConfigRow label="Trading Disabled (manual)" value={cfgValue(trading.disabled)} />
+        </div>
+      </div>
+
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">Version / Build</div></div>
+        <div className="panel-body">
+          <ConfigRow label="Engine Version" value={version} />
+          <ConfigRow label="Environment" value={String(trading.env ?? "-").toUpperCase()} />
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ── loading shell ──────────────────────────────────────────────────────── */
-function SignalLoadingShell({ gwStatus }: { gwStatus: string }) {
-  const offline    = gwStatus !== "authenticated" && gwStatus !== "connecting";
-  const connecting = gwStatus === "connecting";
+function SignalLoadingShell({ status }: { status: string }) {
+  const offline    = status !== "connected" && status !== "connecting";
+  const connecting = status === "connecting";
   return (
     <div className="space-y-4">
       <div className="panel state-block" style={{ minHeight: 200 }}>
@@ -922,17 +1221,17 @@ function SignalLoadingShell({ gwStatus }: { gwStatus: string }) {
         />
         <div className="text-sm font-medium">
           {offline
-            ? "Gateway offline"
+            ? "Signal engine offline"
             : connecting
-            ? "Connecting to gateway…"
-            : "Waiting for signal engine…"}
+            ? "Connecting to signal engine…"
+            : "Waiting for first snapshot…"}
         </div>
         <p className="muted text-xs max-w-[280px] leading-5">
           {offline
-            ? "Start the execution gateway and reload to stream signal metrics."
+            ? "Start the signal engine and reload to stream signal metrics."
             : connecting
-            ? "Authenticating with the gateway - this only takes a moment."
-            : "Gateway is subscribed and waiting for the first metrics snapshot from the upstream signal engine."}
+            ? "Opening the WebSocket connection to the signal engine."
+            : "Connected - waiting for the first metrics snapshot from the signal engine."}
         </p>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -950,128 +1249,79 @@ function SignalLoadingShell({ gwStatus }: { gwStatus: string }) {
 
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function Signals() {
-  const gateway = useGateway();
-  const { signalMetrics, status: gwStatus, engineRegistry } = gateway;
+  const { status, metrics: snapshot, recentEvents, lastMetricsAt, isStale } = useSignalEngine();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
 
-  /* Event accumulation */
-  const seenRef = useRef<Set<string>>(new Set());
-  const [sigEvents, setSigEvents] = useState<NSig[]>([]);
-  const [rejEvents, setRejEvents] = useState<EventEntry[]>([]);
-  const [logEvents, setLogEvents] = useState<EventEntry[]>([]);
+  /* Classify the provider's already-accumulated event stream. */
+  const sigEvents = useMemo(
+    () => recentEvents.filter(ev => isSignalEvent(ev.event_type)).map(normalizeSigEvent),
+    [recentEvents],
+  );
+  const rejEvents = useMemo(
+    () => recentEvents.filter(ev => isRejectionEvent(ev.event_type)),
+    [recentEvents],
+  );
 
-  const snapshot = signalMetrics;
-
-  /* Accumulate events from each incoming snapshot */
-  useEffect(() => {
-    if (!snapshot) return;
-    const recentEvents = (snapshot as Record<string, unknown>).recent_events as EventEntry[] | undefined;
-    if (!recentEvents?.length) return;
-
-    const newSigs: NSig[]       = [];
-    const newRej:  EventEntry[] = [];
-    const newLog:  EventEntry[] = [];
-
-    for (const ev of recentEvents) {
-      if (seenRef.current.has(ev.id)) continue;
-      seenRef.current.add(ev.id);
-      newLog.push(ev);
-      if (isRejectionEvent(ev.event_type))  newRej.push(ev);
-      else if (isSignalEvent(ev.event_type)) newSigs.push(normalizeSigEvent(ev));
-    }
-
-    if (newLog.length === 0) return;
-    setLogEvents(prev => [...newLog, ...prev].slice(0, 500));
-    if (newRej.length)  setRejEvents(prev => [...newRej,  ...prev].slice(0, 200));
-    if (newSigs.length) setSigEvents(prev => [...newSigs, ...prev].slice(0, 200));
-  }, [snapshot]);
-
-  /* Data extraction */
-  const snapshotRaw   = snapshot as Record<string, unknown> | null;
-  const bySource      = (snapshotRaw?.by_source ?? {}) as Record<string, SourceEntry>;
-  const sourceEntry   = selectedSource ? (bySource[selectedSource] ?? null) : null;
-  // When a source has its own metrics forwarded, use those; otherwise fall back to aggregate.
-  const metrics       = ((sourceEntry?.latest_metrics ?? snapshotRaw?.metrics) ?? {}) as Record<string, unknown>;
-  const schedulerAll  = (snapshot?.scheduler     ?? []) as unknown as SchedulerItem[];
-  const scheduler     = selectedSource
-    ? schedulerAll.filter(s => s.broker === selectedSource)
-    : schedulerAll;
+  /* Data extraction - matches the signal engine's own build_snapshot() shape. */
+  const metrics       = (snapshot?.metrics ?? {}) as Record<string, unknown>;
+  const scheduler     = (snapshot?.scheduler ?? []) as unknown as SchedulerItem[];
   const activeSignals = (snapshot?.active_signals ?? []) as Record<string, unknown>[];
-  const api           = (snapshot?.api           ?? {}) as Record<string, unknown>;
-  const config        = snapshotRaw?.config as Record<string, unknown> | null | undefined;
-
-  /* Available sources = exactly what the signal manager reports via by_source */
-  const availableSources = useMemo(
-    () => Object.keys(bySource).sort(),
-    [bySource],
-  );
-
-  /* Filtered event lists */
-  const filteredSigEvents = useMemo(
-    () => selectedSource ? sigEvents.filter(s => s.broker === selectedSource) : sigEvents,
-    [sigEvents, selectedSource],
-  );
-  const filteredRejEvents = useMemo(
-    () => selectedSource ? rejEvents.filter(e => String(e.data.broker ?? "") === selectedSource) : rejEvents,
-    [rejEvents, selectedSource],
-  );
-  const filteredLogEvents = useMemo(
-    () => selectedSource ? logEvents.filter(e => String(e.data.broker ?? "") === selectedSource) : logEvents,
-    [logEvents, selectedSource],
-  );
+  const api           = (snapshot?.api ?? {}) as Record<string, unknown>;
+  const config        = snapshot?.config as Record<string, unknown> | null | undefined;
+  const system        = (snapshot?.system ?? {}) as Record<string, unknown>;
+  const version       = String(snapshot?.version ?? "?");
+  const market        = (snapshot?.market ?? null) as MarketStatus | null;
+  const wsInfo        = (snapshot?.websocket ?? {}) as Record<string, unknown>;
+  const clients       = (wsInfo.clients ?? []) as ClientRow[];
+  const errorRecords  = ((snapshot?.errors as Record<string, unknown> | undefined)?.recent ?? []) as ErrorRecord[];
 
   return (
     <div className="page-wrap space-y-5">
       <PageHeader
-        eyebrow="Public signal domain"
+        eyebrow="Signal domain"
         title="Signal Performance"
-        description="Sanitised signal engine health, strategy metrics, and symbol telemetry. No broker account data appears here."
+        description="Signal engine health, strategy metrics, and symbol telemetry."
       />
 
       {/* Loading state - shown until the first snapshot arrives */}
-      {!snapshot && <SignalLoadingShell gwStatus={gwStatus} />}
+      {!snapshot && <SignalLoadingShell status={status} />}
 
       {snapshot && <>
 
-      <SourceSelector
-        sources={availableSources}
-        selected={selectedSource}
-        onChange={setSelectedSource}
-      />
+      <div className="mb-5">
+        <MarketStatusBanner market={market} />
+      </div>
 
       <Tabs
         tabs={TABS.map(tab => ({
           id: tab.id,
           label: tab.label,
           count:
-            tab.id === "signals"    && filteredSigEvents.length ? filteredSigEvents.length :
-            tab.id === "rejections" && filteredRejEvents.length ? filteredRejEvents.length :
-            tab.id === "logs"       && filteredLogEvents.length ? filteredLogEvents.length : undefined,
+            tab.id === "signals"    && sigEvents.length ? sigEvents.length :
+            tab.id === "rejections" && rejEvents.length ? rejEvents.length :
+            tab.id === "events"     && recentEvents.length ? recentEvents.length :
+            tab.id === "clients"    && clients.length ? clients.length : undefined,
         }))}
         active={activeTab}
         onChange={id => setActiveTab(id as TabId)}
       />
 
-      {selectedSource && sourceEntry && (
-        <SourceInfoPanel source={selectedSource} entry={sourceEntry} />
+      {activeTab === "overview" && (
+        <OverviewTab
+          metrics={metrics} scheduler={scheduler} activeSignals={activeSignals}
+          system={system} version={version} clientCount={clients.length}
+          connStatus={status} lastMetricsAt={lastMetricsAt} isStale={isStale}
+        />
       )}
-
-      {selectedSource && !sourceEntry && (
-        <div className="flex items-center gap-2 text-[11px]"
-             style={{ color: "var(--muted)", marginTop: -8 }}>
-          <span style={{ color: "rgba(61,220,151,.7)" }}>●</span>
-          Filtering events for <strong style={{ color: "var(--text-soft)" }}>{selectedSource}</strong>.
-          No engine registry entry yet — metrics remain aggregate.
-        </div>
-      )}
-
-      {activeTab === "overview"   && <OverviewTab    metrics={metrics} scheduler={scheduler} activeSignals={activeSignals} showBrokerCol={!selectedSource} />}
-      {activeTab === "metrics"    && <MetricsTab     metrics={metrics} api={api} />}
-      {activeTab === "signals"    && <SignalsTab      signals={filteredSigEvents} />}
-      {activeTab === "rejections" && <RejectionsTab  items={filteredRejEvents} />}
-      {activeTab === "logs"       && <LogsTab        items={filteredLogEvents} />}
-      {activeTab === "config"     && <ConfigTab      config={config} />}
+      {activeTab === "configuration" && <ConfigTab config={config} version={version} />}
+      {activeTab === "metrics"       && <MetricsTab metrics={metrics} api={api} />}
+      {activeTab === "performance"   && <PerformanceTab metrics={metrics} api={api} system={system} />}
+      {activeTab === "strategies"    && <ActiveStrategiesTab config={config} />}
+      {activeTab === "clients"       && <ConnectedClientsTab clients={clients} />}
+      {activeTab === "signals"       && <SignalsTab signals={sigEvents} />}
+      {activeTab === "rejections"    && <RejectionsTab items={rejEvents} />}
+      {activeTab === "events"        && <EventsTab items={recentEvents} />}
+      {activeTab === "logs"          && <LogsTab records={errorRecords} />}
       </>}
     </div>
   );
