@@ -247,6 +247,57 @@ function MeterBar({ value, tone = "normal" }: { value?: number; tone?: Tone }) {
   );
 }
 
+/** 0-100 scale, same danger/warn/good split as usageTone (>=90 / >=70). */
+const ZONE_BREAKS = { warn: 70, danger: 90 };
+
+/** Meter bar with fixed green/amber/red zone bands plus a marker at the live value. */
+function ZoneMeterBar({ value }: { value?: number }) {
+  const p = value === undefined || isNaN(value) ? undefined : Math.max(0, Math.min(100, value));
+  return (
+    <div style={{ position: "relative", height: 8, borderRadius: 4, overflow: "hidden", marginTop: 8, background: "rgba(255,255,255,.06)" }}>
+      <div style={{ position: "absolute", inset: 0, left: 0, width: `${ZONE_BREAKS.warn}%`, background: "var(--success)", opacity: 0.5 }} />
+      <div style={{ position: "absolute", inset: 0, left: `${ZONE_BREAKS.warn}%`, width: `${ZONE_BREAKS.danger - ZONE_BREAKS.warn}%`, background: "var(--warning)", opacity: 0.5 }} />
+      <div style={{ position: "absolute", inset: 0, left: `${ZONE_BREAKS.danger}%`, width: `${100 - ZONE_BREAKS.danger}%`, background: "var(--danger)", opacity: 0.5 }} />
+      {p !== undefined && (
+        <div style={{ position: "absolute", top: -2, left: `calc(${p}% - 1px)`, width: 2, height: 12, background: "var(--text)" }} />
+      )}
+    </div>
+  );
+}
+
+/** Point on a semicircle (left=0%, top=50%, right=100%), centered at (cx,cy), radius r. */
+function arcPoint(cx: number, cy: number, r: number, pct: number): [number, number] {
+  const theta = (Math.PI * (100 - pct)) / 100; // 0% -> PI (left), 100% -> 0 (right)
+  return [cx + r * Math.cos(theta), cy - r * Math.sin(theta)];
+}
+
+function arcPath(cx: number, cy: number, r: number, fromPct: number, toPct: number): string {
+  const [x1, y1] = arcPoint(cx, cy, r, fromPct);
+  const [x2, y2] = arcPoint(cx, cy, r, toPct);
+  const largeArc = toPct - fromPct > 50 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+}
+
+/** Speedometer-style semicircle gauge: colored zone arc + needle + centered readout. */
+function RadialGauge({ value, display, tone = "normal" }: { value?: number; display: string; tone?: Tone }) {
+  const cx = 100, cy = 96, r = 74;
+  const p = value === undefined || isNaN(value) ? 0 : Math.max(0, Math.min(100, value));
+  const [needleX, needleY] = arcPoint(cx, cy, r - 12, p);
+  const needleColor =
+    tone === "good" ? "var(--success)" : tone === "warn" ? "var(--warning)" :
+    tone === "danger" ? "var(--danger)" : "var(--text)";
+  return (
+    <svg viewBox="0 0 200 118" style={{ width: "100%", maxWidth: 200, margin: "4px auto 0" }}>
+      <path d={arcPath(cx, cy, r, 0, ZONE_BREAKS.warn)} fill="none" stroke="var(--success)" strokeWidth={12} strokeLinecap="round" opacity={0.55} />
+      <path d={arcPath(cx, cy, r, ZONE_BREAKS.warn, ZONE_BREAKS.danger)} fill="none" stroke="var(--warning)" strokeWidth={12} strokeLinecap="round" opacity={0.55} />
+      <path d={arcPath(cx, cy, r, ZONE_BREAKS.danger, 100)} fill="none" stroke="var(--danger)" strokeWidth={12} strokeLinecap="round" opacity={0.55} />
+      <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke={needleColor} strokeWidth={3} strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r={5} fill={needleColor} />
+      <text x={cx} y={cy - 14} textAnchor="middle" fontSize={22} fontWeight={600} fill="var(--text)" className="tabular-nums">{display}</text>
+    </svg>
+  );
+}
+
 function DirBadge({ dir }: { dir: "BUY" | "SELL" }) {
   const buy = dir === "BUY";
   return (
@@ -304,17 +355,28 @@ function StatCard({ label, value, detail, tone = "normal" }: {
   return <MetricCard label={label} value={value} detail={detail} tone={TONE_MAP[tone]} />;
 }
 
-function GaugeCard({ label, value, display, context, tone = "normal" }: {
+function GaugeCard({ label, value, display, context, tone = "normal", variant = "bar", zones = true }: {
   label: string; value?: number; display: string; context?: string; tone?: Tone;
+  variant?: "bar" | "radial";
+  /** Zone bands assume "higher is worse, toward a redline" - opt out for "higher is better" metrics. */
+  zones?: boolean;
 }) {
+  const radial = variant === "radial";
   return (
-    <div className="panel p-4 flex flex-col justify-between" style={{ minHeight: 108 }}>
+    <div className="panel p-4 flex flex-col justify-between" style={{ minHeight: radial ? 180 : 108 }}>
       <div className="text-[11px] font-semibold uppercase tracking-wide muted">{label}</div>
-      <div>
-        <div className={`text-2xl font-semibold tabular-nums${valCls(tone)}`}>{display}</div>
-        <MeterBar value={value} tone={tone} />
-        {context && <div className="text-xs muted mt-1.5">{context}</div>}
-      </div>
+      {radial ? (
+        <div className="text-center">
+          <RadialGauge value={value} display={display} tone={tone} />
+          {context && <div className="text-xs muted -mt-1">{context}</div>}
+        </div>
+      ) : (
+        <div>
+          <div className={`text-2xl font-semibold tabular-nums${valCls(tone)}`}>{display}</div>
+          {zones ? <ZoneMeterBar value={value} /> : <MeterBar value={value} tone={tone} />}
+          {context && <div className="text-xs muted mt-1.5">{context}</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -649,6 +711,7 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
           display={pct(budgetUsagePct)}
           context={`${money(budgetUsed)} used`}
           tone={usageTone(budgetUsagePct)}
+          variant="radial"
         />
         <GaugeCard
           label="Daily Loss"
@@ -656,13 +719,17 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
           display={pct(dailyLossPct)}
           context={`Limit ${pct(dailyLossLimitPct)}`}
           tone={usageTone(dailyLossPct)}
+          variant="radial"
         />
+        {/* Margin Level and Win Rate are "higher is better" - the zone bands
+            (red at 90-100%) assume the opposite, so these opt out of them. */}
         <GaugeCard
           label="Margin Level"
           value={isN(marginLevel) ? Math.min(marginLevel, 100) : undefined}
           display={pct(marginLevel)}
           context="Broker account margin"
           tone={isN(marginLevel) && marginLevel < 150 ? "warn" : isN(marginLevel) ? "good" : "normal"}
+          zones={false}
         />
         <GaugeCard
           label="Win Rate"
@@ -670,6 +737,7 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
           display={pct(winRate)}
           context="Closed trade hit rate"
           tone={isN(winRate) && winRate >= 50 ? "good" : "normal"}
+          zones={false}
         />
       </div>
 
