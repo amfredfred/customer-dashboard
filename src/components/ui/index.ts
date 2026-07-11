@@ -8,6 +8,4 @@ export { EventFeed, type FeedEvent, type FeedTone } from "./event-feed";
 export { EmptyState } from "./empty-state";
 export { Alert, type AlertTone } from "./alert";
 export { Skeleton, SkeletonLines } from "./skeleton";
-export { Page, SectionRule } from "./page";
-export { CommandBar, type CommandDef } from "./command-bar";
-export { ActionCard, type SetupStep } from "./action-card";
+export { StaleBanner, LastUpdated } from "./stale-banner";

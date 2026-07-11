@@ -10,6 +10,8 @@ import { SurfaceSection } from "@/components/ui/surface";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StaleBanner, LastUpdated } from "@/components/ui/stale-banner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Clock, Settings2, ListX, Users, Radio, ShieldOff, Inbox, FileText } from "lucide-react";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone   = "normal" | "good" | "warn" | "danger";
@@ -397,9 +399,12 @@ function OverviewTab({ metrics, scheduler, activeSignals, system, version, clien
         <section className="min-w-0">
           <SectionHead label="Scheduler" />
           {scheduler.length === 0 ? (
-            <div className="panel state-block">
-              <div className="font-medium">No scheduler rows</div>
-              <p className="muted text-xs">Symbol scan schedule will appear when the signal engine connects.</p>
+            <div className="panel">
+              <EmptyState
+                icon={Clock}
+                title="No scheduler rows"
+                description="Symbol scan schedule will appear when the signal engine connects."
+              />
             </div>
           ) : (
             <div className="panel overflow-hidden">
@@ -744,9 +749,12 @@ interface StrategyRow {
 function ActiveStrategiesTab({ config }: { config: Record<string, unknown> | null | undefined }) {
   if (!config) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">Strategy config not available</div>
-        <p className="muted text-xs">The signal engine has not reported its configuration in this snapshot.</p>
+      <div className="surface">
+        <EmptyState
+          icon={Settings2}
+          title="Strategy config not available"
+          description="The signal engine has not reported its configuration in this snapshot."
+        />
       </div>
     );
   }
@@ -771,8 +779,8 @@ function ActiveStrategiesTab({ config }: { config: Record<string, unknown> | nul
       <section>
         <SectionHead label="Per-Symbol Strategy" />
         {rows.length === 0 ? (
-          <div className="panel state-block">
-            <div className="font-medium">No symbols configured</div>
+          <div className="panel">
+            <EmptyState icon={ListX} title="No symbols configured" />
           </div>
         ) : (
           <div className="panel overflow-hidden">
@@ -834,9 +842,12 @@ interface ClientRow {
 function ConnectedClientsTab({ clients }: { clients: ClientRow[] }) {
   if (clients.length === 0) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No clients connected</div>
-        <p className="muted text-xs">Dashboard and downstream WebSocket clients will appear here once connected.</p>
+      <div className="surface">
+        <EmptyState
+          icon={Users}
+          title="No clients connected"
+          description="Dashboard and downstream WebSocket clients will appear here once connected."
+        />
       </div>
     );
   }
@@ -896,11 +907,12 @@ const SIGNAL_EVENT_COLUMNS: ColumnDef<NSig>[] = [
 function SignalsTab({ signals }: { signals: NSig[] }) {
   if (!signals.length) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No signal events yet</div>
-        <p className="muted text-xs">
-          Signal emission events accumulate here in real time as they arrive from the signal engine.
-        </p>
+      <div className="surface">
+        <EmptyState
+          icon={Radio}
+          title="No signal events yet"
+          description="Signal emission events accumulate here in real time as they arrive from the signal engine."
+        />
       </div>
     );
   }
@@ -967,11 +979,12 @@ function toFeedEvents(items: EventEntry[]): FeedEvent[] {
 function RejectionsTab({ items }: { items: EventEntry[] }) {
   if (!items.length) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No rejections yet</div>
-        <p className="muted text-xs">
-          Signal filter and rejection events will appear here as they arrive from the signal engine.
-        </p>
+      <div className="surface">
+        <EmptyState
+          icon={ShieldOff}
+          title="No rejections yet"
+          description="Signal filter and rejection events will appear here as they arrive from the signal engine."
+        />
       </div>
     );
   }
@@ -990,9 +1003,12 @@ function RejectionsTab({ items }: { items: EventEntry[] }) {
 function EventsTab({ items }: { items: EventEntry[] }) {
   if (!items.length) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No events yet</div>
-        <p className="muted text-xs">All signal engine events will appear here in real time.</p>
+      <div className="surface">
+        <EmptyState
+          icon={Inbox}
+          title="No events yet"
+          description="All signal engine events will appear here in real time."
+        />
       </div>
     );
   }
@@ -1019,9 +1035,12 @@ interface ErrorRecord {
 function LogsTab({ records }: { records: ErrorRecord[] }) {
   if (!records.length) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No system log entries</div>
-        <p className="muted text-xs">Errors and warnings logged by the signal engine today will appear here.</p>
+      <div className="surface">
+        <EmptyState
+          icon={FileText}
+          title="No system log entries"
+          description="Errors and warnings logged by the signal engine today will appear here."
+        />
       </div>
     );
   }
@@ -1085,11 +1104,12 @@ function ConfigTab({ config, version }: {
 }) {
   if (!config) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">Config not available</div>
-        <p className="muted text-xs">
-          The signal engine has not reported its configuration in this snapshot.
-        </p>
+      <div className="surface">
+        <EmptyState
+          icon={Settings2}
+          title="Config not available"
+          description="The signal engine has not reported its configuration in this snapshot."
+        />
       </div>
     );
   }

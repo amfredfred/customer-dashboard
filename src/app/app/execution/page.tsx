@@ -10,6 +10,8 @@ import { EventFeed, type FeedEvent, type FeedTone } from "@/components/ui/event-
 import { SurfaceSection } from "@/components/ui/surface";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StaleBanner, LastUpdated } from "@/components/ui/stale-banner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Layers, Radio, Settings2, ShieldOff, Activity as ActivityIcon, FileText, type LucideIcon } from "lucide-react";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone = "normal" | "good" | "warn" | "danger";

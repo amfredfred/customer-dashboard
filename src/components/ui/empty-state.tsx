@@ -1,15 +1,18 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 /**
  * Operational empty state: states exactly what is missing and what to do next.
- * Prefer numbered `steps` over decoration.
+ * Prefer numbered `steps` over decoration; `icon` is a single lucide-react
+ * component reinforcing the content, not decoration for its own sake.
  */
 export function EmptyState({
+  icon: Icon,
   title,
   description,
   steps,
   action,
 }: {
+  icon?: ComponentType<{ size?: number; strokeWidth?: number }>;
   title: string;
   description?: string;
   steps?: string[];
@@ -17,6 +20,11 @@ export function EmptyState({
 }) {
   return (
     <div className="state-block !items-start text-left">
+      {Icon && (
+        <div className="empty-state-icon">
+          <Icon size={20} strokeWidth={1.75} />
+        </div>
+      )}
       <div className="text-[13px] font-semibold text-[var(--text-soft)]">{title}</div>
       {description && <p className="text-xs leading-5 max-w-md m-0">{description}</p>}
       {steps && steps.length > 0 && (
