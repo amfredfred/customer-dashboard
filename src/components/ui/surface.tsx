@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 export type SurfaceTone = "default" | "soft" | "active" | "danger" | "warning" | "success";
 
@@ -24,6 +24,7 @@ export function Surface({
 
 /** Panel with a titled header row - the standard sectioned surface. */
 export function SurfaceSection({
+  icon: Icon,
   title,
   subtitle,
   badge,
@@ -31,6 +32,7 @@ export function SurfaceSection({
   flush = false,
   children,
 }: {
+  icon?: ComponentType<{ size?: number; strokeWidth?: number }>;
   title: string;
   subtitle?: string;
   badge?: ReactNode;
@@ -44,6 +46,7 @@ export function SurfaceSection({
       <div className="panel-head">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-[var(--text-soft)] flex items-center gap-2">
+            {Icon && <Icon size={14} strokeWidth={2} />}
             {title}
             {badge}
           </div>

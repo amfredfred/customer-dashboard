@@ -11,7 +11,7 @@ import { SurfaceSection } from "@/components/ui/surface";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StaleBanner, LastUpdated } from "@/components/ui/stale-banner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Layers, Radio, Settings2, ShieldOff, Activity as ActivityIcon, FileText, type LucideIcon } from "lucide-react";
+import { Layers, Radio, Settings2, ShieldOff, Activity as ActivityIcon, FileText, Search, type LucideIcon } from "lucide-react";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone = "normal" | "good" | "warn" | "danger";
@@ -485,15 +485,17 @@ const POSITION_COLUMNS: ColumnDef<NPos>[] = [
 function PositionsTab({ positions }: { positions: NPos[] }) {
   if (positions.length === 0) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No open positions</div>
-        <p className="muted text-xs">Positions appear here when the engine opens trades.</p>
-      </div>
+      <EmptyState
+        icon={Layers}
+        title="No open positions"
+        description="Positions appear here when the engine opens trades."
+      />
     );
   }
 
   return (
     <SurfaceSection
+      icon={Layers}
       title="Open Trades"
       subtitle={`${positions.length} position${positions.length !== 1 ? "s" : ""}`}
       badge={<span className="badge badge-green">{positions.length}</span>}
@@ -552,15 +554,17 @@ const SIGNAL_COLUMNS: ColumnDef<NSig>[] = [
 function SignalsTab({ signals }: { signals: NSig[] }) {
   if (signals.length === 0) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No signals yet</div>
-        <p className="muted text-xs">Signal events appear here when received by the engine.</p>
-      </div>
+      <EmptyState
+        icon={Radio}
+        title="No signals yet"
+        description="Signal events appear here when received by the engine."
+      />
     );
   }
 
   return (
     <SurfaceSection
+      icon={Radio}
       title="Recent Signals"
       subtitle="Signals received by this engine"
       badge={<span className="badge badge-green">{signals.length}</span>}
@@ -862,10 +866,11 @@ function ConfigurationTab({ config, version }: {
 }) {
   if (!config) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">Config not available</div>
-        <p className="muted text-xs">The execution engine has not reported its configuration in this snapshot.</p>
-      </div>
+      <EmptyState
+        icon={Settings2}
+        title="Config not available"
+        description="The execution engine has not reported its configuration in this snapshot."
+      />
     );
   }
 
@@ -1001,10 +1006,11 @@ function PerformanceTab({ metrics, system }: {
 function GuardsTab({ guards }: { guards: RGuard[] }) {
   if (guards.length === 0) {
     return (
-      <div className="panel state-block">
-        <div className="font-medium">No risk guards</div>
-        <p className="muted text-xs">Risk guard data is not present in the current snapshot.</p>
-      </div>
+      <EmptyState
+        icon={ShieldOff}
+        title="No risk guards"
+        description="Risk guard data is not present in the current snapshot."
+      />
     );
   }
 
@@ -1163,25 +1169,24 @@ function toFeedEvents(items: EventEntry[]): FeedEvent[] {
 }
 
 function EventTab({
-  items, title, subtitle, emptyTitle, emptyBody, dangerBadge,
+  items, title, subtitle, emptyIcon, emptyTitle, emptyBody, dangerBadge,
 }: {
   items: EventEntry[];
   title: string;
   subtitle: string;
+  emptyIcon?: LucideIcon;
   emptyTitle: string;
   emptyBody: string;
   dangerBadge?: boolean;
 }) {
   if (!items.length) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">{emptyTitle}</div>
-        <p className="muted text-xs">{emptyBody}</p>
-      </div>
+      <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyBody} />
     );
   }
   return (
     <SurfaceSection
+      icon={emptyIcon}
       title={title}
       subtitle={subtitle}
       badge={<span className={`badge ${dangerBadge ? "badge-red" : "badge-muted"}`}>{items.length}</span>}
@@ -1198,8 +1203,9 @@ function RejectionsTab({ items }: { items: EventEntry[] }) {
       items={items}
       title="Rejections"
       subtitle={`${items.length} rejection${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
+      emptyIcon={ShieldOff}
       emptyTitle="No rejections"
-      emptyBody="Strategy and risk rejections will appear here as events arrive via the gateway."
+      emptyBody="Strategy and risk rejections will appear here as events arrive from the engine."
       dangerBadge
     />
   );
@@ -1211,6 +1217,7 @@ function ActivityTab({ items }: { items: EventEntry[] }) {
       items={items}
       title="Activity"
       subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
+      emptyIcon={ActivityIcon}
       emptyTitle="No activity yet"
       emptyBody="Order fills, trade opens / closes, and TP / SL hits will appear here."
     />
@@ -1223,6 +1230,7 @@ function EventsTab({ items }: { items: EventEntry[] }) {
       items={items}
       title="Recent Events"
       subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} (max 500)`}
+      emptyIcon={ActivityIcon}
       emptyTitle="No events yet"
       emptyBody="All execution events will be logged here in real time."
     />
@@ -1233,28 +1241,52 @@ function EventsTab({ items }: { items: EventEntry[] }) {
 interface LogLine { ts: number; level: string; name: string; msg: string }
 
 function LogsTab({ lines }: { lines: LogLine[] }) {
+  const [query, setQuery] = useState("");
+
   if (!lines.length) {
     return (
-      <div className="surface state-block">
-        <div className="font-medium">No log lines</div>
-        <p className="muted text-xs">Log lines captured by the execution engine will appear here (most recent 50).</p>
-      </div>
+      <EmptyState
+        icon={FileText}
+        title="No log lines"
+        description="Log lines captured by the execution engine will appear here (most recent 50)."
+      />
     );
   }
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? lines.filter(l => l.msg.toLowerCase().includes(q) || l.name.toLowerCase().includes(q) || l.level.toLowerCase().includes(q))
+    : lines;
+
   return (
     <SurfaceSection
+      icon={FileText}
       title="Engine Logs"
       subtitle={`${lines.length} line${lines.length !== 1 ? "s" : ""} (most recent 50)`}
       badge={<span className="badge badge-muted">{lines.length}</span>}
       flush
     >
+      <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <label className="search-input">
+          <Search size={13} strokeWidth={2} />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Filter by logger, level, or message…"
+          />
+        </label>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-max text-xs">
           <thead>
             <tr>{["Time", "Level", "Logger", "Message"].map(c => <TH key={c}>{c}</TH>)}</tr>
           </thead>
           <tbody>
-            {lines.map((l, i) => (
+            {filtered.length === 0 && (
+              <tr><td colSpan={4} className="px-4 py-6 text-xs muted text-center">No log lines match &quot;{query}&quot;.</td></tr>
+            )}
+            {filtered.map((l, i) => (
               <tr key={i} style={TR_BORDER}>
                 <TD mono><span className="muted">{fmtTs(l.ts)}</span></TD>
                 <TD>

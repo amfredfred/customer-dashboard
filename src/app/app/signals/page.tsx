@@ -11,7 +11,7 @@ import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StaleBanner, LastUpdated } from "@/components/ui/stale-banner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Clock, Settings2, ListX, Users, Radio, ShieldOff, Inbox, FileText } from "lucide-react";
+import { Clock, Settings2, ListX, Users, Radio, ShieldOff, Inbox, FileText, Search } from "lucide-react";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone   = "normal" | "good" | "warn" | "danger";
@@ -853,6 +853,7 @@ function ConnectedClientsTab({ clients }: { clients: ClientRow[] }) {
   }
   return (
     <SurfaceSection
+      icon={Users}
       title="Connected Clients"
       subtitle={`${clients.length} client${clients.length !== 1 ? "s" : ""} connected`}
       badge={<span className="badge badge-green">{clients.length}</span>}
@@ -918,6 +919,7 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
   }
   return (
     <SurfaceSection
+      icon={Radio}
       title="Signal Events"
       subtitle={`${signals.length} signal${signals.length !== 1 ? "s" : ""} accumulated`}
       badge={<span className="badge badge-green">{signals.length}</span>}
@@ -990,6 +992,7 @@ function RejectionsTab({ items }: { items: EventEntry[] }) {
   }
   return (
     <SurfaceSection
+      icon={ShieldOff}
       title="Signal Rejections"
       subtitle={`${items.length} rejection${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
       badge={<span className="badge badge-red">{items.length}</span>}
@@ -1014,6 +1017,7 @@ function EventsTab({ items }: { items: EventEntry[] }) {
   }
   return (
     <SurfaceSection
+      icon={Inbox}
       title="Recent Events"
       subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} (max 500)`}
       badge={<span className="badge badge-muted">{items.length}</span>}
@@ -1033,6 +1037,8 @@ interface ErrorRecord {
 }
 
 function LogsTab({ records }: { records: ErrorRecord[] }) {
+  const [query, setQuery] = useState("");
+
   if (!records.length) {
     return (
       <div className="surface">
@@ -1044,20 +1050,41 @@ function LogsTab({ records }: { records: ErrorRecord[] }) {
       </div>
     );
   }
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? records.filter(r => r.message.toLowerCase().includes(q) || r.module.toLowerCase().includes(q) || r.level.toLowerCase().includes(q))
+    : records;
+
   return (
     <SurfaceSection
+      icon={FileText}
       title="System Log"
       subtitle={`${records.length} record${records.length !== 1 ? "s" : ""} today (most recent 10)`}
       badge={<span className="badge badge-muted">{records.length}</span>}
       flush
     >
+      <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <label className="search-input">
+          <Search size={13} strokeWidth={2} />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Filter by module, level, or message…"
+          />
+        </label>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-max text-xs">
           <thead>
             <tr>{["Time", "Level", "Module", "Message"].map(c => <TH key={c}>{c}</TH>)}</tr>
           </thead>
           <tbody>
-            {records.map((r, i) => (
+            {filtered.length === 0 && (
+              <tr><td colSpan={4} className="px-4 py-6 text-xs muted text-center">No log entries match &quot;{query}&quot;.</td></tr>
+            )}
+            {filtered.map((r, i) => (
               <tr key={i} style={TR_BORDER}>
                 <TD mono><span className="muted">{fmtTs(r.at)}</span></TD>
                 <TD>
