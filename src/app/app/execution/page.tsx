@@ -274,23 +274,44 @@ function arcPoint(cx: number, cy: number, r: number, pct: number): [number, numb
 function arcPath(cx: number, cy: number, r: number, fromPct: number, toPct: number): string {
   const [x1, y1] = arcPoint(cx, cy, r, fromPct);
   const [x2, y2] = arcPoint(cx, cy, r, toPct);
-  const largeArc = toPct - fromPct > 50 ? 1 : 0;
+  // pct maps directly to degrees * 1.8 (100% = 180deg), so the large-arc
+  // flag only matters past a 100pt span - which never happens for a zone
+  // bounded within a single 0-100 semicircle. Kept explicit, not hardcoded
+  // to 0, in case this is ever reused for a span that could exceed it.
+  const largeArc = toPct - fromPct > 100 ? 1 : 0;
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 }
 
-/** Speedometer-style semicircle gauge: colored zone arc + needle + centered readout. */
-function RadialGauge({ value, display, tone = "normal" }: { value?: number; display: string; tone?: Tone }) {
+/**
+ * Speedometer-style semicircle gauge: colored zone arc + needle + centered readout.
+ * `invert`: zones assume "higher is worse, toward a redline" by default (danger at
+ * the high end) - set for "higher is better" metrics (danger at the low end instead).
+ */
+function RadialGauge({ value, display, tone = "normal", invert = false }: {
+  value?: number; display: string; tone?: Tone; invert?: boolean;
+}) {
   const cx = 100, cy = 96, r = 74;
   const p = value === undefined || isNaN(value) ? 0 : Math.max(0, Math.min(100, value));
   const [needleX, needleY] = arcPoint(cx, cy, r - 12, p);
   const needleColor =
     tone === "good" ? "var(--success)" : tone === "warn" ? "var(--warning)" :
     tone === "danger" ? "var(--danger)" : "var(--text)";
+  const zones = invert
+    ? [
+        { from: 0, to: 100 - ZONE_BREAKS.danger, color: "var(--danger)" },
+        { from: 100 - ZONE_BREAKS.danger, to: 100 - ZONE_BREAKS.warn, color: "var(--warning)" },
+        { from: 100 - ZONE_BREAKS.warn, to: 100, color: "var(--success)" },
+      ]
+    : [
+        { from: 0, to: ZONE_BREAKS.warn, color: "var(--success)" },
+        { from: ZONE_BREAKS.warn, to: ZONE_BREAKS.danger, color: "var(--warning)" },
+        { from: ZONE_BREAKS.danger, to: 100, color: "var(--danger)" },
+      ];
   return (
     <svg viewBox="0 0 200 118" style={{ width: "100%", maxWidth: 200, margin: "4px auto 0" }}>
-      <path d={arcPath(cx, cy, r, 0, ZONE_BREAKS.warn)} fill="none" stroke="var(--success)" strokeWidth={12} strokeLinecap="round" opacity={0.55} />
-      <path d={arcPath(cx, cy, r, ZONE_BREAKS.warn, ZONE_BREAKS.danger)} fill="none" stroke="var(--warning)" strokeWidth={12} strokeLinecap="round" opacity={0.55} />
-      <path d={arcPath(cx, cy, r, ZONE_BREAKS.danger, 100)} fill="none" stroke="var(--danger)" strokeWidth={12} strokeLinecap="round" opacity={0.55} />
+      {zones.map(z => (
+        <path key={z.color} d={arcPath(cx, cy, r, z.from, z.to)} fill="none" stroke={z.color} strokeWidth={12} strokeLinecap="round" opacity={0.55} />
+      ))}
       <line x1={cx} y1={cy} x2={needleX} y2={needleY} stroke={needleColor} strokeWidth={3} strokeLinecap="round" />
       <circle cx={cx} cy={cy} r={5} fill={needleColor} />
       <text x={cx} y={cy - 14} textAnchor="middle" fontSize={22} fontWeight={600} fill="var(--text)" className="tabular-nums">{display}</text>
@@ -355,11 +376,13 @@ function StatCard({ label, value, detail, tone = "normal" }: {
   return <MetricCard label={label} value={value} detail={detail} tone={TONE_MAP[tone]} />;
 }
 
-function GaugeCard({ label, value, display, context, tone = "normal", variant = "bar", zones = true }: {
+function GaugeCard({ label, value, display, context, tone = "normal", variant = "bar", zones = true, invert = false }: {
   label: string; value?: number; display: string; context?: string; tone?: Tone;
   variant?: "bar" | "radial";
-  /** Zone bands assume "higher is worse, toward a redline" - opt out for "higher is better" metrics. */
+  /** Zone bands assume "higher is worse, toward a redline" - opt out for "higher is better" metrics (bar only). */
   zones?: boolean;
+  /** Flip zones to "higher is better" (danger at the low end) - radial only. */
+  invert?: boolean;
 }) {
   const radial = variant === "radial";
   return (
@@ -367,7 +390,7 @@ function GaugeCard({ label, value, display, context, tone = "normal", variant = 
       <div className="text-[11px] font-semibold uppercase tracking-wide muted">{label}</div>
       {radial ? (
         <div className="text-center">
-          <RadialGauge value={value} display={display} tone={tone} />
+          <RadialGauge value={value} display={display} tone={tone} invert={invert} />
           {context && <div className="text-xs muted -mt-1">{context}</div>}
         </div>
       ) : (
@@ -721,15 +744,16 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
           tone={usageTone(dailyLossPct)}
           variant="radial"
         />
-        {/* Margin Level and Win Rate are "higher is better" - the zone bands
-            (red at 90-100%) assume the opposite, so these opt out of them. */}
+        {/* Margin Level and Win Rate are "higher is better" - invert flips the
+            zone bands so danger sits at the low end instead of the high end. */}
         <GaugeCard
           label="Margin Level"
           value={isN(marginLevel) ? Math.min(marginLevel, 100) : undefined}
           display={pct(marginLevel)}
           context="Broker account margin"
           tone={isN(marginLevel) && marginLevel < 150 ? "warn" : isN(marginLevel) ? "good" : "normal"}
-          zones={false}
+          variant="radial"
+          invert
         />
         <GaugeCard
           label="Win Rate"
@@ -737,7 +761,8 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
           display={pct(winRate)}
           context="Closed trade hit rate"
           tone={isN(winRate) && winRate >= 50 ? "good" : "normal"}
-          zones={false}
+          variant="radial"
+          invert
         />
       </div>
 
