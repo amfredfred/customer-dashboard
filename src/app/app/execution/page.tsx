@@ -631,6 +631,10 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
     ? (riskRejected / Math.max(riskApproved + riskRejected, 1)) * 100 : undefined;
   const slotUsagePct      = isN(openTrades) && isN(riskSlots) && riskSlots > 0
     ? (openTrades / riskSlots) * 100 : undefined;
+  const entryDriftPct     = n("entry_drift_pct_of_risk");
+  const entryDriftMaxPct  = n("entry_drift_max_pct_of_risk");
+  const entryDriftUsagePct = isN(entryDriftPct) && isN(entryDriftMaxPct) && entryDriftMaxPct > 0
+    ? (entryDriftPct / entryDriftMaxPct) * 100 : undefined;
 
   const rawCounters = metrics.raw_counters as Record<string, number> | undefined;
   const rawGauges   = metrics.raw_gauges   as Record<string, number> | undefined;
@@ -799,6 +803,20 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
           </div>
         </section>
       </div>
+
+      {/* Execution quality */}
+      <section>
+        <SectionHead label="Execution Quality" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <GaugeCard
+            label="Entry Drift"
+            value={entryDriftUsagePct}
+            display={pct(entryDriftPct)}
+            context={`Of signal risk, vs ${pct(entryDriftMaxPct)} reference`}
+            tone={usageTone(entryDriftUsagePct)}
+          />
+        </div>
+      </section>
 
       {/* Raw counters / gauges - only when populated */}
       {((rawCounters && Object.keys(rawCounters).length > 0) ||
