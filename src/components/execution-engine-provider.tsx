@@ -18,6 +18,7 @@ type ExecutionValue = {
   status: ExecutionConnectionStatus;
   error: string | null;
   connectedMt5: boolean;
+  autotradingEnabled: boolean | null;
   engine: Record<string, unknown> | null;
   system: Record<string, unknown> | null;
   config: Record<string, unknown> | null;
@@ -36,6 +37,7 @@ const ExecutionEngineContext = createContext<ExecutionValue>({
   status: "disconnected",
   error: null,
   connectedMt5: false,
+  autotradingEnabled: null,
   engine: null,
   system: null,
   config: null,
@@ -71,6 +73,11 @@ function summarize(eventType: string, payload: Record<string, unknown>): string 
   return String(payload.reason ?? payload.message ?? eventType);
 }
 
+/** payload.autotrading_enabled is a nullable bool from the engine - null/undefined means unknown. */
+function parseTristate(value: unknown): boolean | null {
+  return value === null || value === undefined ? null : Boolean(value);
+}
+
 function sigToEvent(sig: Record<string, unknown>): ExecutionEventEntry {
   const status = String(sig.status ?? "").toUpperCase();
   const eventType = STATUS_TO_EVENT_TYPE[status] ?? "signal.event";
@@ -88,6 +95,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
   const [status, setStatus] = useState<ExecutionConnectionStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
   const [connectedMt5, setConnectedMt5] = useState(false);
+  const [autotradingEnabled, setAutotradingEnabled] = useState<boolean | null>(null);
   const [engine, setEngine] = useState<Record<string, unknown> | null>(null);
   const [system, setSystem] = useState<Record<string, unknown> | null>(null);
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
@@ -150,6 +158,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
 
           if (type === "STATE_SNAPSHOT") {
             setConnectedMt5(Boolean(payload.connected));
+            setAutotradingEnabled(parseTristate(payload.autotrading_enabled));
             setEngine((payload.engine as Record<string, unknown>) ?? null);
             setSystem((payload.system as Record<string, unknown>) ?? null);
             setConfig((payload.config as Record<string, unknown>) ?? null);
@@ -168,6 +177,8 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
 
           if (type === "METRICS_UPDATE") {
             setMetrics(payload);
+            if ("connected" in payload) setConnectedMt5(Boolean(payload.connected));
+            if ("autotrading_enabled" in payload) setAutotradingEnabled(parseTristate(payload.autotrading_enabled));
             markFresh();
             return;
           }
@@ -258,6 +269,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
         status,
         error,
         connectedMt5,
+        autotradingEnabled,
         engine,
         system,
         config,
