@@ -406,7 +406,7 @@ function GaugeCard({ label, value, display, context, tone = "normal", variant = 
 
 /* ── Overview tab ───────────────────────────────────────────────────────── */
 function OverviewTab({
-  metrics, engineMode, version, connStatus, connectedMt5, autotradingEnabled, lastMetricsAt, isStale,
+  metrics, engineMode, version, connStatus, connectedMt5, autotradingEnabled, signalEngineConnected, lastMetricsAt, isStale,
 }: {
   metrics: Record<string, unknown>;
   engineMode?: string;
@@ -414,6 +414,7 @@ function OverviewTab({
   connStatus: string;
   connectedMt5: boolean;
   autotradingEnabled: boolean | null;
+  signalEngineConnected: boolean;
   lastMetricsAt: number | null;
   isStale: boolean;
 }) {
@@ -451,7 +452,7 @@ function OverviewTab({
           <SectionHead label="Engine Health" />
           <LastUpdated at={lastMetricsAt} />
         </div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-2.5">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-6 gap-2.5">
           <div className="kpi">
             <div className="kpi-label">Connection</div>
             <div className="mt-2"><StatusBadge kind={connStatus === "connected" ? "online" : connStatus === "connecting" ? "connecting" : "offline"} /></div>
@@ -459,6 +460,10 @@ function OverviewTab({
           <div className="kpi">
             <div className="kpi-label">MT5 Broker</div>
             <div className="mt-2"><StatusBadge kind={connectedMt5 ? "connected" : "disconnected"} /></div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">Signal Feed</div>
+            <div className="mt-2"><StatusBadge kind={signalEngineConnected ? "connected" : "disconnected"} label={signalEngineConnected ? "Connected" : "Disconnected"} /></div>
           </div>
           <div className="kpi">
             <div className="kpi-label">AutoTrading</div>
@@ -1502,6 +1507,7 @@ export default function Execution() {
     error,
     connectedMt5,
     autotradingEnabled,
+    signalEngineConnected,
     engine: engineSnap,
     system: rawSystem,
     config,
@@ -1564,6 +1570,7 @@ export default function Execution() {
         <OverviewTab
           metrics={metrics} engineMode={engineMode} version={version}
           connStatus={connStatus} connectedMt5={connectedMt5} autotradingEnabled={autotradingEnabled}
+          signalEngineConnected={signalEngineConnected}
           lastMetricsAt={lastMetricsAt} isStale={isStale}
         />
       )}

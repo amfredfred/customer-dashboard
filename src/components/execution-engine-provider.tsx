@@ -19,6 +19,7 @@ type ExecutionValue = {
   error: string | null;
   connectedMt5: boolean;
   autotradingEnabled: boolean | null;
+  signalEngineConnected: boolean;
   engine: Record<string, unknown> | null;
   system: Record<string, unknown> | null;
   config: Record<string, unknown> | null;
@@ -38,6 +39,7 @@ const ExecutionEngineContext = createContext<ExecutionValue>({
   error: null,
   connectedMt5: false,
   autotradingEnabled: null,
+  signalEngineConnected: false,
   engine: null,
   system: null,
   config: null,
@@ -96,6 +98,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
   const [error, setError] = useState<string | null>(null);
   const [connectedMt5, setConnectedMt5] = useState(false);
   const [autotradingEnabled, setAutotradingEnabled] = useState<boolean | null>(null);
+  const [signalEngineConnected, setSignalEngineConnected] = useState(false);
   const [engine, setEngine] = useState<Record<string, unknown> | null>(null);
   const [system, setSystem] = useState<Record<string, unknown> | null>(null);
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
@@ -159,6 +162,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
           if (type === "STATE_SNAPSHOT") {
             setConnectedMt5(Boolean(payload.connected));
             setAutotradingEnabled(parseTristate(payload.autotrading_enabled));
+            setSignalEngineConnected(Boolean(payload.signal_engine_connected));
             setEngine((payload.engine as Record<string, unknown>) ?? null);
             setSystem((payload.system as Record<string, unknown>) ?? null);
             setConfig((payload.config as Record<string, unknown>) ?? null);
@@ -179,6 +183,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
             setMetrics(payload);
             if ("connected" in payload) setConnectedMt5(Boolean(payload.connected));
             if ("autotrading_enabled" in payload) setAutotradingEnabled(parseTristate(payload.autotrading_enabled));
+            if ("signal_engine_connected" in payload) setSignalEngineConnected(Boolean(payload.signal_engine_connected));
             markFresh();
             return;
           }
@@ -270,6 +275,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
         error,
         connectedMt5,
         autotradingEnabled,
+        signalEngineConnected,
         engine,
         system,
         config,
