@@ -740,8 +740,6 @@ function PerformanceTab({ metrics, api, system }: {
 interface StrategyRow {
   symbol: string;
   tfPair: string;
-  entryModel: string;
-  crtMode: string;
   minRr: number;
   maxRr: number;
 }
@@ -761,14 +759,11 @@ function ActiveStrategiesTab({ config }: { config: Record<string, unknown> | nul
 
   const symbols = Array.isArray(config.symbols) ? (config.symbols as string[]) : [];
   const tfPairs = Array.isArray(config.tf_pairs) ? (config.tf_pairs as string[]) : [];
-  const tfEntryModels = (config.tf_entry_models ?? {}) as Record<string, string>;
 
   const rows: StrategyRow[] = symbols.length
     ? symbols.map(symbol => ({
         symbol,
         tfPair: tfPairs[0] ?? "-",
-        entryModel: tfEntryModels[tfPairs[0]] ?? String(config.entry_model ?? "-"),
-        crtMode: String(config.crt_mode ?? "-"),
         minRr: Number(config.min_rr ?? 0),
         maxRr: Number(config.max_rr ?? 0),
       }))
@@ -787,15 +782,13 @@ function ActiveStrategiesTab({ config }: { config: Record<string, unknown> | nul
             <div className="overflow-x-auto">
               <table className="w-full min-w-max text-xs">
                 <thead>
-                  <tr>{["Symbol", "Timeframe Pair", "Entry Model", "CRT Mode", "Min RR", "Max RR"].map(c => <TH key={c}>{c}</TH>)}</tr>
+                  <tr>{["Symbol", "Timeframe Pair", "Min RR", "Max RR"].map(c => <TH key={c}>{c}</TH>)}</tr>
                 </thead>
                 <tbody>
                   {rows.map(r => (
                     <tr key={r.symbol} style={TR_BORDER}>
                       <TD mono><span className="font-bold text-white">{r.symbol}</span></TD>
                       <TD mono><span className="muted">{r.tfPair}</span></TD>
-                      <TD><span className="muted">{r.entryModel}</span></TD>
-                      <TD><span className="muted">{r.crtMode}</span></TD>
                       <TD mono>{r.minRr}</TD>
                       <TD mono>{r.maxRr}</TD>
                     </tr>
@@ -1144,7 +1137,6 @@ function ConfigTab({ config, version }: {
   const ws = (config.websocket ?? {}) as Record<string, unknown>;
   const weekend = (config.weekend ?? {}) as Record<string, unknown>;
   const trading = (config.trading ?? {}) as Record<string, unknown>;
-  const tfEntryModels = (config.tf_entry_models ?? {}) as Record<string, unknown>;
   const tfMaxRr = (config.tf_max_rr ?? {}) as Record<string, unknown>;
   const tfOverrides = (config.trade_management_tf_overrides ?? {}) as Record<string, unknown>;
   const tfDisplacementMult = (config.tf_displacement_mult ?? {}) as Record<string, unknown>;
@@ -1161,18 +1153,12 @@ function ConfigTab({ config, version }: {
           {Array.isArray(config.tf_pairs) && (
             <ConfigRow label="Timeframe Pairs" value={(config.tf_pairs as string[]).join(", ")} />
           )}
-          {Object.keys(tfEntryModels).length > 0 && (
-            <ConfigRow label="TF Entry Models" value={cfgValue(tfEntryModels)} />
-          )}
         </div>
       </div>
 
       <div className="panel overflow-hidden">
         <div className="panel-head"><div className="text-sm font-semibold">Strategy / Entry Rules</div></div>
         <div className="panel-body">
-          <ConfigRow label="Entry Model" value={String(config.entry_model ?? "-")} />
-          <ConfigRow label="CRT Mode" value={String(config.crt_mode ?? "-")} />
-          <ConfigRow label="Stop Placement" value={String(config.stop_placement ?? "-")} />
           <ConfigRow label="Stop Buffer %" value={cfgValue(config.stop_buffer_pct)} />
           <ConfigRow label="HTF Lookback" value={cfgValue(config.htf_lookback)} />
           <ConfigRow label="Pivot Bars" value={cfgValue(config.pivot_bars)} />
