@@ -320,7 +320,7 @@ function OverviewTab({ metrics, scheduler, activeSignals, system, version, clien
 }) {
   const counters = (metrics.raw_counters ?? {}) as Record<string, number>;
   const gauges   = (metrics.raw_gauges   ?? {}) as Record<string, number>;
-  const pairScans     = sumPrefix(counters, "scanner.pair_scans.");
+  const pairScans     = counters["scanner.pair_scans"] ?? 0;
   const trendBlocked  = sumPrefix(counters, "signals.trend_blocked.");
   const signalsEmitted = pick(metrics, "signals_emitted") ?? counters["signals.emitted"];
 
@@ -543,7 +543,7 @@ function MetricsTab({ metrics, api }: {
             <StatCard label="Ticks"             value={cnt(pick(metrics, "scanner_ticks"))} />
             <StatCard label="Tick Errors"       value={cnt(pick(metrics, "scanner_tick_errors"))} tone={errTone(pick(metrics, "scanner_tick_errors"))} />
             <StatCard label="Analysis Started"  value={cnt(pick(metrics, "analysis_started"))} />
-            <StatCard label="Pair Scans"        value={cnt(sumPrefix(counters, "scanner.pair_scans."))} />
+            <StatCard label="Pair Scans"        value={cnt(counters["scanner.pair_scans"])} />
             <StatCard label="Drift Detected"    value={cnt(counters["scanner.analysis_drift_detected"])} tone={errTone(counters["scanner.analysis_drift_detected"])} />
             <StatCard label="Insufficient HTF"  value={cnt(counters["scanner.insufficient_htf_data"])} />
           </div>
