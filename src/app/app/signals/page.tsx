@@ -737,14 +737,285 @@ function PerformanceTab({ metrics, api, system }: {
 }
 
 /* ── Active Strategies tab ──────────────────────────────────────────────── */
-interface StrategyRow {
-  symbol: string;
-  tfPair: string;
-  minRr: number;
-  maxRr: number;
+interface TfPairRow {
+  htf: string;
+  ltf: string;
+  disabledFor: string[];
+}
+
+function tfPairRows(pairs: unknown): TfPairRow[] {
+  if (!Array.isArray(pairs)) return [];
+  return pairs.map(p => {
+    const rec = (p ?? {}) as Record<string, unknown>;
+    const disabledFor = Object.entries(rec)
+      .filter(([k, v]) => k !== "htf" && k !== "ltf" && String(v).toLowerCase() === "disabled")
+      .map(([k]) => k);
+    return { htf: String(rec.htf ?? "-"), ltf: String(rec.ltf ?? "-"), disabledFor };
+  });
+}
+
+const STRATEGY_LABELS: Record<string, string> = {
+  crt: "CRT",
+  orb: "Opening Range Breakout",
+  bos_pullback: "BOS + Pullback",
+  fvg: "Fair Value Gap",
+};
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+function isLeaf(v: unknown): boolean {
+  return !isPlainObject(v) || Object.keys(v).length === 0;
+}
+
+function labelize(k: string): string {
+  return k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+interface RrrRow { symbol: string; tf: string; minRr: unknown; maxRr: unknown }
+
+/** Detects the {symbol: {tfPair: {min_rr, max_rr}}} shape (CRT's signal_quality.rrr)
+ * and flattens it to rows — the raw 3-level nesting is unreadable indented. */
+function asRrrRows(value: Record<string, unknown>): RrrRow[] | null {
+  const rows: RrrRow[] = [];
+  for (const [symbol, tfs] of Object.entries(value)) {
+    if (!isPlainObject(tfs)) return null;
+    for (const [tf, rr] of Object.entries(tfs)) {
+      if (!isPlainObject(rr) || !("min_rr" in rr) || !("max_rr" in rr)) return null;
+      rows.push({ symbol, tf, minRr: rr.min_rr, maxRr: rr.max_rr });
+    }
+  }
+  return rows;
+}
+
+function RrrTable({ rows }: { rows: RrrRow[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-max text-xs">
+        <thead>
+          <tr>{["Symbol", "TF Pair", "Min RR", "Max RR"].map(c => <TH key={c}>{c}</TH>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} style={TR_BORDER}>
+              <TD mono>{r.symbol}</TD>
+              <TD mono><span className="muted">{r.tf}</span></TD>
+              <TD mono>{cfgValue(r.minRr)}</TD>
+              <TD mono>{cfgValue(r.maxRr)}</TD>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+interface FlatTable { rowLabel: string; columns: string[]; rows: Array<{ key: string; cells: Record<string, unknown> }> }
+
+/** Detects a dict-of-flat-records shape (e.g. session_filter.sessions,
+ * orb.session) and flattens it to a table instead of nested indentation. */
+function asFlatTable(value: Record<string, unknown>): FlatTable | null {
+  const entries = Object.entries(value);
+  if (entries.length === 0) return null;
+  const colSet = new Set<string>();
+  for (const [, v] of entries) {
+    if (!isPlainObject(v)) return null;
+    for (const [k, vv] of Object.entries(v)) {
+      if (isPlainObject(vv)) return null;
+      colSet.add(k);
+    }
+  }
+  const columns = Array.from(colSet).filter(c => entries.some(([, v]) => {
+    const vv = (v as Record<string, unknown>)[c];
+    return !(Array.isArray(vv) && vv.length === 0);
+  }));
+  if (columns.length === 0) return null;
+  return {
+    rowLabel: "Key",
+    columns,
+    rows: entries.map(([key, v]) => ({ key, cells: v as Record<string, unknown> })),
+  };
+}
+
+function FlatTableView({ table }: { table: FlatTable }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-max text-xs">
+        <thead>
+          <tr>{[table.rowLabel, ...table.columns.map(labelize)].map(c => <TH key={c}>{c}</TH>)}</tr>
+        </thead>
+        <tbody>
+          {table.rows.map(r => (
+            <tr key={r.key} style={TR_BORDER}>
+              <TD mono><span className="font-bold text-white">{r.key}</span></TD>
+              {table.columns.map(c => <TD key={c} mono>{cfgValue(r.cells[c])}</TD>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Generic fallback for irregular nested objects that don't fit a known shape. */
+function ParamTree({ label, value, depth }: { label: string; value: unknown; depth: number }) {
+  if (isPlainObject(value) && Object.keys(value).length > 0) {
+    return (
+      <div className="py-1.5" style={{ marginLeft: depth * 12 }}>
+        <div className="text-xs muted mb-1">{labelize(label)}</div>
+        <div className="pl-3" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}>
+          {Object.entries(value).map(([k, v]) => (
+            <NestedValue key={k} label={k} value={v} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (Array.isArray(value) && value.length === 0) return null;
+  return <ConfigRow label={labelize(label)} value={cfgValue(value)} />;
+}
+
+/** Applies the same rrr/flat-table detection used at the top level to any
+ * nested object, wherever it appears — falls back to the indented tree only
+ * for genuinely irregular shapes. */
+function NestedValue({ label, value }: { label: string; value: unknown }) {
+  if (isPlainObject(value) && Object.keys(value).length > 0) {
+    if (label === "rrr") {
+      const rows = asRrrRows(value);
+      if (rows) {
+        return (
+          <div className="py-1.5">
+            <div className="text-xs muted mb-1">{labelize(label)} — per symbol / timeframe</div>
+            <RrrTable rows={rows} />
+          </div>
+        );
+      }
+    }
+    const flat = asFlatTable(value);
+    if (flat) {
+      return (
+        <div className="py-1.5">
+          <div className="text-xs muted mb-1">{labelize(label)}</div>
+          <FlatTableView table={flat} />
+        </div>
+      );
+    }
+  }
+  return <ParamTree label={label} value={value} depth={0} />;
+}
+
+function ParamGroup({ label, value }: { label: string; value: Record<string, unknown> }) {
+  if (label === "rrr") {
+    const rows = asRrrRows(value);
+    if (rows) {
+      return (
+        <div className="panel overflow-hidden">
+          <div className="panel-head"><div className="text-sm font-semibold">{labelize(label)} — per symbol / timeframe</div></div>
+          <RrrTable rows={rows} />
+        </div>
+      );
+    }
+  }
+  const flat = asFlatTable(value);
+  if (flat) {
+    return (
+      <div className="panel overflow-hidden">
+        <div className="panel-head"><div className="text-sm font-semibold">{labelize(label)}</div></div>
+        <FlatTableView table={flat} />
+      </div>
+    );
+  }
+  const primitives = Object.entries(value).filter(([, v]) => isLeaf(v) && !(Array.isArray(v) && v.length === 0));
+  const nested = Object.entries(value).filter(([, v]) => !isLeaf(v));
+  return (
+    <div className="panel overflow-hidden">
+      <div className="panel-head"><div className="text-sm font-semibold">{labelize(label)}</div></div>
+      <div className="panel-body space-y-3">
+        {primitives.length > 0 && (
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+            {primitives.map(([k, v]) => (
+              <div key={k} className="kpi">
+                <div className="kpi-label">{labelize(k)}</div>
+                <div className="mt-1.5 font-mono text-xs" style={{ color: "var(--text-soft)" }}>{cfgValue(v)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {nested.map(([k, v]) => <NestedValue key={k} label={k} value={v} />)}
+      </div>
+    </div>
+  );
+}
+
+const STRATEGY_ORDER = ["crt", "orb", "bos_pullback", "fvg"];
+
+function StrategyDetail({ name, params }: { name: string; params: Record<string, unknown> }) {
+  const enabled = Boolean(params.enabled);
+  const pairs = tfPairRows((params.timeframes as Record<string, unknown> | undefined)?.pairs);
+  const ownParams = Object.entries(params).filter(([k]) => k !== "enabled" && k !== "timeframes");
+  const primitives = ownParams.filter(([, v]) => isLeaf(v) && !(Array.isArray(v) && v.length === 0));
+  const groups = ownParams.filter(([, v]) => !isLeaf(v));
+
+  return (
+    <div className="space-y-3">
+      <div className="panel overflow-hidden">
+        <div className="panel-head flex items-center justify-between">
+          <div className="text-sm font-semibold">{STRATEGY_LABELS[name] ?? name} — Parameters</div>
+          <StatusBadge kind={enabled ? "active" : "idle"} label={enabled ? "Enabled" : "Disabled"} />
+        </div>
+        {primitives.length > 0 && (
+          <div className="panel-body">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+              {primitives.map(([k, v]) => (
+                <div key={k} className="kpi">
+                  <div className="kpi-label">{labelize(k)}</div>
+                  <div className="mt-1.5 font-mono text-xs" style={{ color: "var(--text-soft)" }}>{cfgValue(v)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {groups.map(([k, v]) => (
+        <ParamGroup key={k} label={k} value={v as Record<string, unknown>} />
+      ))}
+
+      {pairs.length > 0 && (
+        <div className="panel overflow-hidden">
+          <div className="panel-head"><div className="text-sm font-semibold">Timeframe Pairs</div></div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max text-xs">
+              <thead>
+                <tr>{["HTF", "LTF", "Disabled For"].map(c => <TH key={c}>{c}</TH>)}</tr>
+              </thead>
+              <tbody>
+                {pairs.map((p, i) => (
+                  <tr key={i} style={TR_BORDER}>
+                    <TD mono>{p.htf}</TD>
+                    <TD mono>{p.ltf}</TD>
+                    <TD mono><span className="muted">{p.disabledFor.length ? p.disabledFor.join(", ") : "-"}</span></TD>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ActiveStrategiesTab({ config }: { config: Record<string, unknown> | null | undefined }) {
+  const strategies = (config?.strategies ?? {}) as Record<string, Record<string, unknown>>;
+  const strategyNames = Object.keys(strategies).sort((a, b) => {
+    const ia = STRATEGY_ORDER.indexOf(a), ib = STRATEGY_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+  const [activeStrategy, setActiveStrategy] = useState<string>("");
+  const selected = strategyNames.includes(activeStrategy) ? activeStrategy : strategyNames[0];
+
   if (!config) {
     return (
       <div className="surface">
@@ -757,51 +1028,30 @@ function ActiveStrategiesTab({ config }: { config: Record<string, unknown> | nul
     );
   }
 
-  const symbols = Array.isArray(config.symbols) ? (config.symbols as string[]) : [];
-  const tfPairs = Array.isArray(config.tf_pairs) ? (config.tf_pairs as string[]) : [];
-
-  const rows: StrategyRow[] = symbols.length
-    ? symbols.map(symbol => ({
-        symbol,
-        tfPair: tfPairs[0] ?? "-",
-        minRr: Number(config.min_rr ?? 0),
-        maxRr: Number(config.max_rr ?? 0),
-      }))
-    : [];
-
   return (
     <div className="space-y-5">
       <section>
-        <SectionHead label="Per-Symbol Strategy" />
-        {rows.length === 0 ? (
+        <SectionHead label="Strategies" />
+        {strategyNames.length === 0 ? (
           <div className="panel">
-            <EmptyState icon={ListX} title="No symbols configured" />
+            <EmptyState icon={ListX} title="No strategies configured" />
           </div>
         ) : (
-          <div className="panel overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-max text-xs">
-                <thead>
-                  <tr>{["Symbol", "Timeframe Pair", "Min RR", "Max RR"].map(c => <TH key={c}>{c}</TH>)}</tr>
-                </thead>
-                <tbody>
-                  {rows.map(r => (
-                    <tr key={r.symbol} style={TR_BORDER}>
-                      <TD mono><span className="font-bold text-white">{r.symbol}</span></TD>
-                      <TD mono><span className="muted">{r.tfPair}</span></TD>
-                      <TD mono>{r.minRr}</TD>
-                      <TD mono>{r.maxRr}</TD>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <>
+            <Tabs
+              tabs={strategyNames.map(name => ({ id: name, label: STRATEGY_LABELS[name] ?? name }))}
+              active={selected}
+              onChange={setActiveStrategy}
+            />
+            <div className="mt-3">
+              <StrategyDetail name={selected} params={strategies[selected] ?? {}} />
             </div>
-          </div>
+          </>
         )}
       </section>
 
       <section>
-        <SectionHead label="Feature Flags" />
+        <SectionHead label="CRT Feature Flags" />
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
           {[
             ["Trend Filter", config.use_trend_filter],
@@ -1144,7 +1394,7 @@ function ConfigTab({ config, version }: {
   return (
     <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-4">
       <div className="panel overflow-hidden">
-        <div className="panel-head"><div className="text-sm font-semibold">Enabled Symbols &amp; Timeframes</div></div>
+        <div className="panel-head"><div className="text-sm font-semibold">CRT Symbols &amp; Timeframes</div></div>
         <div className="panel-body">
           <ConfigRow label="Environment" value={String(trading.env ?? config.mode ?? "-").toUpperCase()} />
           {Array.isArray(config.symbols) && (
@@ -1153,11 +1403,12 @@ function ConfigTab({ config, version }: {
           {Array.isArray(config.tf_pairs) && (
             <ConfigRow label="Timeframe Pairs" value={(config.tf_pairs as string[]).join(", ")} />
           )}
+          <p className="text-[11px] muted pt-1">Other strategies (ORB, BOS+Pullback, FVG) have their own symbols/timeframes — see the Active Strategies tab.</p>
         </div>
       </div>
 
       <div className="panel overflow-hidden">
-        <div className="panel-head"><div className="text-sm font-semibold">Strategy / Entry Rules</div></div>
+        <div className="panel-head"><div className="text-sm font-semibold">CRT Entry Rules</div></div>
         <div className="panel-body">
           <ConfigRow label="Stop Buffer %" value={cfgValue(config.stop_buffer_pct)} />
           <ConfigRow label="HTF Lookback" value={cfgValue(config.htf_lookback)} />
