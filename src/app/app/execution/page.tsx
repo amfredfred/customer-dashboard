@@ -17,7 +17,7 @@ import { Layers, Radio, Settings2, ShieldOff, Activity as ActivityIcon, FileText
 type Tone = "normal" | "good" | "warn" | "danger";
 type TabId =
   | "overview" | "configuration" | "positions" | "signals" | "metrics" | "performance"
-  | "guards" | "rejections" | "activity" | "events" | "logs";
+  | "guards" | "pressure" | "rejections" | "activity" | "events" | "logs";
 
 /** Execution events accumulated from the execution engine's live event stream. */
 interface EventEntry {
@@ -65,6 +65,14 @@ interface RGuard {
   unit: string;
 }
 
+interface PressureItem {
+  id: string;
+  name: string;
+  description?: string;
+  pressure_pct: number;
+  detail?: string;
+}
+
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "overview",      label: "Overview"          },
   { id: "configuration", label: "Configuration"      },
@@ -73,6 +81,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "positions",     label: "Positions"          },
   { id: "signals",       label: "Recent Signals"     },
   { id: "guards",        label: "Risk Guards"        },
+  { id: "pressure",      label: "Pressure"           },
   { id: "rejections",    label: "Rejections"         },
   { id: "activity",      label: "Activity"           },
   { id: "events",        label: "Recent Events"      },
@@ -1274,6 +1283,50 @@ function GuardsTab({ guards }: { guards: RGuard[] }) {
   );
 }
 
+/* ── Pressure tab ───────────────────────────────────────────────────────── */
+/**
+ * Sizing-only influences (equity throttle, balance tier cap) that never pause
+ * the engine or reject a trade — distinct from Guards, which can. pressure_pct
+ * is 0% at full/normal sizing, 100% at maximum reduction; there's no breach
+ * state, so no status badge, no "Triggered" flag, and the meter stays neutral
+ * (never red/amber) regardless of value.
+ */
+function PressureTab({ items }: { items: PressureItem[] }) {
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={ShieldOff}
+        title="No pressure data"
+        description="Sizing-pressure data is not present in the current snapshot."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map(item => (
+        <div key={item.id} className="panel overflow-hidden" style={{ borderLeft: "3px solid rgba(255,255,255,.22)" }}>
+          <div className="px-4 pt-4 pb-0">
+            <span className="text-sm font-semibold">{item.name}</span>
+            {item.description && (
+              <p className="text-xs muted mt-1 leading-5">{item.description}</p>
+            )}
+          </div>
+
+          <div className="px-4 pt-3">
+            <MeterBar value={item.pressure_pct} />
+          </div>
+
+          <div className="px-4 pt-2.5 pb-4 flex items-center gap-5 text-xs flex-wrap">
+            {item.detail && <span className="muted">{item.detail}</span>}
+            <span className="mono ml-auto">{item.pressure_pct.toFixed(0)}% pressure</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ── Event tabs (shared EventFeed) ──────────────────────────────────────── */
 function eventTone(type: string): FeedTone {
   if (type === "parity.warning" || type === "signal.filtered" || type === "position.partial_tp") return "warning";
@@ -1514,6 +1567,7 @@ export default function Execution() {
     metrics: rawMetrics,
     trades: rawTrades,
     riskGuards: rawGuards,
+    pressure: rawPressure,
     events,
     logs,
     lastMetricsAt,
@@ -1531,6 +1585,7 @@ export default function Execution() {
 
   const positions = rawTrades.map(normalizePos);
   const guards    = rawGuards as unknown as RGuard[];
+  const pressureItems = rawPressure as unknown as PressureItem[];
 
   const signals    = events
     .filter(e => SIGNAL_TAB_EVENT_TYPES.has(e.event_type))
@@ -1580,6 +1635,7 @@ export default function Execution() {
       {activeTab === "positions"     && <PositionsTab   positions={positions} />}
       {activeTab === "signals"       && <SignalsTab     signals={signals} />}
       {activeTab === "guards"        && <GuardsTab      guards={guards} />}
+      {activeTab === "pressure"      && <PressureTab    items={pressureItems} />}
       {activeTab === "rejections"    && <RejectionsTab  items={rejections} />}
       {activeTab === "activity"      && <ActivityTab    items={activity} />}
       {activeTab === "events"        && <EventsTab      items={eventLog} />}

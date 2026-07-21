@@ -25,6 +25,7 @@ type ExecutionValue = {
   config: Record<string, unknown> | null;
   trades: Record<string, unknown>[];
   riskGuards: Record<string, unknown>[];
+  pressure: Record<string, unknown>[];
   clusterRisk: Record<string, unknown> | null;
   metrics: Record<string, unknown> | null;
   events: ExecutionEventEntry[];
@@ -45,6 +46,7 @@ const ExecutionEngineContext = createContext<ExecutionValue>({
   config: null,
   trades: [],
   riskGuards: [],
+  pressure: [],
   clusterRisk: null,
   metrics: null,
   events: [],
@@ -104,6 +106,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
   const [trades, setTrades] = useState<Record<string, unknown>[]>([]);
   const [riskGuards, setRiskGuards] = useState<Record<string, unknown>[]>([]);
+  const [pressure, setPressure] = useState<Record<string, unknown>[]>([]);
   const [clusterRisk, setClusterRisk] = useState<Record<string, unknown> | null>(null);
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
   const [events, setEvents] = useState<ExecutionEventEntry[]>([]);
@@ -168,6 +171,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
             setConfig((payload.config as Record<string, unknown>) ?? null);
             setTrades(Array.isArray(payload.trades) ? (payload.trades as Record<string, unknown>[]) : []);
             setRiskGuards(Array.isArray(payload.riskGuards) ? (payload.riskGuards as Record<string, unknown>[]) : []);
+            setPressure(Array.isArray(payload.pressure) ? (payload.pressure as Record<string, unknown>[]) : []);
             setClusterRisk((payload.clusterRisk as Record<string, unknown>) ?? null);
             setMetrics((payload.metrics as Record<string, unknown>) ?? null);
             setLogs(Array.isArray(payload.logs) ? (payload.logs as LogLine[]) : []);
@@ -184,6 +188,12 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
             if ("connected" in payload) setConnectedMt5(Boolean(payload.connected));
             if ("autotrading_enabled" in payload) setAutotradingEnabled(parseTristate(payload.autotrading_enabled));
             if ("signal_engine_connected" in payload) setSignalEngineConnected(Boolean(payload.signal_engine_connected));
+            if (Array.isArray(payload.riskGuards)) setRiskGuards(payload.riskGuards as Record<string, unknown>[]);
+            if (Array.isArray(payload.pressure)) setPressure(payload.pressure as Record<string, unknown>[]);
+            // trades used to only ever arrive once (STATE_SNAPSHOT on
+            // connect) - pnl/current_price looked frozen forever after that
+            // because nothing refreshed an already-open position's numbers.
+            if (Array.isArray(payload.trades)) setTrades(payload.trades as Record<string, unknown>[]);
             markFresh();
             return;
           }
@@ -281,6 +291,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
         config,
         trades,
         riskGuards,
+        pressure,
         clusterRisk,
         metrics,
         events,
