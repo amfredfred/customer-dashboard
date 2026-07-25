@@ -262,6 +262,12 @@ function FunnelView({ steps }: { steps: FunnelStep[] }) {
 }
 
 /* ── Market status banner (always visible, above tabs) ─────────────────── */
+interface SymbolMarketStatus {
+  is_open: boolean;
+  exempt: boolean;
+  asset_class: string;
+}
+
 interface MarketStatus {
   is_open: boolean;
   session: string;
@@ -269,13 +275,31 @@ interface MarketStatus {
   opens_at_ms: number | null;
   trading_enabled: boolean;
   trading_disabled_reason: string | null;
+  // Added alongside weekend_sleep_exempt_classes (see signal-engine's
+  // domain/assets/profiles.py) — is_open/session above describe the raw
+  // weekend window only; a symbol whose asset class is exempt (e.g.
+  // Deriv's 24/7 synthetic indices) keeps trading through it. Optional so
+  // older engine builds without this field still render sanely.
+  all_symbols_open?: boolean;
+  symbols?: Record<string, SymbolMarketStatus>;
 }
 
 function MarketStatusBanner({ market }: { market: MarketStatus | null }) {
   if (!market) return null;
+
+  const symbols = market.symbols ?? {};
+  const symbolList = Object.entries(symbols);
+  const allSymbolsOpen = market.all_symbols_open ?? market.is_open;
+  const exemptSymbols = symbolList.filter(([, s]) => s.exempt);
+  // Only worth calling out when the raw window is closed but exemptions
+  // keep some (or all) symbols trading anyway — otherwise it's just noise.
+  const hasExemptOverride = !market.is_open && exemptSymbols.length > 0;
+
   const openBadge = market.is_open
     ? <StatusBadge kind="market_open" label="Market Open" />
-    : <StatusBadge kind="weekend" label="Weekend / Closed" />;
+    : allSymbolsOpen
+      ? <StatusBadge kind="active" label="Weekend — 24/7 Symbols Active" />
+      : <StatusBadge kind="weekend" label="Weekend / Closed" />;
   const tradingBadge = market.trading_enabled
     ? <StatusBadge kind="active" label="Trading Enabled" />
     : <StatusBadge kind="paused" label="Trading Disabled" />;
@@ -296,11 +320,21 @@ function MarketStatusBanner({ market }: { market: MarketStatus | null }) {
           <span className="text-xs muted capitalize">{market.trading_disabled_reason.replace(/_/g, " ")}</span>
         </div>
       )}
-      {!market.is_open && market.seconds_until_open !== null && (
+      {!allSymbolsOpen && market.seconds_until_open !== null && (
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-wide muted mb-1">Reopens In</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide muted mb-1">
+            {symbolList.length && symbolList.length !== exemptSymbols.length ? "Non-Exempt Reopens In" : "Reopens In"}
+          </div>
           <span className="text-xs mono font-semibold" style={{ color: "var(--warning)" }}>
             {fmtDuration(market.seconds_until_open)}
+          </span>
+        </div>
+      )}
+      {hasExemptOverride && (
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-wide muted mb-1">Weekend-Exempt</div>
+          <span className="text-xs muted">
+            {exemptSymbols.length}/{symbolList.length} symbols ({Array.from(new Set(exemptSymbols.map(([, s]) => s.asset_class))).join(", ")})
           </span>
         </div>
       )}
