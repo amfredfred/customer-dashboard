@@ -13,6 +13,10 @@ export type FeedEvent = {
   time: number | string;
   summary: string;
   tone?: FeedTone;
+  /** Optional small leading chip before the type, e.g. a broker/source name
+   *  when one feed aggregates multiple sources. Purely additive — omit for
+   *  the previous single-source look. */
+  tag?: string;
   /** Raw payload shown in an expandable JSON drawer */
   details?: unknown;
 };
@@ -53,7 +57,11 @@ export function EventFeed({
 
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? events.filter(e => e.type.toLowerCase().includes(q) || e.summary.toLowerCase().includes(q))
+    ? events.filter(e =>
+        e.type.toLowerCase().includes(q) ||
+        e.summary.toLowerCase().includes(q) ||
+        (e.tag?.toLowerCase().includes(q) ?? false),
+      )
     : events;
 
   return (
@@ -66,7 +74,7 @@ export function EventFeed({
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Filter by type or summary…"
+              placeholder="Filter by type, summary, or broker…"
             />
           </label>
         </div>
@@ -89,6 +97,12 @@ export function EventFeed({
                 onClick={expandable ? () => setOpen(expanded ? null : e.id) : undefined}
               >
                 <span className="feed-time mono">{formatTime(e.time)}</span>
+                {e.tag && (
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                        style={{ background: "rgba(255,255,255,.06)", color: "var(--text-soft)" }}>
+                    {e.tag}
+                  </span>
+                )}
                 <span className={`feed-type${toneCls}`}>{e.type}</span>
                 <span className="feed-summary">{e.summary}</span>
                 {expandable && (

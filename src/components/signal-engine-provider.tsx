@@ -10,12 +10,31 @@ export type SignalEventEntry = {
   ts: string;
   summary: string;
   data: Record<string, unknown>;
+  /** Which broker's terminal emitted this — the hub stamps this authoritatively
+   *  on every forwarded event, so it's always present once behind a hub. */
+  broker: string;
+};
+
+/** One entry per connected broker terminal, from the hub's aggregated
+ *  metrics.snapshot ({byBroker: {...}}) — see src/hub/state.py's
+ *  HubState.snapshot() on the signal-engine side. `lastMetrics` is that
+ *  broker's own engine snapshot (scheduler/active_signals/api/config/system/
+ *  etc.) — the same shape a single direct connection used to send at the
+ *  top level before the hub existed. */
+export type BrokerSnapshot = {
+  live: boolean;
+  connectedAt: number;
+  lastSeen: number;
+  signalsReceived: number;
+  lastMetrics: Record<string, unknown> | null;
 };
 
 type SignalValue = {
   status: SignalConnectionStatus;
   error: string | null;
-  metrics: Record<string, unknown> | null;
+  byBroker: Record<string, BrokerSnapshot>;
+  /** Sorted broker names currently known (live or last-seen-offline) — convenience over Object.keys(byBroker). */
+  brokers: string[];
   recentEvents: SignalEventEntry[];
   supportedSymbols: string[];
   lastMetricsAt: number | null;
@@ -26,7 +45,8 @@ type SignalValue = {
 const SignalEngineContext = createContext<SignalValue>({
   status: "disconnected",
   error: null,
-  metrics: null,
+  byBroker: {},
+  brokers: [],
   recentEvents: [],
   supportedSymbols: [],
   lastMetricsAt: null,
@@ -50,7 +70,7 @@ function summarize(event: string, payload: Record<string, unknown>): string {
 export function SignalEngineProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<SignalConnectionStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
-  const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
+  const [byBroker, setByBroker] = useState<Record<string, BrokerSnapshot>>({});
   const [recentEvents, setRecentEvents] = useState<SignalEventEntry[]>([]);
   const [supportedSymbols, setSupportedSymbols] = useState<string[]>([]);
   const [lastMetricsAt, setLastMetricsAt] = useState<number | null>(null);
@@ -104,7 +124,8 @@ export function SignalEngineProvider({ children }: { children: React.ReactNode }
           }
 
           if (event === "metrics.snapshot") {
-            setMetrics(payload);
+            const raw = (payload.byBroker ?? {}) as Record<string, BrokerSnapshot>;
+            setByBroker(raw);
             lastMetricsAtRef.current = Date.now();
             setLastMetricsAt(lastMetricsAtRef.current);
             setIsStale(false);
@@ -127,6 +148,10 @@ export function SignalEngineProvider({ children }: { children: React.ReactNode }
             ts: new Date().toISOString(),
             summary: summarize(event, payload),
             data: payload,
+            // The hub stamps payload.broker authoritatively (from the
+            // terminal connection's own hello, not just whatever the
+            // payload happened to carry) — see public_server.py.
+            broker: typeof payload.broker === "string" ? payload.broker : "unknown",
           };
           setRecentEvents(prev => {
             if (prev.some(e => e.id === id)) return prev;
@@ -159,9 +184,11 @@ export function SignalEngineProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
+  const brokers = Object.keys(byBroker).sort();
+
   return (
     <SignalEngineContext.Provider
-      value={{ status, error, metrics, recentEvents, supportedSymbols, lastMetricsAt, isStale }}
+      value={{ status, error, byBroker, brokers, recentEvents, supportedSymbols, lastMetricsAt, isStale }}
     >
       {children}
     </SignalEngineContext.Provider>

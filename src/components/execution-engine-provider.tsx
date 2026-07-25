@@ -14,9 +14,12 @@ export type ExecutionEventEntry = {
 
 export type LogLine = { ts: number; level: string; name: string; msg: string };
 
-type ExecutionValue = {
-  status: ExecutionConnectionStatus;
-  error: string | null;
+/** One execution-engine instance's state, as relayed through the hub
+ *  (see execution-engine's src/hub) — one WebSocket connection to the hub
+ *  carries every connected broker's telemetry, each frame tagged with
+ *  `broker`, same shape/mental-model as the signal-engine hub's byBroker. */
+export type ExecutionBrokerState = {
+  live: boolean;
   connectedMt5: boolean;
   autotradingEnabled: boolean | null;
   signalEngineConnected: boolean;
@@ -31,13 +34,23 @@ type ExecutionValue = {
   events: ExecutionEventEntry[];
   logs: LogLine[];
   lastMetricsAt: number | null;
-  /** True once METRICS_UPDATE hasn't arrived for longer than STALE_MS, while still connected. */
+  /** True once this broker hasn't been heard from for longer than STALE_MS. */
   isStale: boolean;
 };
 
-const ExecutionEngineContext = createContext<ExecutionValue>({
-  status: "disconnected",
-  error: null,
+type ExecutionValue = {
+  /** Connection status of the single hub connection, not any one broker. */
+  status: ExecutionConnectionStatus;
+  error: string | null;
+  byBroker: Record<string, ExecutionBrokerState>;
+  brokers: string[];
+  /** Routes a command (close_trade/pause/resume) to a specific broker's
+   *  instance via the hub — no-op if the hub connection is down. */
+  sendCommand: (broker: string, type: string, payload?: Record<string, unknown>) => void;
+};
+
+const DEFAULT_BROKER_STATE: ExecutionBrokerState = {
+  live: true,
   connectedMt5: false,
   autotradingEnabled: null,
   signalEngineConnected: false,
@@ -53,6 +66,14 @@ const ExecutionEngineContext = createContext<ExecutionValue>({
   logs: [],
   lastMetricsAt: null,
   isStale: false,
+};
+
+const ExecutionEngineContext = createContext<ExecutionValue>({
+  status: "disconnected",
+  error: null,
+  byBroker: {},
+  brokers: [],
+  sendCommand: () => {},
 });
 
 const MAX_EVENTS = 500;
@@ -98,29 +119,41 @@ function sigToEvent(sig: Record<string, unknown>): ExecutionEventEntry {
 export function ExecutionEngineProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<ExecutionConnectionStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
-  const [connectedMt5, setConnectedMt5] = useState(false);
-  const [autotradingEnabled, setAutotradingEnabled] = useState<boolean | null>(null);
-  const [signalEngineConnected, setSignalEngineConnected] = useState(false);
-  const [engine, setEngine] = useState<Record<string, unknown> | null>(null);
-  const [system, setSystem] = useState<Record<string, unknown> | null>(null);
-  const [config, setConfig] = useState<Record<string, unknown> | null>(null);
-  const [trades, setTrades] = useState<Record<string, unknown>[]>([]);
-  const [riskGuards, setRiskGuards] = useState<Record<string, unknown>[]>([]);
-  const [pressure, setPressure] = useState<Record<string, unknown>[]>([]);
-  const [clusterRisk, setClusterRisk] = useState<Record<string, unknown> | null>(null);
-  const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
-  const [events, setEvents] = useState<ExecutionEventEntry[]>([]);
-  const [logs, setLogs] = useState<LogLine[]>([]);
-  const [lastMetricsAt, setLastMetricsAt] = useState<number | null>(null);
-  const [isStale, setIsStale] = useState(false);
-  const lastMetricsAtRef = useRef<number | null>(null);
+  const [byBroker, setByBroker] = useState<Record<string, ExecutionBrokerState>>({});
+  const socketRef = useRef<WebSocket | null>(null);
+  const lastMetricsAtRefs = useRef<Record<string, number | null>>({});
+
+  const patch = (broker: string, p: Partial<ExecutionBrokerState>) => {
+    setByBroker(prev => ({
+      ...prev,
+      [broker]: { ...(prev[broker] ?? DEFAULT_BROKER_STATE), ...p },
+    }));
+  };
+  const pushEvent = (broker: string, entry: ExecutionEventEntry) => {
+    setByBroker(prev => {
+      const cur = prev[broker] ?? DEFAULT_BROKER_STATE;
+      if (cur.events.some(e => e.id === entry.id)) return prev;
+      return { ...prev, [broker]: { ...cur, events: [entry, ...cur.events].slice(0, MAX_EVENTS) } };
+    });
+  };
 
   /* Staleness is time-based, not just message-based - re-check on an interval
      so the warning appears even if no new message ever arrives again. */
   useEffect(() => {
     const timer = setInterval(() => {
-      const last = lastMetricsAtRef.current;
-      setIsStale(last !== null && Date.now() - last > STALE_MS);
+      setByBroker(prev => {
+        let changed = false;
+        const next = { ...prev };
+        for (const broker of Object.keys(next)) {
+          const last = lastMetricsAtRefs.current[broker];
+          const stale = last !== null && Date.now() - (last ?? 0) > STALE_MS;
+          if (next[broker].isStale !== stale) {
+            next[broker] = { ...next[broker], isStale: stale };
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
     }, STALE_CHECK_INTERVAL_MS);
     return () => clearInterval(timer);
   }, []);
@@ -132,17 +165,10 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
 
     const url = process.env.NEXT_PUBLIC_EXECUTION_ENGINE_WS_URL ?? "ws://localhost:8080";
 
-    function markFresh() {
-      lastMetricsAtRef.current = Date.now();
-      setLastMetricsAt(lastMetricsAtRef.current);
-      setIsStale(false);
-    }
-
-    function pushEvent(entry: ExecutionEventEntry) {
-      setEvents(prev => {
-        if (prev.some(e => e.id === entry.id)) return prev;
-        return [entry, ...prev].slice(0, MAX_EVENTS);
-      });
+    function markFresh(broker: string) {
+      const now = Date.now();
+      lastMetricsAtRefs.current[broker] = now;
+      patch(broker, { lastMetricsAt: now, isStale: false, live: true });
     }
 
     function connect() {
@@ -150,6 +176,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
       setStatus("connecting");
       setError(null);
       socket = new WebSocket(url);
+      socketRef.current = socket;
 
       socket.onopen = () => setStatus("connected");
 
@@ -158,50 +185,57 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
           const message = JSON.parse(String(ev.data)) as {
             type?: string;
             payload?: unknown;
+            broker?: string;
           };
           const type = message.type ?? "";
           const payload = (message.payload ?? {}) as Record<string, unknown>;
+          const broker = message.broker ?? "";
+          if (!broker) return;  // hub always stamps this; ignore anything that somehow doesn't have it
 
           if (type === "STATE_SNAPSHOT") {
-            setConnectedMt5(Boolean(payload.connected));
-            setAutotradingEnabled(parseTristate(payload.autotrading_enabled));
-            setSignalEngineConnected(Boolean(payload.signal_engine_connected));
-            setEngine((payload.engine as Record<string, unknown>) ?? null);
-            setSystem((payload.system as Record<string, unknown>) ?? null);
-            setConfig((payload.config as Record<string, unknown>) ?? null);
-            setTrades(Array.isArray(payload.trades) ? (payload.trades as Record<string, unknown>[]) : []);
-            setRiskGuards(Array.isArray(payload.riskGuards) ? (payload.riskGuards as Record<string, unknown>[]) : []);
-            setPressure(Array.isArray(payload.pressure) ? (payload.pressure as Record<string, unknown>[]) : []);
-            setClusterRisk((payload.clusterRisk as Record<string, unknown>) ?? null);
-            setMetrics((payload.metrics as Record<string, unknown>) ?? null);
-            setLogs(Array.isArray(payload.logs) ? (payload.logs as LogLine[]) : []);
             const initialSignals = Array.isArray(payload.signals)
               ? (payload.signals as Record<string, unknown>[])
               : [];
-            setEvents(initialSignals.map(sigToEvent).slice(0, MAX_EVENTS));
-            markFresh();
+            patch(broker, {
+              connectedMt5: Boolean(payload.connected),
+              autotradingEnabled: parseTristate(payload.autotrading_enabled),
+              signalEngineConnected: Boolean(payload.signal_engine_connected),
+              engine: (payload.engine as Record<string, unknown>) ?? null,
+              system: (payload.system as Record<string, unknown>) ?? null,
+              config: (payload.config as Record<string, unknown>) ?? null,
+              trades: Array.isArray(payload.trades) ? (payload.trades as Record<string, unknown>[]) : [],
+              riskGuards: Array.isArray(payload.riskGuards) ? (payload.riskGuards as Record<string, unknown>[]) : [],
+              pressure: Array.isArray(payload.pressure) ? (payload.pressure as Record<string, unknown>[]) : [],
+              clusterRisk: (payload.clusterRisk as Record<string, unknown>) ?? null,
+              metrics: (payload.metrics as Record<string, unknown>) ?? null,
+              logs: Array.isArray(payload.logs) ? (payload.logs as LogLine[]) : [],
+              events: initialSignals.map(sigToEvent).slice(0, MAX_EVENTS),
+            });
+            markFresh(broker);
             return;
           }
 
           if (type === "METRICS_UPDATE") {
-            setMetrics(payload);
-            if ("connected" in payload) setConnectedMt5(Boolean(payload.connected));
-            if ("autotrading_enabled" in payload) setAutotradingEnabled(parseTristate(payload.autotrading_enabled));
-            if ("signal_engine_connected" in payload) setSignalEngineConnected(Boolean(payload.signal_engine_connected));
-            if (Array.isArray(payload.riskGuards)) setRiskGuards(payload.riskGuards as Record<string, unknown>[]);
-            if (Array.isArray(payload.pressure)) setPressure(payload.pressure as Record<string, unknown>[]);
-            // trades used to only ever arrive once (STATE_SNAPSHOT on
-            // connect) - pnl/current_price looked frozen forever after that
-            // because nothing refreshed an already-open position's numbers.
-            if (Array.isArray(payload.trades)) setTrades(payload.trades as Record<string, unknown>[]);
-            markFresh();
+            const p: Partial<ExecutionBrokerState> = { metrics: payload };
+            if ("connected" in payload) p.connectedMt5 = Boolean(payload.connected);
+            if ("autotrading_enabled" in payload) p.autotradingEnabled = parseTristate(payload.autotrading_enabled);
+            if ("signal_engine_connected" in payload) p.signalEngineConnected = Boolean(payload.signal_engine_connected);
+            if (Array.isArray(payload.riskGuards)) p.riskGuards = payload.riskGuards as Record<string, unknown>[];
+            if (Array.isArray(payload.pressure)) p.pressure = payload.pressure as Record<string, unknown>[];
+            if (Array.isArray(payload.trades)) p.trades = payload.trades as Record<string, unknown>[];
+            patch(broker, p);
+            markFresh(broker);
             return;
           }
 
           if (type === "trade.opened") {
             const id = payload.id;
-            setTrades(prev => (id ? [payload, ...prev.filter(t => t.id !== id)] : [payload, ...prev]));
-            pushEvent({
+            setByBroker(prev => {
+              const cur = prev[broker] ?? DEFAULT_BROKER_STATE;
+              const trades = id ? [payload, ...cur.trades.filter(t => t.id !== id)] : [payload, ...cur.trades];
+              return { ...prev, [broker]: { ...cur, trades } };
+            });
+            pushEvent(broker, {
               id: `trade.opened:${id ?? Date.now()}`,
               event_type: "trade.opened",
               ts: new Date().toISOString(),
@@ -213,8 +247,11 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
 
           if (type === "trade.tp2_hit" || type === "trade.sl_hit" || type === "trade.closed") {
             const tradeId = payload.trade_id;
-            setTrades(prev => prev.filter(t => t.id !== tradeId));
-            pushEvent({
+            setByBroker(prev => {
+              const cur = prev[broker] ?? DEFAULT_BROKER_STATE;
+              return { ...prev, [broker]: { ...cur, trades: cur.trades.filter(t => t.id !== tradeId) } };
+            });
+            pushEvent(broker, {
               id: `${type}:${tradeId ?? Date.now()}`,
               event_type: type,
               ts: new Date().toISOString(),
@@ -226,7 +263,7 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
 
           if (type === "trade.tp1_hit") {
             const tradeId = payload.trade_id;
-            pushEvent({
+            pushEvent(broker, {
               id: `trade.tp1_hit:${tradeId ?? Date.now()}`,
               event_type: type,
               ts: new Date().toISOString(),
@@ -244,26 +281,36 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
             type === "risk.rejected" ||
             type === "trade.error"
           ) {
-            pushEvent(sigToEvent(payload));
+            pushEvent(broker, sigToEvent(payload));
             return;
           }
 
           if (type === "engine.paused" || type === "engine.resumed") {
-            setEngine(prev => ({
-              ...(prev ?? {}),
-              is_paused: type === "engine.paused",
-              status: type === "engine.paused" ? "PAUSED" : "RUNNING",
-            }));
+            setByBroker(prev => {
+              const cur = prev[broker] ?? DEFAULT_BROKER_STATE;
+              return {
+                ...prev,
+                [broker]: {
+                  ...cur,
+                  engine: {
+                    ...(cur.engine ?? {}),
+                    is_paused: type === "engine.paused",
+                    status: type === "engine.paused" ? "PAUSED" : "RUNNING",
+                  },
+                },
+              };
+            });
             return;
           }
         } catch {
-          setError("Execution engine returned an invalid message");
+          setError("Execution hub returned an invalid message");
         }
       };
 
-      socket.onerror = () => setError("Cannot reach execution engine");
+      socket.onerror = () => setError("Cannot reach the execution hub");
       socket.onclose = () => {
         socket = null;
+        socketRef.current = null;
         if (stopped) return;
         setStatus("disconnected");
         reconnectTimer = setTimeout(connect, 3000);
@@ -278,28 +325,14 @@ export function ExecutionEngineProvider({ children }: { children: React.ReactNod
     };
   }, []);
 
+  const sendCommand = (broker: string, type: string, cmdPayload: Record<string, unknown> = {}) => {
+    socketRef.current?.send(JSON.stringify({ type, payload: cmdPayload, broker }));
+  };
+
+  const brokers = Object.keys(byBroker).sort();
+
   return (
-    <ExecutionEngineContext.Provider
-      value={{
-        status,
-        error,
-        connectedMt5,
-        autotradingEnabled,
-        signalEngineConnected,
-        engine,
-        system,
-        config,
-        trades,
-        riskGuards,
-        pressure,
-        clusterRisk,
-        metrics,
-        events,
-        logs,
-        lastMetricsAt,
-        isStale,
-      }}
-    >
+    <ExecutionEngineContext.Provider value={{ status, error, byBroker, brokers, sendCommand }}>
       {children}
     </ExecutionEngineContext.Provider>
   );

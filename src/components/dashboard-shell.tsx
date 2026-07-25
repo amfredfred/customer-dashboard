@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSignalEngine } from "./signal-engine-provider";
-import { useExecutionEngine } from "./execution-engine-provider";
+import { useExecutionEngine, type ExecutionBrokerState } from "./execution-engine-provider";
 
 const NAV_GROUPS = [
   {
@@ -30,6 +30,28 @@ function readTradingEnv(metrics: Record<string, unknown> | null): string | null 
   const trading = config?.trading as Record<string, unknown> | undefined;
   const env = trading?.env;
   return typeof env === "string" && env ? env : null;
+}
+
+/** Sidebar/topbar show one representative engine snapshot (version, env
+ *  badge) rather than per-broker detail — prefer the first live broker,
+ *  falling back to the first known one so something still shows while
+ *  every broker is briefly reconnecting. */
+function primaryBrokerSnapshot(
+  byBroker: Record<string, { live: boolean; lastMetrics: Record<string, unknown> | null }>,
+): Record<string, unknown> | null {
+  const brokers = Object.keys(byBroker).sort();
+  const primary = brokers.find(b => byBroker[b]?.live) ?? brokers[0];
+  return primary ? byBroker[primary]?.lastMetrics ?? null : null;
+}
+
+/** Same idea as primaryBrokerSnapshot but for execution-engine's richer
+ *  per-broker state (multiple independent instances, one per broker). */
+function primaryExecBrokerState(
+  byBroker: Record<string, ExecutionBrokerState>,
+): ExecutionBrokerState | null {
+  const brokers = Object.keys(byBroker).sort();
+  const primary = brokers.find(b => byBroker[b]?.live) ?? brokers[0];
+  return primary ? byBroker[primary] ?? null : null;
 }
 
 function SidebarContent({
@@ -82,11 +104,13 @@ function SidebarContent({
 }
 
 function SidebarFooter({ collapsed }: { collapsed: boolean }) {
-  const { metrics: signalSnap } = useSignalEngine();
-  const { engine } = useExecutionEngine();
+  const { byBroker } = useSignalEngine();
+  const { byBroker: execByBroker } = useExecutionEngine();
+  const signalSnap = primaryBrokerSnapshot(byBroker);
+  const execSnap = primaryExecBrokerState(execByBroker);
 
   const signalVersion = String(signalSnap?.version ?? "-");
-  const execVersion = String(engine?.version ?? "-");
+  const execVersion = String(execSnap?.engine?.version ?? "-");
 
   return (
     <div className="p-3 border-t border-white/[.07] shrink-0">
@@ -147,6 +171,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const signalEngine = useSignalEngine();
   const executionEngine = useExecutionEngine();
+  const execBrokers = executionEngine.brokers;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -163,7 +188,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const env = readTradingEnv(signalEngine.metrics);
+  const env = readTradingEnv(primaryBrokerSnapshot(signalEngine.byBroker));
   const pageTitle = PAGE_TITLES[path] ?? "Apex Quantel";
 
   return (
@@ -237,30 +262,43 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {/* Global state bar */}
         <div className="statusbar">
           <StatusChip
-            label="Signal Engine"
+            label="Signal Hub"
             value={
-              signalEngine.status === "connected" ? "online"
+              signalEngine.status === "connected"
+                ? signalEngine.brokers.length > 0
+                  ? `${signalEngine.brokers.filter(b => signalEngine.byBroker[b]?.live).length}/${signalEngine.brokers.length} live`
+                  : "online"
               : signalEngine.status === "connecting" ? "connecting"
               : signalEngine.status === "error" ? "error"
               : "offline"
             }
             tone={
-              signalEngine.status === "connected" ? "success"
+              signalEngine.status === "connected"
+                ? signalEngine.brokers.length > 0 &&
+                  signalEngine.brokers.some(b => !signalEngine.byBroker[b]?.live)
+                  ? "warning"
+                  : "success"
               : signalEngine.status === "connecting" ? "warning"
               : signalEngine.status === "error" ? "danger"
               : "neutral"
             }
           />
           <StatusChip
-            label="Execution Engine"
+            label="Execution Hub"
             value={
-              executionEngine.status === "connected" ? "online"
+              executionEngine.status === "connected"
+                ? execBrokers.length > 0
+                  ? `${execBrokers.filter(b => executionEngine.byBroker[b]?.live).length}/${execBrokers.length} live`
+                  : "online"
               : executionEngine.status === "connecting" ? "connecting"
               : executionEngine.status === "error" ? "error"
               : "offline"
             }
             tone={
-              executionEngine.status === "connected" ? "success"
+              executionEngine.status === "connected"
+                ? execBrokers.length > 0 && execBrokers.some(b => !executionEngine.byBroker[b]?.live)
+                  ? "warning"
+                  : "success"
               : executionEngine.status === "connecting" ? "warning"
               : executionEngine.status === "error" ? "danger"
               : "neutral"

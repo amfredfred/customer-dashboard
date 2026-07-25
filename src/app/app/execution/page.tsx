@@ -1,7 +1,7 @@
 "use client";
 
 import { PageHeader, SectionHead } from "@/components/metric-detail";
-import { useExecutionEngine } from "@/components/execution-engine-provider";
+import { useExecutionEngine, type ExecutionBrokerState } from "@/components/execution-engine-provider";
 import { useState, type ReactNode } from "react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Tabs } from "@/components/ui/tabs";
@@ -1491,6 +1491,49 @@ function LogsTab({ lines }: { lines: LogLine[] }) {
 }
 
 /* ── loading shell ──────────────────────────────────────────────────────── */
+/* ── Broker status strip (always visible — one card per execution-engine instance) ── */
+function BrokerStatusStrip({ byBroker, brokers, selected, onSelect }: {
+  byBroker: Record<string, ExecutionBrokerState>;
+  brokers:  string[];
+  selected: string;
+  onSelect: (broker: string) => void;
+}) {
+  if (brokers.length <= 1) return null;  // nothing to switch between in single-instance mode
+  return (
+    <div className="flex flex-wrap gap-2.5">
+      {brokers.map(broker => {
+        const b = byBroker[broker];
+        const live = b?.live ?? false;
+        const isSelected = broker === selected;
+        return (
+          <button
+            key={broker}
+            type="button"
+            onClick={() => onSelect(broker)}
+            className="panel p-3 text-left"
+            style={{
+              minWidth: 168,
+              cursor: "pointer",
+              boxShadow: isSelected ? "inset 0 0 0 1px rgba(255,255,255,.35)" : undefined,
+            }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold font-mono uppercase">{broker}</span>
+              <StatusBadge kind={live ? "live" : "offline"} label={live ? "live" : "offline"} />
+            </div>
+            <div className="text-[11px] muted mt-1.5">
+              {b?.connectedMt5 ? "MT5 connected" : "MT5 not connected"}
+            </div>
+            <div className="text-[10px] muted mt-0.5">
+              {b?.trades.length ?? 0} open position{b?.trades.length === 1 ? "" : "s"}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ExecutionLoadingShell({
   connStatus,
   error,
@@ -1555,9 +1598,16 @@ const SIGNAL_TAB_EVENT_TYPES = new Set([
 ]);
 
 export default function Execution() {
+  // status/error reflect the single hub connection; everything else is
+  // per-broker, relayed through it (see execution-engine's src/hub).
+  const { status: connStatus, error, byBroker, brokers } = useExecutionEngine();
+
+  const [selectedBroker, setSelectedBroker] = useState<string>("");
+  const effectiveBroker = brokers.includes(selectedBroker)
+    ? selectedBroker
+    : brokers.find(b => byBroker[b]?.live) ?? brokers[0] ?? "";
+
   const {
-    status: connStatus,
-    error,
     connectedMt5,
     autotradingEnabled,
     signalEngineConnected,
@@ -1572,7 +1622,11 @@ export default function Execution() {
     logs,
     lastMetricsAt,
     isStale,
-  } = useExecutionEngine();
+  } = byBroker[effectiveBroker] ?? {
+    connectedMt5: false, autotradingEnabled: null,
+    signalEngineConnected: false, engine: null, system: null, config: null, metrics: null,
+    trades: [], riskGuards: [], pressure: [], events: [], logs: [], lastMetricsAt: null, isStale: false,
+  };
 
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
@@ -1601,6 +1655,15 @@ export default function Execution() {
         title="My Execution"
         description="Live account, risk, trade, and broker execution telemetry from the execution engine."
       />
+
+      {brokers.length > 1 && (
+        <BrokerStatusStrip
+          byBroker={byBroker}
+          brokers={brokers}
+          selected={effectiveBroker}
+          onSelect={setSelectedBroker}
+        />
+      )}
 
       {!hasSnapshot && (
         <ExecutionLoadingShell connStatus={connStatus} error={error} />

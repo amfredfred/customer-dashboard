@@ -1,7 +1,7 @@
 "use client";
 
 import { PageHeader, SectionHead } from "@/components/metric-detail";
-import { useSignalEngine } from "@/components/signal-engine-provider";
+import { useSignalEngine, type BrokerSnapshot } from "@/components/signal-engine-provider";
 import { useMemo, useState } from "react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Tabs } from "@/components/ui/tabs";
@@ -25,6 +25,7 @@ interface EventEntry {
   ts:         string;
   summary:    string;
   data:       Record<string, unknown>;
+  broker:     string;
 }
 
 interface SchedulerItem {
@@ -39,7 +40,7 @@ interface NSig {
   id: string; symbol: string; timeframe: string; strategy: string;
   direction: "BUY" | "SELL"; confidence?: number;
   entry: number; stopLoss: number; takeProfit: number;
-  setup?: string; status: string; timestamp?: string;
+  setup?: string; status: string; timestamp?: string; broker: string;
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -164,6 +165,7 @@ function normalizeSigEvent(ev: EventEntry): NSig {
     setup:      d.reason ? String(d.reason) : d.pattern ? String(d.pattern) : undefined,
     status:     String(ev.event_type.split(".").pop() ?? "EMITTED").toUpperCase(),
     timestamp:  ev.ts,
+    broker:     ev.broker,
   };
 }
 
@@ -1126,6 +1128,12 @@ function ConnectedClientsTab({ clients }: { clients: ClientRow[] }) {
 /* ── Signals tab ────────────────────────────────────────────────────────── */
 const SIGNAL_EVENT_COLUMNS: ColumnDef<NSig>[] = [
   { key: "time",     label: "Time",     render: s => <span className="muted mono">{fmtTs(s.timestamp)}</span> },
+  { key: "broker",   label: "Broker",   render: s => (
+    <span className="font-mono text-[11px] px-1.5 py-0.5 rounded"
+          style={{ background: "rgba(255,255,255,.06)", color: "var(--text-soft)" }}>
+      {s.broker}
+    </span>
+  ) },
   { key: "symbol",   label: "Symbol",   render: s => <span className="font-bold text-white mono">{s.symbol}</span> },
   { key: "tf",       label: "TF",       render: s => (
     <span className="font-mono text-[11px] px-1.5 py-0.5 rounded"
@@ -1186,7 +1194,7 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
               </span>
             </div>
             <div className="text-[11px]" style={{ color: "var(--muted)" }}>
-              {s.strategy} · {s.timeframe}
+              <span className="font-mono">{s.broker}</span> · {s.strategy} · {s.timeframe}
               {s.confidence !== undefined && <> · {(s.confidence * 100).toFixed(0)}%</>}
               <span className="ml-2 font-mono">{fmtTs(s.timestamp)}</span>
             </div>
@@ -1217,6 +1225,7 @@ function toFeedEvents(items: EventEntry[]): FeedEvent[] {
     time: fmtTs(ev.ts),
     summary: ev.summary || String(ev.data.reason ?? ev.data.message ?? "-"),
     tone: sigEventTone(ev.event_type),
+    tag: ev.broker,
     details: ev.data,
   }));
 }
@@ -1492,8 +1501,57 @@ function ConfigTab({ config, version }: {
   );
 }
 
+/* ── Broker status strip (always visible — one card per connected terminal) ── */
+function BrokerStatusStrip({ byBroker, brokers, selected, onSelect }: {
+  byBroker: Record<string, BrokerSnapshot>;
+  brokers:  string[];
+  selected: string;
+  onSelect: (broker: string) => void;
+}) {
+  if (brokers.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2.5">
+      {brokers.map(broker => {
+        const b = byBroker[broker];
+        const live = b?.live ?? false;
+        const isSelected = broker === selected;
+        return (
+          <button
+            key={broker}
+            type="button"
+            onClick={() => onSelect(broker)}
+            className="panel p-3 text-left"
+            style={{
+              minWidth: 168,
+              cursor: "pointer",
+              boxShadow: isSelected ? "inset 0 0 0 1px rgba(255,255,255,.35)" : undefined,
+            }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold font-mono uppercase">{broker}</span>
+              <StatusBadge kind={live ? "live" : "offline"} label={live ? "live" : "offline"} />
+            </div>
+            <div className="text-[11px] muted mt-1.5">
+              {cnt(b?.signalsReceived)} signal{b?.signalsReceived === 1 ? "" : "s"} received
+            </div>
+            <div className="text-[10px] muted mt-0.5">
+              last seen {b ? shortTime(b.lastSeen) : "-"}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── loading shell ──────────────────────────────────────────────────────── */
-function SignalLoadingShell({ status }: { status: string }) {
+function SignalLoadingShell({ status, hasBrokerButNoSnapshot }: {
+  status: string;
+  /** True when the hub connection is up and at least one broker is known,
+   *  but that broker hasn't sent a lastMetrics payload yet — a different,
+   *  narrower wait than "not connected to the hub at all". */
+  hasBrokerButNoSnapshot?: boolean;
+}) {
   const offline    = status !== "connected" && status !== "connecting";
   const connecting = status === "connecting";
   return (
@@ -1505,17 +1563,21 @@ function SignalLoadingShell({ status }: { status: string }) {
         />
         <div className="text-sm font-medium">
           {offline
-            ? "Signal engine offline"
+            ? "Signal hub offline"
             : connecting
-            ? "Connecting to signal engine…"
-            : "Waiting for first snapshot…"}
+            ? "Connecting to signal hub…"
+            : hasBrokerButNoSnapshot
+            ? "Waiting for this broker's first snapshot…"
+            : "Waiting for a terminal to connect…"}
         </div>
         <p className="muted text-xs max-w-[280px] leading-5">
           {offline
-            ? "Start the signal engine and reload to stream signal metrics."
+            ? "Start the hub (and its terminals) and reload to stream signal metrics."
             : connecting
-            ? "Opening the WebSocket connection to the signal engine."
-            : "Connected - waiting for the first metrics snapshot from the signal engine."}
+            ? "Opening the WebSocket connection to the signal hub."
+            : hasBrokerButNoSnapshot
+            ? "Connected to the hub - this broker hasn't reported metrics yet."
+            : "Connected to the hub - waiting for a terminal to dial in."}
         </p>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1533,8 +1595,19 @@ function SignalLoadingShell({ status }: { status: string }) {
 
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function Signals() {
-  const { status, metrics: snapshot, recentEvents, lastMetricsAt, isStale } = useSignalEngine();
+  const { status, byBroker, brokers, recentEvents, lastMetricsAt, isStale } = useSignalEngine();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+
+  /* Which broker's own snapshot feeds the single-engine tabs (Overview,
+     Configuration, Metrics, Performance, Strategies, Clients) — Recent
+     Signals/Rejections/Events show all brokers at once regardless, tagged
+     per row. Defaults to the first live broker, falling back to the first
+     known broker if none are currently live. */
+  const [selectedBroker, setSelectedBroker] = useState<string>("");
+  const effectiveBroker = brokers.includes(selectedBroker)
+    ? selectedBroker
+    : brokers.find(b => byBroker[b]?.live) ?? brokers[0] ?? "";
+  const snapshot = byBroker[effectiveBroker]?.lastMetrics ?? null;
 
   /* Classify the provider's already-accumulated event stream. */
   const sigEvents = useMemo(
@@ -1567,8 +1640,21 @@ export default function Signals() {
         description="Signal engine health, strategy metrics, and symbol telemetry."
       />
 
+      {/* Always visible once connected — one card per terminal behind the
+          hub. Click a card to switch which broker's snapshot feeds the
+          tabs below (Recent Signals/Rejections/Events always show every
+          broker regardless, tagged per row). */}
+      {brokers.length > 0 && (
+        <BrokerStatusStrip
+          byBroker={byBroker}
+          brokers={brokers}
+          selected={effectiveBroker}
+          onSelect={setSelectedBroker}
+        />
+      )}
+
       {/* Loading state - shown until the first snapshot arrives */}
-      {!snapshot && <SignalLoadingShell status={status} />}
+      {!snapshot && <SignalLoadingShell status={status} hasBrokerButNoSnapshot={brokers.length > 0} />}
 
       {snapshot && <>
 
