@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function RootIndex() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/app/signals");
+    router.replace("/app");
   }, [router]);
   return null;
 }

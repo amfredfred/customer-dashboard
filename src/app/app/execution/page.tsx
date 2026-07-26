@@ -15,9 +15,7 @@ import { Layers, Radio, Settings2, ShieldOff, Activity as ActivityIcon, FileText
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone = "normal" | "good" | "warn" | "danger";
-type TabId =
-  | "overview" | "configuration" | "positions" | "signals" | "metrics" | "performance"
-  | "guards" | "pressure" | "rejections" | "activity" | "events" | "logs";
+type TabId = "overview" | "positions" | "metrics" | "configuration" | "activity";
 
 /** Execution events accumulated from the execution engine's live event stream. */
 interface EventEntry {
@@ -74,18 +72,11 @@ interface PressureItem {
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "overview",      label: "Overview"          },
-  { id: "configuration", label: "Configuration"      },
-  { id: "metrics",       label: "Runtime Metrics"    },
-  { id: "performance",   label: "Performance"        },
-  { id: "positions",     label: "Positions"          },
-  { id: "signals",       label: "Recent Signals"     },
-  { id: "guards",        label: "Risk Guards"        },
-  { id: "pressure",      label: "Pressure"           },
-  { id: "rejections",    label: "Rejections"         },
-  { id: "activity",      label: "Activity"           },
-  { id: "events",        label: "Recent Events"      },
-  { id: "logs",          label: "Logs"               },
+  { id: "overview",      label: "Overview"      },
+  { id: "positions",     label: "Positions"     },
+  { id: "metrics",       label: "Metrics"       },
+  { id: "configuration", label: "Configuration" },
+  { id: "activity",      label: "Activity"      },
 ];
 
 /* ── event classification ───────────────────────────────────────────────── */
@@ -710,8 +701,23 @@ function SignalsTab({ signals }: { signals: NSig[] }) {
   );
 }
 
+/* ── Positions tab (open positions + signals this engine has received) ──── */
+function PositionsAndSignalsTab({ positions, signals }: { positions: NPos[]; signals: NSig[] }) {
+  return (
+    <div className="space-y-5">
+      <PositionsTab positions={positions} />
+      <SignalsTab signals={signals} />
+    </div>
+  );
+}
+
 /* ── Metrics tab ────────────────────────────────────────────────────────── */
-function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
+function MetricsTab({ metrics, system, guards, pressureItems }: {
+  metrics: Record<string, unknown>;
+  system: Record<string, unknown>;
+  guards: RGuard[];
+  pressureItems: PressureItem[];
+}) {
   const n = (...keys: string[]) => pick(metrics, ...keys);
 
   const budgetUsed     = n("daily_budget_used");
@@ -925,6 +931,29 @@ function MetricsTab({ metrics }: { metrics: Record<string, unknown> }) {
         </div>
       </section>
 
+      {/* Resource usage (from the former standalone Performance tab) */}
+      <section>
+        <SectionHead label="Resource Usage" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Memory" value={isN(system.memory_mb ?? n("memory_mb")) ? `${Number(system.memory_mb ?? n("memory_mb")).toFixed(0)} MB` : "-"} />
+          <StatCard label="CPU" value={isN(system.cpu_percent ?? n("cpu_percent")) ? `${Number(system.cpu_percent ?? n("cpu_percent")).toFixed(1)}%` : "n/a"} />
+          <StatCard label="Uptime" value={fmtDuration(n("uptime_sec") ?? pick(system, "uptime_sec"))} />
+          <StatCard label="Connected Clients" value={cnt(n("connected_clients") ?? pick(system, "connected_clients"))} />
+        </div>
+      </section>
+
+      {/* Risk guards (former standalone tab) */}
+      <section>
+        <SectionHead label="Risk Guards" />
+        <GuardsTab guards={guards} />
+      </section>
+
+      {/* Sizing pressure (former standalone tab) */}
+      <section>
+        <SectionHead label="Sizing Pressure" />
+        <PressureTab items={pressureItems} />
+      </section>
+
       {/* Raw counters / gauges - only when populated */}
       {((rawCounters && Object.keys(rawCounters).length > 0) ||
         (rawGauges   && Object.keys(rawGauges).length   > 0)) && (
@@ -1098,44 +1127,6 @@ function ConfigurationTab({ config, version }: {
   );
 }
 
-/* ── Performance tab ────────────────────────────────────────────────────── */
-function PerformanceTab({ metrics, system }: {
-  metrics: Record<string, unknown>;
-  system:  Record<string, unknown>;
-}) {
-  const n = (...keys: string[]) => pick(metrics, ...keys);
-  return (
-    <div className="space-y-5">
-      <section>
-        <SectionHead label="Latency" />
-        <div className="grid grid-cols-2 xl:grid-cols-3 gap-2.5">
-          <StatCard label="Signal-to-Trade"   value={msf(n("latency_signal_to_trade_ms", "signal_to_trade_ms"))}
-            tone={latTone(n("latency_signal_to_trade_ms", "signal_to_trade_ms"))} />
-          <StatCard label="Market Signal Age" value={msf(n("latency_market_signal_age_ms"))}
-            tone={latTone(n("latency_market_signal_age_ms"))} />
-          <StatCard label="Emit-to-Receive"   value={msf(n("latency_emit_to_receive_ms"))}
-            tone={latTone(n("latency_emit_to_receive_ms"))} />
-          <StatCard label="Recv-to-Execute"   value={msf(n("latency_receive_to_execute_ms"))}
-            tone={latTone(n("latency_receive_to_execute_ms"))} />
-          <StatCard label="Exec Pipeline"     value={msf(n("latency_execution_pipeline_ms", "latency_pipeline_ms"))}
-            tone={latTone(n("latency_execution_pipeline_ms", "latency_pipeline_ms"))} />
-          <StatCard label="Broker RTT"        value={msf(n("latency_broker_round_trip_ms"))}
-            tone={latTone(n("latency_broker_round_trip_ms"))} />
-        </div>
-      </section>
-
-      <section>
-        <SectionHead label="Resource Usage" />
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-          <StatCard label="Memory" value={isN(system.memory_mb ?? n("memory_mb")) ? `${Number(system.memory_mb ?? n("memory_mb")).toFixed(0)} MB` : "-"} />
-          <StatCard label="CPU" value={isN(system.cpu_percent ?? n("cpu_percent")) ? `${Number(system.cpu_percent ?? n("cpu_percent")).toFixed(1)}%` : "n/a"} />
-          <StatCard label="Uptime" value={fmtDuration(n("uptime_sec") ?? pick(system, "uptime_sec"))} />
-          <StatCard label="Connected Clients" value={cnt(n("connected_clients") ?? pick(system, "connected_clients"))} />
-        </div>
-      </section>
-    </div>
-  );
-}
 
 /* ── Guards tab ─────────────────────────────────────────────────────────── */
 function GuardsTab({ guards }: { guards: RGuard[] }) {
@@ -1337,8 +1328,11 @@ function eventTone(type: string): FeedTone {
 }
 
 function toFeedEvents(items: EventEntry[]): FeedEvent[] {
-  return items.map(ev => ({
-    id: ev.id,
+  // Index folded into the id - upstream event ids aren't always unique
+  // within a broker's stream (e.g. a signal reported under the same id
+  // across RECEIVED -> TRIGGERED), and React needs a collision-proof key.
+  return items.map((ev, i) => ({
+    id: `${ev.event_type}:${ev.id}:${i}`,
     type: ev.event_type,
     time: fmtTs(ev.ts),
     summary: ev.summary || String(ev.data.reason ?? ev.data.message ?? "-"),
@@ -1376,43 +1370,61 @@ function EventTab({
   );
 }
 
-function RejectionsTab({ items }: { items: EventEntry[] }) {
-  return (
-    <EventTab
-      items={items}
-      title="Rejections"
-      subtitle={`${items.length} rejection${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
-      emptyIcon={ShieldOff}
-      emptyTitle="No rejections"
-      emptyBody="Strategy and risk rejections will appear here as events arrive from the engine."
-      dangerBadge
-    />
-  );
-}
+/** Merged Activity tab (brief §10/§20's "aggressive consolidation" choice):
+ *  one filterable feed instead of separate Rejections/Activity/Events tabs,
+ *  with raw engine logs tucked behind a toggle rather than a default tab. */
+type ExecActivityFilter = "all" | "rejections" | "fills";
 
-function ActivityTab({ items }: { items: EventEntry[] }) {
-  return (
-    <EventTab
-      items={items}
-      title="Activity"
-      subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
-      emptyIcon={ActivityIcon}
-      emptyTitle="No activity yet"
-      emptyBody="Order fills, trade opens / closes, and TP / SL hits will appear here."
-    />
-  );
-}
+function ExecutionActivityTab({ events, rejections, activity, logs }: {
+  events: EventEntry[];
+  rejections: EventEntry[];
+  activity: EventEntry[];
+  logs: LogLine[];
+}) {
+  const [filter, setFilter] = useState<ExecActivityFilter>("all");
+  const [showLogs, setShowLogs] = useState(false);
 
-function EventsTab({ items }: { items: EventEntry[] }) {
+  const items = filter === "rejections" ? rejections : filter === "fills" ? activity : events;
+  const FILTERS: Array<{ id: ExecActivityFilter; label: string; count: number }> = [
+    { id: "all",        label: "All",        count: events.length },
+    { id: "fills",      label: "Fills & Closes", count: activity.length },
+    { id: "rejections", label: "Rejections", count: rejections.length },
+  ];
+
   return (
-    <EventTab
-      items={items}
-      title="Recent Events"
-      subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} (max 500)`}
-      emptyIcon={ActivityIcon}
-      emptyTitle="No events yet"
-      emptyBody="All execution events will be logged here in real time."
-    />
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          {FILTERS.map(f => (
+            <button
+              key={f.id}
+              type="button"
+              className={`btn btn-sm ${filter === f.id ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setShowLogs(s => !s)}>
+          <FileText size={13} /> {showLogs ? "Hide raw logs" : "Show raw logs"}
+        </button>
+      </div>
+
+      {showLogs ? (
+        <LogsTab lines={logs} />
+      ) : (
+        <EventTab
+          items={items}
+          title="Activity"
+          subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} - click a row for details`}
+          emptyIcon={ActivityIcon}
+          emptyTitle="No activity yet"
+          emptyBody="Signal, risk, and trade events will appear here as the engine reports them."
+          dangerBadge={filter === "rejections"}
+        />
+      )}
+    </div>
   );
 }
 
@@ -1651,9 +1663,9 @@ export default function Execution() {
   return (
     <div className="page-wrap space-y-5">
       <PageHeader
-        eyebrow="Private execution domain"
-        title="My Execution"
-        description="Live account, risk, trade, and broker execution telemetry from the execution engine."
+        eyebrow="Execution domain"
+        title="Execution"
+        description="Is order execution working? Engine health, account state, positions, and recent activity."
       />
 
       {brokers.length > 1 && (
@@ -1675,16 +1687,14 @@ export default function Execution() {
           id: tab.id,
           label: tab.label,
           count:
-            tab.id === "rejections" && rejections.length ? rejections.length :
-            tab.id === "activity"   && activity.length   ? activity.length :
-            tab.id === "events"     && eventLog.length   ? eventLog.length :
-            tab.id === "logs"       && logs.length       ? logs.length : undefined,
+            tab.id === "positions" && positions.length ? positions.length :
+            tab.id === "activity"  && eventLog.length  ? eventLog.length : undefined,
         }))}
         active={activeTab}
         onChange={id => setActiveTab(id as TabId)}
       />
 
-      {activeTab === "overview"      && (
+      {activeTab === "overview" && (
         <OverviewTab
           metrics={metrics} engineMode={engineMode} version={version}
           connStatus={connStatus} connectedMt5={connectedMt5} autotradingEnabled={autotradingEnabled}
@@ -1692,17 +1702,12 @@ export default function Execution() {
           lastMetricsAt={lastMetricsAt} isStale={isStale}
         />
       )}
+      {activeTab === "positions"     && <PositionsAndSignalsTab positions={positions} signals={signals} />}
+      {activeTab === "metrics"       && <MetricsTab metrics={metrics} system={system} guards={guards} pressureItems={pressureItems} />}
       {activeTab === "configuration" && <ConfigurationTab config={config} version={version} />}
-      {activeTab === "metrics"       && <MetricsTab     metrics={metrics} />}
-      {activeTab === "performance"   && <PerformanceTab metrics={metrics} system={system} />}
-      {activeTab === "positions"     && <PositionsTab   positions={positions} />}
-      {activeTab === "signals"       && <SignalsTab     signals={signals} />}
-      {activeTab === "guards"        && <GuardsTab      guards={guards} />}
-      {activeTab === "pressure"      && <PressureTab    items={pressureItems} />}
-      {activeTab === "rejections"    && <RejectionsTab  items={rejections} />}
-      {activeTab === "activity"      && <ActivityTab    items={activity} />}
-      {activeTab === "events"        && <EventsTab      items={eventLog} />}
-      {activeTab === "logs"          && <LogsTab        lines={logs} />}
+      {activeTab === "activity"      && (
+        <ExecutionActivityTab events={eventLog} rejections={rejections} activity={activity} logs={logs} />
+      )}
       </>}
     </div>
   );

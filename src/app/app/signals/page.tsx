@@ -15,9 +15,7 @@ import { Clock, Settings2, ListX, Users, Radio, ShieldOff, Inbox, FileText, Sear
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone   = "normal" | "good" | "warn" | "danger";
-type TabId  =
-  | "overview" | "configuration" | "metrics" | "performance"
-  | "strategies" | "clients" | "signals" | "rejections" | "events" | "logs";
+type TabId = "overview" | "signals" | "metrics" | "configuration" | "activity";
 
 interface EventEntry {
   id:         string;
@@ -44,16 +42,11 @@ interface NSig {
 }
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "overview",      label: "Overview"          },
-  { id: "configuration", label: "Configuration"      },
-  { id: "metrics",       label: "Runtime Metrics"    },
-  { id: "performance",   label: "Performance"        },
-  { id: "strategies",    label: "Active Strategies"  },
-  { id: "clients",       label: "Connected Clients"  },
-  { id: "signals",       label: "Recent Signals"     },
-  { id: "rejections",    label: "Rejections"         },
-  { id: "events",        label: "Recent Events"      },
-  { id: "logs",          label: "Logs"               },
+  { id: "overview",      label: "Overview"      },
+  { id: "signals",       label: "Signals"       },
+  { id: "metrics",       label: "Metrics"       },
+  { id: "configuration", label: "Configuration" },
+  { id: "activity",      label: "Activity"      },
 ];
 
 /* ── event classification ───────────────────────────────────────────────── */
@@ -534,9 +527,11 @@ function OverviewTab({ metrics, scheduler, activeSignals, system, version, clien
 }
 
 /* ── Metrics tab ────────────────────────────────────────────────────────── */
-function MetricsTab({ metrics, api }: {
+function MetricsTab({ metrics, api, system, clients }: {
   metrics: Record<string, unknown>;
   api:     Record<string, unknown>;
+  system:  Record<string, unknown>;
+  clients: ClientRow[];
 }) {
   const counters = (metrics.raw_counters ?? {}) as Record<string, number>;
   const gauges   = (metrics.raw_gauges   ?? {}) as Record<string, number>;
@@ -631,6 +626,26 @@ function MetricsTab({ metrics, api }: {
         </section>
       </div>
 
+      {/* Resource usage + connected clients (from the former standalone Performance tab) */}
+      <section>
+        <SectionHead label="Resource Usage" />
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+          <StatCard label="Memory" value={isN(system.memory_mb) ? `${(system.memory_mb as number).toFixed(0)} MB` : "-"} />
+          <StatCard label="CPU" value={isN(system.cpu_percent) ? `${(system.cpu_percent as number).toFixed(1)}%` : "n/a"} />
+          <StatCard label="Uptime" value={fmtDuration(pick(system, "uptime_s"))} />
+          <StatCard label="Dashboard Clients" value={cnt(clients.length)} tone={clients.length > 0 ? "good" : "normal"} />
+        </div>
+        {clients.length > 0 && (
+          <details className="panel overflow-hidden mt-2.5">
+            <summary className="panel-head cursor-pointer list-none">
+              <div className="text-sm font-semibold">Connected Clients</div>
+              <span className="badge badge-muted">{clients.length}</span>
+            </summary>
+            <ConnectedClientsTab clients={clients} />
+          </details>
+        )}
+      </section>
+
       {/* Collapsible raw tables */}
       {(Object.keys(signalCounters).length > 0 || Object.keys(scannerGauges).length > 0) && (
         <div className="grid xl:grid-cols-2 gap-4">
@@ -713,61 +728,6 @@ function MetricsTab({ metrics, api }: {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ── Performance tab ────────────────────────────────────────────────────── */
-function PerformanceTab({ metrics, api, system }: {
-  metrics: Record<string, unknown>;
-  api:     Record<string, unknown>;
-  system:  Record<string, unknown>;
-}) {
-  const gauges = (metrics.raw_gauges ?? {}) as Record<string, number>;
-  const bySource = (api.by_source ?? {}) as Record<string, { total_calls?: number; errors?: number; avg_ms?: number }>;
-  const avgApiMs = Object.values(bySource).length
-    ? Object.values(bySource).reduce((s, v) => s + (v.avg_ms ?? 0), 0) / Object.values(bySource).length
-    : undefined;
-
-  return (
-    <div className="space-y-5">
-      <section>
-        <SectionHead label="Signal Latency" />
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-          <StatCard label="Scan Lag"
-            value={msf(pick(metrics, "last_scan_lag_ms") ?? gauges["latency.last_scan_lag_ms"])}
-            tone={lagTone(pick(metrics, "last_scan_lag_ms"))} />
-          <StatCard label="Emit Lag"
-            value={msf(pick(metrics, "last_emit_lag_ms") || undefined)}
-            tone={lagTone(pick(metrics, "last_emit_lag_ms") || undefined)} />
-          <StatCard label="Analysis Duration"
-            value={msf(pick(metrics, "last_analysis_ms") ?? gauges["scanner.analysis_ms"])} />
-          <StatCard label="Broadcast"
-            value={msf(gauges["latency.signal_broadcast_total_ms"])} />
-        </div>
-      </section>
-
-      <section>
-        <SectionHead label="API Response Time" />
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-          <StatCard label="Avg Response" value={msf(avgApiMs)} tone={lagTone(avgApiMs)} />
-          <StatCard label="Calls / Min" value={cnt(isN(api.calls_last_min) ? api.calls_last_min : undefined)} />
-          {Object.entries(bySource).slice(0, 6).map(([src, s]) => (
-            <StatCard key={src} label={src} value={msf(s.avg_ms)}
-              detail={`${cnt(s.total_calls)} calls · ${cnt(s.errors)} err`}
-              tone={errTone(s.errors)} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionHead label="Resource Usage" />
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-          <StatCard label="Memory" value={isN(system.memory_mb) ? `${(system.memory_mb as number).toFixed(0)} MB` : "-"} />
-          <StatCard label="CPU" value={isN(system.cpu_percent) ? `${(system.cpu_percent as number).toFixed(1)}%` : "n/a"} />
-          <StatCard label="Uptime" value={fmtDuration(pick(system, "uptime_s"))} />
-        </div>
-      </section>
     </div>
   );
 }
@@ -1253,8 +1213,10 @@ function sigEventTone(type: string): FeedTone {
 }
 
 function toFeedEvents(items: EventEntry[]): FeedEvent[] {
-  return items.map(ev => ({
-    id: ev.id,
+  // Index folded into the id - upstream event ids aren't always unique
+  // within a broker's stream, and React needs a collision-proof key.
+  return items.map((ev, i) => ({
+    id: `${ev.broker}:${ev.event_type}:${ev.id}:${i}`,
     type: ev.event_type,
     time: fmtTs(ev.ts),
     summary: ev.summary || String(ev.data.reason ?? ev.data.message ?? "-"),
@@ -1264,53 +1226,67 @@ function toFeedEvents(items: EventEntry[]): FeedEvent[] {
   }));
 }
 
-function RejectionsTab({ items }: { items: EventEntry[] }) {
-  if (!items.length) {
-    return (
-      <div className="surface">
-        <EmptyState
-          icon={ShieldOff}
-          title="No rejections yet"
-          description="Signal filter and rejection events will appear here as they arrive from the signal engine."
-        />
-      </div>
-    );
-  }
-  return (
-    <SurfaceSection
-      icon={ShieldOff}
-      title="Signal Rejections"
-      subtitle={`${items.length} rejection${items.length !== 1 ? "s" : ""} accumulated - click a row for details`}
-      badge={<span className="badge badge-red">{items.length}</span>}
-      flush
-    >
-      <EventFeed events={toFeedEvents(items)} maxHeight={560} />
-    </SurfaceSection>
-  );
-}
+/** Merged Activity tab (brief §10/§20's "aggressive consolidation" choice):
+ *  one filterable feed instead of separate Rejections/Events tabs, with the
+ *  system log tucked behind a toggle rather than a default tab. */
+type SignalActivityFilter = "all" | "rejections";
 
-function EventsTab({ items }: { items: EventEntry[] }) {
-  if (!items.length) {
-    return (
-      <div className="surface">
-        <EmptyState
-          icon={Inbox}
-          title="No events yet"
-          description="All signal engine events will appear here in real time."
-        />
-      </div>
-    );
-  }
+function SignalActivityTab({ events, rejections, errorRecords }: {
+  events: EventEntry[];
+  rejections: EventEntry[];
+  errorRecords: ErrorRecord[];
+}) {
+  const [filter, setFilter] = useState<SignalActivityFilter>("all");
+  const [showLogs, setShowLogs] = useState(false);
+
+  const items = filter === "rejections" ? rejections : events;
+  const FILTERS: Array<{ id: SignalActivityFilter; label: string; count: number }> = [
+    { id: "all",        label: "All",        count: events.length },
+    { id: "rejections", label: "Rejections", count: rejections.length },
+  ];
+
   return (
-    <SurfaceSection
-      icon={Inbox}
-      title="Recent Events"
-      subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} (max 500)`}
-      badge={<span className="badge badge-muted">{items.length}</span>}
-      flush
-    >
-      <EventFeed events={toFeedEvents(items)} maxHeight={560} />
-    </SurfaceSection>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          {FILTERS.map(f => (
+            <button
+              key={f.id}
+              type="button"
+              className={`btn btn-sm ${filter === f.id ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setFilter(f.id)}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setShowLogs(s => !s)}>
+          <FileText size={13} /> {showLogs ? "Hide system log" : "Show system log"}
+        </button>
+      </div>
+
+      {showLogs ? (
+        <LogsTab records={errorRecords} />
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={filter === "rejections" ? ShieldOff : Inbox}
+          title={filter === "rejections" ? "No rejections yet" : "No activity yet"}
+          description={filter === "rejections"
+            ? "Signal filter and rejection events will appear here as they arrive from the signal engine."
+            : "Signal and rejection events will appear here in real time."}
+        />
+      ) : (
+        <SurfaceSection
+          icon={filter === "rejections" ? ShieldOff : Inbox}
+          title="Activity"
+          subtitle={`${items.length} event${items.length !== 1 ? "s" : ""} - click a row for details`}
+          badge={<span className={`badge ${filter === "rejections" ? "badge-red" : "badge-muted"}`}>{items.length}</span>}
+          flush
+        >
+          <EventFeed events={toFeedEvents(items)} maxHeight={560} />
+        </SurfaceSection>
+      )}
+    </div>
   );
 }
 
@@ -1435,6 +1411,7 @@ function ConfigTab({ config, version }: {
   const tfDisplacementMult = (config.tf_displacement_mult ?? {}) as Record<string, unknown>;
 
   return (
+    <div className="space-y-6">
     <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-4">
       <div className="panel overflow-hidden">
         <div className="panel-head"><div className="text-sm font-semibold">CRT Symbols &amp; Timeframes</div></div>
@@ -1531,6 +1508,9 @@ function ConfigTab({ config, version }: {
           <ConfigRow label="Environment" value={String(trading.env ?? "-").toUpperCase()} />
         </div>
       </div>
+    </div>
+
+    <ActiveStrategiesTab config={config} />
     </div>
   );
 }
@@ -1670,8 +1650,8 @@ export default function Signals() {
     <div className="page-wrap space-y-5">
       <PageHeader
         eyebrow="Signal domain"
-        title="Signal Performance"
-        description="Signal engine health, strategy metrics, and symbol telemetry."
+        title="Signals"
+        description="Are signals flowing? Engine health, recent signals, and symbol telemetry."
       />
 
       {/* Always visible once connected — one card per terminal behind the
@@ -1701,10 +1681,8 @@ export default function Signals() {
           id: tab.id,
           label: tab.label,
           count:
-            tab.id === "signals"    && sigEvents.length ? sigEvents.length :
-            tab.id === "rejections" && rejEvents.length ? rejEvents.length :
-            tab.id === "events"     && recentEvents.length ? recentEvents.length :
-            tab.id === "clients"    && clients.length ? clients.length : undefined,
+            tab.id === "signals"  && sigEvents.length     ? sigEvents.length :
+            tab.id === "activity" && recentEvents.length  ? recentEvents.length : undefined,
         }))}
         active={activeTab}
         onChange={id => setActiveTab(id as TabId)}
@@ -1717,15 +1695,12 @@ export default function Signals() {
           connStatus={status} lastMetricsAt={lastMetricsAt} isStale={isStale}
         />
       )}
-      {activeTab === "configuration" && <ConfigTab config={config} version={version} />}
-      {activeTab === "metrics"       && <MetricsTab metrics={metrics} api={api} />}
-      {activeTab === "performance"   && <PerformanceTab metrics={metrics} api={api} system={system} />}
-      {activeTab === "strategies"    && <ActiveStrategiesTab config={config} />}
-      {activeTab === "clients"       && <ConnectedClientsTab clients={clients} />}
       {activeTab === "signals"       && <SignalsTab signals={sigEvents} />}
-      {activeTab === "rejections"    && <RejectionsTab items={rejEvents} />}
-      {activeTab === "events"        && <EventsTab items={recentEvents} />}
-      {activeTab === "logs"          && <LogsTab records={errorRecords} />}
+      {activeTab === "metrics"       && <MetricsTab metrics={metrics} api={api} system={system} clients={clients} />}
+      {activeTab === "configuration" && <ConfigTab config={config} version={version} />}
+      {activeTab === "activity"      && (
+        <SignalActivityTab events={recentEvents} rejections={rejEvents} errorRecords={errorRecords} />
+      )}
       </>}
     </div>
   );

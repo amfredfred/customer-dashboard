@@ -9,3 +9,6 @@ export { EmptyState } from "./empty-state";
 export { Alert, type AlertTone } from "./alert";
 export { Skeleton, SkeletonLines } from "./skeleton";
 export { StaleBanner, LastUpdated } from "./stale-banner";
+export { SystemHealthHero } from "./system-health-hero";
+export { OperationalFlow, type FlowStepDef } from "./operational-flow";
+export { ActivityTimeline } from "./activity-timeline";

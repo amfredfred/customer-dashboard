@@ -1,25 +1,32 @@
 "use client";
 
-import { Radio, Cpu, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutGrid, Radio, Cpu, ListTree, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSignalEngine } from "./signal-engine-provider";
 import { useExecutionEngine, type ExecutionBrokerState } from "./execution-engine-provider";
+import {
+  aggregateSystemHealth, executionDomainHealth, signalDomainHealth,
+} from "@/lib/system-health";
 
 const NAV_GROUPS = [
   {
-    label: "Monitoring",
+    label: "Platform",
     links: [
-      ["/app/signals",   "Signal Performance", Radio],
-      ["/app/execution", "My Execution",       Cpu],
+      ["/app",           "Overview",   LayoutGrid],
+      ["/app/execution", "Execution",  Cpu],
+      ["/app/signals",   "Signals",    Radio],
+      ["/app/activity",  "Activity",   ListTree],
     ],
   },
 ] as const;
 
 const PAGE_TITLES: Record<string, string> = {
-  "/app/signals":   "Signal Performance",
-  "/app/execution": "My Execution",
+  "/app":           "Overview",
+  "/app/execution": "Execution",
+  "/app/signals":   "Signals",
+  "/app/activity":  "Activity",
 };
 
 const COLLAPSE_KEY = "apex.sidebar.collapsed";
@@ -69,7 +76,7 @@ function SidebarContent({
         <img src="/icon.png" alt="Apex" className="w-8 h-8 rounded-lg shrink-0" />
         <div className="sidebar-brand-text min-w-0">
           <div className="text-xs font-bold tracking-[.15em]">APEX</div>
-          <div className="text-[10px] muted">Live monitor</div>
+          <div className="text-[10px] muted">Control Center</div>
         </div>
       </div>
 
@@ -104,36 +111,58 @@ function SidebarContent({
 }
 
 function SidebarFooter({ collapsed }: { collapsed: boolean }) {
-  const { byBroker } = useSignalEngine();
-  const { byBroker: execByBroker } = useExecutionEngine();
-  const signalSnap = primaryBrokerSnapshot(byBroker);
-  const execSnap = primaryExecBrokerState(execByBroker);
+  const signalEngine = useSignalEngine();
+  const executionEngine = useExecutionEngine();
+  const signalSnap = primaryBrokerSnapshot(signalEngine.byBroker);
+  const execSnap = primaryExecBrokerState(executionEngine.byBroker);
 
   const signalVersion = String(signalSnap?.version ?? "-");
   const execVersion = String(execSnap?.engine?.version ?? "-");
 
+  const signalHealth = signalDomainHealth({
+    status: signalEngine.status, error: signalEngine.error,
+    brokers: signalEngine.brokers, byBroker: signalEngine.byBroker, isStale: signalEngine.isStale,
+  });
+  const executionHealth = executionDomainHealth({
+    status: executionEngine.status, error: executionEngine.error,
+    brokers: executionEngine.brokers, byBroker: executionEngine.byBroker,
+  });
+  const aggregate = aggregateSystemHealth(signalHealth, executionHealth);
+  const dot =
+    aggregate.state === "healthy" || aggregate.state === "active" ? "dot-live"
+    : aggregate.state === "offline" || aggregate.state === "error" ? "dot-dead"
+    : "dot-warn pulse";
+
   return (
-    <div className="p-3 border-t border-white/[.07] shrink-0">
-      <div
-        className="rounded-lg px-2.5 py-2.5"
-        style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}
-      >
-        <div className={`sidebar-footer-detail text-[10px] leading-5 ${collapsed ? "hidden" : ""}`}>
-          <div className="flex items-center justify-between gap-2">
-            <span className="muted">Signal Engine</span>
-            <span className="mono" style={{ color: "var(--text-soft)" }}>v{signalVersion}</span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="muted">Execution Engine</span>
-            <span className="mono" style={{ color: "var(--text-soft)" }}>v{execVersion}</span>
-          </div>
-        </div>
-        {collapsed && (
-          <div className="flex justify-center">
-            <span className="dot dot-live pulse" style={{ width: 7, height: 7 }} />
+    <div className="p-3 border-t border-white/[.07] shrink-0 space-y-2">
+      {/* Persistent system-health indicator - visible regardless of active page (brief §13). */}
+      <div className={`sidebar-health${collapsed ? " justify-center" : ""}`}>
+        <span className={`dot ${dot}`} style={{ width: 8, height: 8 }} />
+        {!collapsed && (
+          <div className="min-w-0">
+            <div className="sidebar-health-label">System</div>
+            <div className="sidebar-health-value truncate">{aggregate.headline}</div>
           </div>
         )}
       </div>
+
+      {!collapsed && (
+        <div
+          className="rounded-lg px-2.5 py-2.5"
+          style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)" }}
+        >
+          <div className="text-[10px] leading-5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="muted">Signal Engine</span>
+              <span className="mono" style={{ color: "var(--text-soft)" }}>v{signalVersion}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="muted">Execution Engine</span>
+              <span className="mono" style={{ color: "var(--text-soft)" }}>v{execVersion}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
