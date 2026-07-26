@@ -11,7 +11,7 @@ import { SurfaceSection } from "@/components/ui/surface";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StaleBanner, LastUpdated } from "@/components/ui/stale-banner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Layers, Radio, Settings2, ShieldOff, Activity as ActivityIcon, FileText, Search, type LucideIcon } from "lucide-react";
+import { Layers, Radio, Settings2, ShieldOff, Activity as ActivityIcon, FileText, Search, Link2, Bot, Wifi, PlayCircle, PauseCircle, type LucideIcon } from "lucide-react";
 
 /* ── types ─────────────────────────────────────────────────────────────── */
 type Tone = "normal" | "good" | "warn" | "danger";
@@ -348,6 +348,23 @@ function SigBadge({ status }: { status?: string }) {
   );
 }
 
+function toneColor(tone: Tone): string {
+  return tone === "good" ? "var(--success)" : tone === "warn" ? "var(--warning)" : tone === "danger" ? "var(--danger)" : "var(--muted)";
+}
+
+/** Icon-forward health indicator (same visual language as the broker cards):
+ *  a semantic icon carries the colour, the label stays a plain caption below
+ *  it - no repeated "Connected"/"Enabled" text, no bare colour-only signal
+ *  either. Full value is still in the title attribute for hover/screen readers. */
+function HealthDot({ icon: Icon, label, tone, title }: { icon: LucideIcon; label: string; tone: Tone; title: string }) {
+  return (
+    <div className="health-strip-item" title={title}>
+      <Icon size={15} strokeWidth={2} style={{ color: toneColor(tone) }} />
+      <span className="health-strip-label">{label}</span>
+    </div>
+  );
+}
+
 const TR_BORDER: React.CSSProperties = { borderBottom: "1px solid rgba(255,255,255,0.04)" };
 
 function TH({ children }: { children: ReactNode }) {
@@ -452,33 +469,40 @@ function OverviewTab({
           <SectionHead label="Engine Health" />
           <LastUpdated at={lastMetricsAt} />
         </div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-6 gap-2.5">
-          <div className="kpi">
-            <div className="kpi-label">Connection</div>
-            <div className="mt-2"><StatusBadge kind={connStatus === "connected" ? "online" : connStatus === "connecting" ? "connecting" : "offline"} /></div>
+        <div className="health-strip">
+          <HealthDot
+            icon={Wifi}
+            label="Connection"
+            tone={connStatus === "connected" ? "good" : connStatus === "connecting" ? "warn" : "danger"}
+            title={connStatus === "connected" ? "Online" : connStatus === "connecting" ? "Connecting" : "Offline"}
+          />
+          <HealthDot
+            icon={Link2}
+            label="MT5 Broker"
+            tone={connectedMt5 ? "good" : "danger"}
+            title={connectedMt5 ? "Connected" : "Disconnected"}
+          />
+          <HealthDot
+            icon={Radio}
+            label="Signal Feed"
+            tone={signalEngineConnected ? "good" : "danger"}
+            title={signalEngineConnected ? "Connected" : "Disconnected"}
+          />
+          <HealthDot
+            icon={Bot}
+            label="AutoTrading"
+            tone={autotradingEnabled === null ? "normal" : autotradingEnabled ? "good" : "warn"}
+            title={autotradingEnabled === null ? "Unknown" : autotradingEnabled ? "Enabled" : "Disabled"}
+          />
+          <div className="health-strip-item" title={`Trading state: ${engineMode || "-"}`}>
+            {engineMode === "PAUSED"
+              ? <PauseCircle size={15} strokeWidth={2} style={{ color: "var(--warning)" }} />
+              : <PlayCircle size={15} strokeWidth={2} style={{ color: "var(--success)" }} />}
+            <span className="health-strip-label" style={{ color: engineMode === "PAUSED" ? "var(--warning)" : "var(--text-soft)" }}>
+              {engineMode || "-"}
+            </span>
           </div>
-          <div className="kpi">
-            <div className="kpi-label">MT5 Broker</div>
-            <div className="mt-2"><StatusBadge kind={connectedMt5 ? "connected" : "disconnected"} /></div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-label">Signal Feed</div>
-            <div className="mt-2"><StatusBadge kind={signalEngineConnected ? "connected" : "disconnected"} label={signalEngineConnected ? "Connected" : "Disconnected"} /></div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-label">AutoTrading</div>
-            <div className="mt-2">
-              <StatusBadge
-                kind={autotradingEnabled === null ? "none" : autotradingEnabled ? "connected" : "warning"}
-                label={autotradingEnabled === null ? "Unknown" : autotradingEnabled ? "Enabled" : "Disabled"}
-              />
-            </div>
-          </div>
-          <div className="kpi">
-            <div className="kpi-label">Trading State</div>
-            <div className="mt-2"><StatusBadge kind={engineMode === "PAUSED" ? "paused" : "active"} label={engineMode || "-"} /></div>
-          </div>
-          <StatCard label="Version" value={version} />
+          <span className="health-strip-version mono">v{version}</span>
         </div>
       </section>
 
@@ -1511,33 +1535,66 @@ function BrokerStatusStrip({ byBroker, brokers, selected, onSelect }: {
   onSelect: (broker: string) => void;
 }) {
   if (brokers.length <= 1) return null;  // nothing to switch between in single-instance mode
+
+  // The selected card always sorts to the front so it's never scrolled out
+  // of view once the strip has more brokers than fit on screen.
+  const ordered = brokers.includes(selected) ? [selected, ...brokers.filter(b => b !== selected)] : brokers;
+
   return (
-    <div className="flex flex-wrap gap-2.5">
-      {brokers.map(broker => {
+    <div className="broker-strip no-scrollbar">
+      {ordered.map(broker => {
         const b = byBroker[broker];
         const live = b?.live ?? false;
         const isSelected = broker === selected;
+        const autoEnabled = b?.autotradingEnabled ?? null;
+        const metrics = (b?.metrics ?? {}) as Record<string, unknown>;
+        const balance = pick(metrics, "balance", "current_balance");
+        const dailyPnl = pick(metrics, "daily_pnl");
+        const positions = b?.trades.length ?? 0;
+
+        // One accent colour per card so a problem broker stands out even
+        // while scrolling past a long row of them (brief: cards must stay
+        // scannable no matter how many brokers are connected).
+        const accent =
+          !live ? "var(--danger)" :
+          !b?.connectedMt5 ? "var(--danger)" :
+          autoEnabled === false ? "var(--warning)" :
+          "var(--success)";
+        const mt5Color = b?.connectedMt5 ? "var(--success)" : "var(--danger)";
+        const autoColor = autoEnabled === null ? "var(--muted)" : autoEnabled ? "var(--success)" : "var(--warning)";
+
         return (
           <button
             key={broker}
             type="button"
             onClick={() => onSelect(broker)}
-            className="panel p-3 text-left"
-            style={{
-              minWidth: 168,
-              cursor: "pointer",
-              boxShadow: isSelected ? "inset 0 0 0 1px rgba(255,255,255,.35)" : undefined,
-            }}
+            className={`broker-card${isSelected ? " selected" : ""}`}
+            style={{ borderLeft: `3px solid ${accent}` }}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-bold font-mono uppercase">{broker}</span>
-              <StatusBadge kind={live ? "live" : "offline"} label={live ? "live" : "offline"} />
+              {isN(dailyPnl) && (
+                <span className={`text-[11px] font-mono font-semibold${valCls(signedTone(dailyPnl))}`}>
+                  {money(dailyPnl, true)}
+                </span>
+              )}
             </div>
-            <div className="text-[11px] muted mt-1.5">
-              {b?.connectedMt5 ? "MT5 connected" : "MT5 not connected"}
-            </div>
-            <div className="text-[10px] muted mt-0.5">
-              {b?.trades.length ?? 0} open position{b?.trades.length === 1 ? "" : "s"}
+            {isN(balance) && (
+              <div className="text-sm font-semibold mono mt-1" style={{ color: "var(--text-soft)" }}>
+                {money(balance)}
+              </div>
+            )}
+            <div className="flex items-center gap-3 mt-2">
+              <span title={b?.connectedMt5 ? "MT5 connected" : "MT5 not connected"}>
+                <Link2 size={13} strokeWidth={2} style={{ color: mt5Color }} />
+              </span>
+              <span title={autoEnabled === null ? "AutoTrading unknown" : autoEnabled ? "AutoTrading enabled" : "AutoTrading disabled"}>
+                <Bot size={13} strokeWidth={2} style={{ color: autoColor }} />
+              </span>
+              <span className="flex items-center gap-1 text-[11px] muted" title={`${positions} open position${positions === 1 ? "" : "s"}`}>
+                <Layers size={12} strokeWidth={2} />
+                {positions}
+              </span>
             </div>
           </button>
         );

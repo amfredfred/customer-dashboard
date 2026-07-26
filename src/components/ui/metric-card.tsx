@@ -25,24 +25,28 @@ export type MetricCardProps = {
   loading?: boolean;
 };
 
-/** Briefly flags `true` right after `value` changes (skips the initial mount). */
-function useFlashOnChange(value: ReactNode): boolean {
+/** Briefly flags `true` right after `key` changes (skips the initial mount).
+ *  Keyed on tone rather than the raw value - a metric that ticks every
+ *  push (latency, timestamps) would otherwise flash almost continuously,
+ *  which reads as flicker rather than signal. Flashing on a tone change
+ *  (e.g. good -> warn) highlights the moment that's actually meaningful. */
+function useFlashOnChange(key: ReactNode): boolean {
   const [flashing, setFlashing] = useState(false);
-  const prevRef = useRef(value);
+  const prevRef = useRef(key);
   const mountedRef = useRef(false);
 
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true;
-      prevRef.current = value;
+      prevRef.current = key;
       return;
     }
-    if (prevRef.current === value) return;
-    prevRef.current = value;
+    if (prevRef.current === key) return;
+    prevRef.current = key;
     setFlashing(true);
     const t = setTimeout(() => setFlashing(false), 700);
     return () => clearTimeout(t);
-  }, [value]);
+  }, [key]);
 
   return flashing;
 }
@@ -61,7 +65,7 @@ export function MetricCard({
     tone !== "neutral" ? { color: VALUE_COLOR[tone] } : undefined;
   const valueSize =
     size === "sm" ? "16px" : size === "lg" ? "26px" : "20px";
-  const flashing = useFlashOnChange(loading ? undefined : value);
+  const flashing = useFlashOnChange(loading ? undefined : tone);
   return (
     <div className={`kpi${accent}${flashing ? " kpi-flash" : ""}`}>
       <div className="kpi-label">{label}</div>

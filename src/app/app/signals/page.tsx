@@ -1523,9 +1523,14 @@ function BrokerStatusStrip({ byBroker, brokers, selected, onSelect }: {
   onSelect: (broker: string) => void;
 }) {
   if (brokers.length === 0) return null;
+
+  // The selected card always sorts to the front so it's never scrolled out
+  // of view once the strip has more brokers than fit on screen.
+  const ordered = brokers.includes(selected) ? [selected, ...brokers.filter(b => b !== selected)] : brokers;
+
   return (
-    <div className="flex flex-wrap gap-2.5">
-      {brokers.map(broker => {
+    <div className="broker-strip no-scrollbar">
+      {ordered.map(broker => {
         const b = byBroker[broker];
         const live = b?.live ?? false;
         const isSelected = broker === selected;
@@ -1534,22 +1539,21 @@ function BrokerStatusStrip({ byBroker, brokers, selected, onSelect }: {
             key={broker}
             type="button"
             onClick={() => onSelect(broker)}
-            className="panel p-3 text-left"
-            style={{
-              minWidth: 168,
-              cursor: "pointer",
-              boxShadow: isSelected ? "inset 0 0 0 1px rgba(255,255,255,.35)" : undefined,
-            }}
+            className={`broker-card${isSelected ? " selected" : ""}`}
+            style={{ borderLeft: `3px solid ${live ? "var(--success)" : "var(--danger)"}` }}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-bold font-mono uppercase">{broker}</span>
-              <StatusBadge kind={live ? "live" : "offline"} label={live ? "live" : "offline"} />
             </div>
-            <div className="text-[11px] muted mt-1.5">
-              {cnt(b?.signalsReceived)} signal{b?.signalsReceived === 1 ? "" : "s"} received
-            </div>
-            <div className="text-[10px] muted mt-0.5">
-              last seen {b ? shortTime(b.lastSeen) : "-"}
+            <div className="flex items-center gap-3 mt-2">
+              <span className="flex items-center gap-1 text-[11px] muted" title={`${cnt(b?.signalsReceived)} signals received`}>
+                <Radio size={12} strokeWidth={2} />
+                {cnt(b?.signalsReceived)}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] muted" title={`Last seen ${b ? shortTime(b.lastSeen) : "-"}`}>
+                <Clock size={12} strokeWidth={2} />
+                {b ? shortTime(b.lastSeen) : "-"}
+              </span>
             </div>
           </button>
         );

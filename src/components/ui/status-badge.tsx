@@ -5,15 +5,22 @@ export type StatusKind =
   | "offline" | "disconnected" | "expired" | "suspended" | "revoked" | "failed" | "rejected" | "forbidden" | "danger" | "error"
   | "info" | "none";
 
-const KIND_STYLE: Record<StatusKind, { cls: string; dot: string | null }> = {
-  online:      { cls: "badge-green", dot: "dot-live pulse" },
-  live:        { cls: "badge-green", dot: "dot-live pulse" },
-  active:      { cls: "badge-green", dot: "dot-live" },
-  connected:   { cls: "badge-green", dot: "dot-live" },
-  completed:   { cls: "badge-green", dot: null },
-  running:     { cls: "badge-green", dot: "dot-live" },
-  healthy:     { cls: "badge-green", dot: "dot-live" },
-  market_open: { cls: "badge-green", dot: "dot-live" },
+/**
+ * `quiet: true` marks the "everything is fine" states. These render as a
+ * small static dot + plain text instead of a bold pulsing pill - when every
+ * indicator on a page is healthy, five loud green badges in a row is noise,
+ * not signal. Only degraded/offline/danger states keep the bold treatment,
+ * since those are exactly the things that should draw the eye.
+ */
+const KIND_STYLE: Record<StatusKind, { cls: string; dot: string | null; quiet?: boolean }> = {
+  online:      { cls: "badge-green", dot: "dot-live", quiet: true },
+  live:        { cls: "badge-green", dot: "dot-live", quiet: true },
+  active:      { cls: "badge-green", dot: "dot-live", quiet: true },
+  connected:   { cls: "badge-green", dot: "dot-live", quiet: true },
+  completed:   { cls: "badge-green", dot: null,       quiet: true },
+  running:     { cls: "badge-green", dot: "dot-live", quiet: true },
+  healthy:     { cls: "badge-green", dot: "dot-live", quiet: true },
+  market_open: { cls: "badge-green", dot: "dot-live", quiet: true },
   degraded:    { cls: "badge-warn",  dot: "dot-warn" },
   waiting:     { cls: "badge-warn",  dot: "dot-warn pulse" },
   connecting:  { cls: "badge-warn",  dot: "dot-warn pulse" },
@@ -46,10 +53,20 @@ export function StatusBadge({
   label?: string;
 }) {
   const s = KIND_STYLE[kind] ?? KIND_STYLE.none;
+  const text = label ?? kind.replace(/_/g, " ");
+
+  if (s.quiet) {
+    return (
+      <span className="badge-quiet">
+        {s.dot && <span className="dot-sm" />}
+        {text}
+      </span>
+    );
+  }
   return (
     <span className={`badge ${s.cls}`}>
       {s.dot && <span className={`dot ${s.dot}`} />}
-      {label ?? kind.replace(/_/g, " ")}
+      {text}
     </span>
   );
 }
