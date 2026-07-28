@@ -1083,6 +1083,7 @@ function ConfigurationTab({ config, version }: {
       <div className="panel overflow-hidden">
         <div className="panel-head"><div className="text-sm font-semibold">Risk Settings</div></div>
         <div className="panel-body">
+          <ConfigRow label="Risk Mode" value={String(config.risk_mode ?? "-")} />
           <ConfigRow label="Max Losing Streak" value={cfgValue(risk.max_losing_streak)} />
           <ConfigRow label="Max Daily Loss %" value={cfgValue(risk.max_daily_loss_percent)} />
           <ConfigRow label="Max Exposure / Symbol" value={cfgValue(risk.max_exposure_per_symbol)} />
@@ -1131,6 +1132,8 @@ function ConfigurationTab({ config, version }: {
       <div className="panel overflow-hidden">
         <div className="panel-head"><div className="text-sm font-semibold">Broker / MT5</div></div>
         <div className="panel-body">
+          <ConfigRow label="Profile" value={cfgValue(mt5.profile)} />
+          <ConfigRow label="Signal Broker" value={cfgValue(mt5.signal_broker)} />
           <ConfigRow label="Login" value={cfgValue(mt5.login)} />
           <ConfigRow label="Server" value={cfgValue(mt5.server)} />
           <ConfigRow label="Magic #" value={cfgValue(mt5.magic)} />
