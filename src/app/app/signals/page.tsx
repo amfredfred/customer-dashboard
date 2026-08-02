@@ -493,14 +493,25 @@ function OverviewTab({ metrics, scheduler, activeSignals, system, version, clien
                     const ltf = sig.ltf_interval ?? sig.ltfInterval;
                     const tf  = [htf, ltf].filter(Boolean).join("/") || String(sig.timeframe ?? sig.tf ?? "-");
                     const dir = normalizeDir(sig.direction ?? sig.side ?? "BUY");
-                    const entry = Number(sig.entry ?? 0);
+                    // TradeSignal.to_dict() sends entryPrice, never a bare
+                    // "entry" - sig.entry was always undefined here, which
+                    // is why this column showed "-" for every real signal
+                    // regardless of strategy. sl/tp below were already
+                    // correct (stopLoss/tp2 are the real keys); this just
+                    // brings entry in line with them.
+                    const entry = Number(sig.entryPrice ?? sig.entry_price ?? sig.entry ?? 0);
                     const sl    = Number(sig.sl ?? sig.stopLoss ?? 0);
                     const tp    = Number(sig.tp2 ?? sig.tp ?? sig.takeProfit ?? 0);
                     return (
                       <tr key={i} style={TR_BORDER}
                           onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
                           onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                        <TD mono><span className="muted">{fmtTs(sig.entry_ts ?? sig.timestamp)}</span></TD>
+                        {/* entry_ts/timestamp were never real fields either -
+                            triggeredAt is what to_dict() actually sends for
+                            a TRIGGERED/TP1_HIT signal (the only statuses
+                            get_active_signals() returns); createdAt covers
+                            any payload shape that predates triggering. */}
+                        <TD mono><span className="muted">{fmtTs(sig.triggeredAt ?? sig.triggered_at ?? sig.createdAt ?? sig.created_at)}</span></TD>
                         <TD mono><span className="font-bold text-white">{String(sig.symbol ?? "?")}</span></TD>
                         <TD>
                           <span className="font-mono text-[11px] px-1.5 py-0.5 rounded"
